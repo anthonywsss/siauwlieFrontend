@@ -22,3 +22,4 @@ npm run dev
 👤 **Ashton, Vallerie**
 
 * Github: [@You2wo](https://github.com/You2wo)
+* Github: [@ThisisVallerie](https://github.com/ThisisVallerie)

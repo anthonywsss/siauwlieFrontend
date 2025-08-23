@@ -3,8 +3,6 @@
   <img alt="Version" src="https://img.shields.io/badge/version-0.1-blue.svg?cacheSeconds=2592000" />
 </p>
 
-![Uploading Screenshot from 2025-08-23 21-24-44.png…]()
-
 
 > Container Pabrik Tahu
 

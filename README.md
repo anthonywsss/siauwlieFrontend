@@ -3,7 +3,8 @@
   <img alt="Version" src="https://img.shields.io/badge/version-0.1-blue.svg?cacheSeconds=2592000" />
 </p>
 
-<a href="https://freeimage.host/i/KHsmInf"><img src="https://iili.io/KHsmInf.md.png" alt="KHsmInf.md.png" border="0"></a>
+![Uploading Screenshot from 2025-08-23 21-24-44.png…]()
+
 
 > Container Pabrik Tahu
 

@@ -8,12 +8,14 @@
 ## Install
 
 ```sh
-npm install
+git clone https://github.com/You2wo/pabrik-tahu-dashboard.git
+cd pabrik-tahu-dashboard
 ```
 
 ## Usage
 
 ```sh
+npm install
 npm run dev
 ```
 

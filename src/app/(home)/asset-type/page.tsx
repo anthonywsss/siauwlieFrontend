@@ -1,16 +1,18 @@
-import AssetTypeTable from "@/components/Tables/assettype.client";
+import SearchBar from "@/components/Search/SearchBar";
+import { AllItemsTable } from "@/components/Tables/allitems";
+import AllItemsClient from "@/components/Tables/allitems.client";
 
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Tables",
+  title: "All Asset",
 };
 
 export default function Home() {
   return (
     <div className="space-y-6">
 
-      <AssetTypeTable />
+      <AllItemsClient />
     </div>
   );
 }

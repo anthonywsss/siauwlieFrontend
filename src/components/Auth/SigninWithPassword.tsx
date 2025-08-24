@@ -1,5 +1,5 @@
 "use client";
-import { EmailIcon, PasswordIcon } from "@/assets/icons";
+import { UserIcon, PasswordIcon } from "@/assets/icons";
 import Link from "next/link";
 import React, { useState } from "react";
 import InputGroup from "../FormElements/InputGroup";
@@ -35,14 +35,14 @@ export default function SigninWithPassword() {
   return (
     <form onSubmit={handleSubmit}>
       <InputGroup
-        type="email"
-        label="Email"
+        type="text"
+        label="Username"
         className="mb-4 [&_input]:py-[15px]"
-        placeholder="Enter your email"
-        name="email"
+        placeholder="Enter your username"
+        name="username"
         handleChange={handleChange}
         value={data.email}
-        icon={<EmailIcon />}
+        icon={<UserIcon />}
       />
 
       <InputGroup

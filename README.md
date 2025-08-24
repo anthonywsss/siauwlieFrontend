@@ -15,7 +15,7 @@
 ![image alt](https://github.com/You2wo/pabrik-tahu-dashboard/blob/3c187cb50afa6cea9cfb05caf80a812db39c82ad/preview3.png)
 
 ## Web Demo
->
+> https://pabrik-tahu-dashboard.vercel.app/
 
 ## Install
 

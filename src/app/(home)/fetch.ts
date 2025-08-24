@@ -3,19 +3,19 @@ export async function getOverviewData() {
   await new Promise((resolve) => setTimeout(resolve, 2000));
 
   return {
-    views: {
-      value: 3456,
+    inbound_at_factory: {
+      value: 12,
       growthRate: 0.43,
     },
-    profit: {
+    outbound_to_client: {
       value: 4220,
       growthRate: 4.35,
     },
-    products: {
+    inbound_at_client: {
       value: 3456,
       growthRate: 2.59,
     },
-    users: {
+    outbound_to_factory: {
       value: 3456,
       growthRate: -0.95,
     },

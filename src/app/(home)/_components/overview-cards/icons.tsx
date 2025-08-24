@@ -71,3 +71,19 @@ export function Users(props: SVGPropsType) {
     </svg>
   );
 }
+
+export function Factory(props: SVGPropsType) {
+  return (
+    <svg width={58} height={58} viewBox="0 0 58 58" fill="none" {...props}>
+      <circle cx={29} cy={29} r={29} fill="#3FD97F" />
+      <path
+        d="M17 38V25l6 4v-4l6 4v-4l6 4v-6h6v15H17z"
+        fill="#fff"
+      />
+      <rect x={19} y={33} width={2} height={3} fill="#18BFFF" />
+      <rect x={23} y={33} width={2} height={3} fill="#18BFFF" />
+      <rect x={27} y={33} width={2} height={3} fill="#18BFFF" />
+      <rect x={31} y={33} width={2} height={3} fill="#18BFFF" />
+    </svg>
+  );
+}

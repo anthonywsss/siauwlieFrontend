@@ -3,15 +3,15 @@ import { cn } from "@/lib/utils";
 import type { JSX, SVGProps } from "react";
 
 type PropsType = {
-  label: string;
   data: {
     value: number | string;
     growthRate: number;
   };
+  label: string;
   Icon: (props: SVGProps<SVGSVGElement>) => JSX.Element;
 };
 
-export function OverviewCard({ label, data, Icon }: PropsType) {
+export function OverviewCard({ data, label, Icon }: PropsType) {
   const isDecreasing = data.growthRate < 0;
 
   return (
@@ -21,10 +21,10 @@ export function OverviewCard({ label, data, Icon }: PropsType) {
       <div className="mt-6 flex items-end justify-between">
         <dl>
           <dt className="mb-1.5 text-heading-6 font-bold text-dark dark:text-white">
-            {data.value}
+            {label}
           </dt>
 
-          <dd className="text-sm font-medium text-dark-6">{label}</dd>
+          <dd className="text-lg font-medium text-dark-1">{data.value}</dd>
         </dl>
 
         <dl

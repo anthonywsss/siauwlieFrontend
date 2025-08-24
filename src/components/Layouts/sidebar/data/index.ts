@@ -2,7 +2,7 @@ import * as Icons from "../icons";
 
 export const NAV_DATA = [
   {
-    label: "MAIN MENU",
+    label: "Main Menu",
     items: [
       {
         title: "Dashboard",
@@ -17,7 +17,7 @@ export const NAV_DATA = [
     ],
   },
   {
-    label: "Container Monitoring",
+    label: "Assets",
     items: [
       {
         title: "All Asset",
@@ -44,8 +44,8 @@ export const NAV_DATA = [
         items: [],
       },
       {
-        title: "Asset Categories",
-        url: "/AssetCategories",
+        title: "Asset Type",
+        url: "/asset-type",
         icon: Icons.ChartIcon,
         items: [],
       },

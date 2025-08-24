@@ -15,7 +15,6 @@ export default function Home() {
   return (
     <div>
       <Breadcrumb pageName="Container Monitoring" />
-      <SearchBar />
 
       <Suspense fallback={<OverviewCardsSkeleton />}>
         <OverviewCardsGroup />

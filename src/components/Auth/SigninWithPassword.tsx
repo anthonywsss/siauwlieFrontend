@@ -3,11 +3,10 @@ import { UserIcon, PasswordIcon } from "@/assets/icons";
 import Link from "next/link";
 import React, { useState } from "react";
 import InputGroup from "../FormElements/InputGroup";
-import { Checkbox } from "../FormElements/checkbox";
 
 export default function SigninWithPassword() {
   const [data, setData] = useState({
-    email: process.env.NEXT_PUBLIC_DEMO_USER_MAIL || "",
+    username: process.env.NEXT_PUBLIC_DEMO_USER_NAME || "",
     password: process.env.NEXT_PUBLIC_DEMO_USER_PASS || "",
     remember: false,
   });
@@ -24,7 +23,6 @@ export default function SigninWithPassword() {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // You can remove this code block
     setLoading(true);
 
     setTimeout(() => {
@@ -41,7 +39,7 @@ export default function SigninWithPassword() {
         placeholder="Enter your username"
         name="username"
         handleChange={handleChange}
-        value={data.email}
+        value={data.username}
         icon={<UserIcon />}
       />
 
@@ -55,29 +53,6 @@ export default function SigninWithPassword() {
         value={data.password}
         icon={<PasswordIcon />}
       />
-
-      <div className="mb-6 flex items-center justify-between gap-2 py-2 font-medium">
-        <Checkbox
-          label="Remember me"
-          name="remember"
-          withIcon="check"
-          minimal
-          radius="md"
-          onChange={(e) =>
-            setData({
-              ...data,
-              remember: e.target.checked,
-            })
-          }
-        />
-
-        <Link
-          href="/auth/forgot-password"
-          className="hover:text-primary dark:text-white dark:hover:text-primary"
-        >
-          Forgot Password?
-        </Link>
-      </div>
 
       <div className="mb-4.5">
         <button

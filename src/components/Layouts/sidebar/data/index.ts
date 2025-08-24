@@ -27,7 +27,7 @@ export const NAV_DATA = [
       },
       {
         title: "Submit Movement",
-        url: "/SubmitMovement",
+        url: "/submit-movement",
         icon: Icons.ChartIcon,
         items: [],
       },

@@ -1,4 +1,4 @@
-import {ItemType} from "@/components/Tables/itemtype.client";
+import {UnfinDelivery} from "@/components/Tables/unfin.client";
 
 import { Metadata } from "next";
 
@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <div className="space-y-6">
 
-      <ItemType />
+      <UnfinDelivery />
     </div>
   );
 }

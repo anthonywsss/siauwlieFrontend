@@ -363,7 +363,7 @@ export function CallIcon(props: IconProps) {
   );
 }
 
-export function PencilSquareIcon(props: IconProps) {
+export function EditIcon(props: IconProps) {
   return (
     <svg
       width="18"
@@ -414,5 +414,25 @@ export function UploadIcon(props: IconProps) {
         </clipPath>
       </defs>
     </svg>
+  );
+}
+
+export function AddIcon(props: IconProps) {
+  return (
+    <svg
+  width="25"
+  height="25"
+  viewBox="0 0 20 20"
+  fill="currentColor"
+  {...props}
+>
+  <path
+    d="M10 4V16M4 10H16"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  />
+</svg>
   );
 }

@@ -119,3 +119,48 @@ export async function getTopChannels() {
     },
   ];
 }
+export async function getAssetTypeData() {
+  // Fake delay
+  await new Promise((resolve) => setTimeout(resolve, 1400));
+
+  return [
+    {
+      id: "000",
+      assetname: "asset",
+      desc: "Bak Tahu",
+    },
+    {
+      id: "000",
+      assetname: "asset",
+      desc: "Bak",
+    },
+    {
+      id: "000",
+      assetname: "asset",
+      desc: "Tahu",
+    },
+    {
+      id: "000",
+      assetname: "asset",
+      desc: "Bak Telur",
+    },
+  ];
+}
+
+
+export async function getUnfinDeliv() {
+  // Fake delay
+  await new Promise((resolve) => setTimeout(resolve, 1400));
+
+  return [
+    {
+      id: "000",
+      user: "asset",
+      status: "On Factory",
+      klien: "Akiong",
+      waktu: "2023-01-13T18:00:00.000Z",
+      foto: "",
+      riwayat: "",
+    },
+  ];
+}

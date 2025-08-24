@@ -436,3 +436,21 @@ export function AddIcon(props: IconProps) {
 </svg>
   );
 }
+
+export const PencilSquareIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    {/* square */}
+    <rect x="2" y="3" width="20" height="18" rx="2" ry="2" />
+    {/* pencil */}
+    <path d="M14 7l3 3-7 7-3 1 1-3 7-7z" />
+  </svg>
+);

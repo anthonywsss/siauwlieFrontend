@@ -1,12 +1,10 @@
 import Breadcrumb from "@/components/Breadcrumbs/Breadcrumb";
-import SearchBar from "@/components/Search/SearchBar";
-import { AllItemsTable } from "@/components/Tables/allitems";
-import AllItemsClient from "@/components/Tables/allitems.client";
+import { InvoiceTable } from "@/components/Tables/invoice-table";
 
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Container Monitoring",
+  title: "Tables",
 };
 
 export default function Home() {
@@ -14,7 +12,7 @@ export default function Home() {
     <div className="space-y-6">
       <Breadcrumb pageName="Tables" />
 
-      <AllItemsClient />
+      <InvoiceTable />
     </div>
   );
 }

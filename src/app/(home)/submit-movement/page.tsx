@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <div className="space-y-6">
-      <Breadcrumb pageName="Tables" />
+      <Breadcrumb pageName="Submit Movement" />
 
       <InvoiceTable />
     </div>

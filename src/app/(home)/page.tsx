@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <div>
-      <Breadcrumb pageName="Asset List" />
+      <Breadcrumb pageName="Container Monitoring" />
       <SearchBar />
 
       <Suspense fallback={<OverviewCardsSkeleton />}>

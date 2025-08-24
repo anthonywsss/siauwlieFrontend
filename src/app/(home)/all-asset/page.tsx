@@ -6,13 +6,13 @@ import AllItemsClient from "@/components/Tables/allitems.client";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Container Monitoring",
+  title: "All Asset",
 };
 
 export default function Home() {
   return (
     <div className="space-y-6">
-      <Breadcrumb pageName="Tables" />
+      <Breadcrumb pageName="All Asset" />
 
       <AllItemsClient />
     </div>

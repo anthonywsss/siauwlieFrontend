@@ -119,3 +119,30 @@ export async function getTopChannels() {
     },
   ];
 }
+export async function getAssetTypeData() {
+  // Fake delay
+  await new Promise((resolve) => setTimeout(resolve, 1400));
+
+  return [
+    {
+      id: "000",
+      assetname: "asset",
+      desc: "Bak Tahu",
+    },
+    {
+      id: "000",
+      assetname: "asset",
+      desc: "Bak",
+    },
+    {
+      id: "000",
+      assetname: "asset",
+      desc: "Tahu",
+    },
+    {
+      id: "000",
+      assetname: "asset",
+      desc: "Bak Telur",
+    },
+  ];
+}

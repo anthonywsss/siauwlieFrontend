@@ -17,7 +17,7 @@ export async function getOverviewData() {
     },
     outbound_to_factory: {
       value: 3456,
-      growthRate: -0.95,
+      growthRate: 1.0,
     },
   };
 }

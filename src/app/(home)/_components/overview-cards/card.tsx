@@ -24,7 +24,7 @@ export function OverviewCard({ data, label, Icon }: PropsType) {
             {label}
           </dt>
 
-          <dd className="text-lg font-medium text-dark-1">{data.value}</dd>
+          <dd className="text-lg font-medium text-dark-1">{data.value} Container</dd>
         </dl>
 
         <dl

@@ -137,7 +137,6 @@ export default function AssetTypeClient() {
 
         <TableBody>
           {loading ? (
-            // simple loading rows
             Array.from({ length: perPage }).map((_, i) => (
               <TableRow key={`skeleton-${i}`} className="animate-pulse">
                 <TableCell className="py-6 h-8 bg-gray-100" />
@@ -146,7 +145,7 @@ export default function AssetTypeClient() {
                 <TableCell className="py-6 h-8 bg-gray-100" />
               </TableRow>
             ))
-          ) { /* : (
+          ) : (
             items.map((item) => {
               const statusClass = cn(
                 "max-w-fit rounded-full px-3.5 py-1 text-sm font-medium",
@@ -156,7 +155,7 @@ export default function AssetTypeClient() {
                   "bg-[#D34053]/[0.08] text-[#D34053]": /missing|lost|unpaid|error/i.test(item.status),
                   "bg-[#F3F4F6] text-[#374151]": item.status === "Unknown",
                 }
-              ); */}
+              );
 
               return (
                 <TableRow key={item.id} className="border-t">

@@ -146,3 +146,21 @@ export async function getAssetTypeData() {
     },
   ];
 }
+
+
+export async function getUnfinDeliv() {
+  // Fake delay
+  await new Promise((resolve) => setTimeout(resolve, 1400));
+
+  return [
+    {
+      id: "000",
+      user: "asset",
+      status: "On Factory",
+      klien: "Akiong",
+      waktu: "2023-01-13T18:00:00.000Z",
+      foto: "",
+      riwayat: "",
+    },
+  ];
+}

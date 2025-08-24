@@ -18,13 +18,13 @@ export async function ItemType() {
 
   return (
     <div className="rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:p-7.5">
-        <button className="flex items-center justify-center w-70 px-4 py-2 text-md font-bold leading-5 text-white transition-colors duration-150 bg-purple-600 border border-transparent rounded-lg active:bg-purple-600 hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple mb-6">
+        <button className="flex items-center justify-center w-70 px-4 py-2 text-md font-bold leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg active:bg-purple-600 hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple mb-6">
             <AddIcon /> Add New Categories
         </button>
       <Table>
         <TableHeader>
           <TableRow className="border-none bg-[#F7F9FC] dark:bg-dark-2 [&>th]:py-4 [&>th]:text-base [&>th]:text-dark [&>th]:dark:text-white">
-            <TableHead className="min-w-[155px] xl:pl-7.5">ID</TableHead>
+            <TableHead className="min-w-[155px] xl:pl-7.5">Asset ID</TableHead>
             <TableHead>Asset Name</TableHead>
             <TableHead>Description</TableHead>
             <TableHead className="text-right xl:pr-7.5">Actions</TableHead>

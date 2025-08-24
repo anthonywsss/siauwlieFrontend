@@ -33,7 +33,7 @@ export const NAV_DATA = [
       },
       {
         title: "Unfinished Delivery",
-        url: "/UnfinishedDelivery",
+        url: "/unfin-delivery",
         icon: Icons.ChartIcon,
         items: [],
       },

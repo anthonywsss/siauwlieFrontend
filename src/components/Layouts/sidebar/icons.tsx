@@ -206,3 +206,20 @@ export function GlobeIcon(props: PropsType) {
     </svg>
   );
 }
+
+export function ChartIcon(props: PropsType) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={24}
+      height={24}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      {...props}
+    >
+      <path d="M4 4a1 1 0 0 0-1 1v14h16a1 1 0 1 0 0-2H5V5a1 1 0 0 0-1-1z" />
+      <path d="M8.5 12.5l2.5-2 3 3 4-4a1 1 0 1 0-1.4-1.4l-2.6 2.6-3-3-3.9 3.1a1 1 0 1 0 1.3 1.6z" />
+    </svg>
+  );
+}
+

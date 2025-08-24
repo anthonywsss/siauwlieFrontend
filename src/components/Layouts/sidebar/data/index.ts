@@ -9,7 +9,7 @@ export const NAV_DATA = [
         icon: Icons.HomeIcon,
         items: [
           {
-            title: "Container",
+            title: "Container Monitoring",
             url: "/",
           },
         ],
@@ -17,42 +17,36 @@ export const NAV_DATA = [
     ],
   },
   {
-    label: "Container",
+    label: "Container Monitoring",
     items: [
       {
-        title: "All Container",
+        title: "All Asset",
         url: "/all-container",
         icon: Icons.GlobeIcon,
         items: [],
       },
       {
-        title: "Container Validation",
-        url: "/ContainerValidation",
-        icon: Icons.User,
-        items: [],
-      },
-      {
         title: "Submit Movement",
         url: "/SubmitMovement",
-        icon: Icons.User,
+        icon: Icons.ChartIcon,
         items: [],
       },
       {
-        title: "Latest Movement",
-        url: "/LatestMovement",
-        icon: Icons.User,
-        items: [],
-      },
-      {
-        title: "Search Container Movement History",
-        url: "/SubmitMovementHistory",
-        icon: Icons.User,
+        title: "Unfinished Delivery",
+        url: "/UnfinishedDelivery",
+        icon: Icons.ChartIcon,
         items: [],
       },
       {
         title: "Disposal History",
         url: "/DisposalHistory",
-        icon: Icons.User,
+        icon: Icons.ChartIcon,
+        items: [],
+      },
+      {
+        title: "Asset Categories",
+        url: "/AssetCategories",
+        icon: Icons.ChartIcon,
         items: [],
       },
     ],
@@ -63,7 +57,7 @@ export const NAV_DATA = [
       {
         title: "All Client",
         url: "/AllClient",
-        icon: Icons.PieChart,
+        icon: Icons.User,
         items: [],
       },
     ],
@@ -73,7 +67,18 @@ export const NAV_DATA = [
     items: [
       {
         title: "All User",
-        url: "/All User",
+        url: "/AllUser",
+        icon: Icons.User,
+        items: [],
+      },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      {
+        title: "Audit Trail",
+        url: "/AuditTrail",
         icon: Icons.PieChart,
         items: [],
       },

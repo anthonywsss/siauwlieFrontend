@@ -21,13 +21,13 @@ export const NAV_DATA = [
     items: [
       {
         title: "All Asset",
-        url: "/all-container",
+        url: "/all-asset",
         icon: Icons.GlobeIcon,
         items: [],
       },
       {
         title: "Submit Movement",
-        url: "/SubmitMovement",
+        url: "/submit-movement",
         icon: Icons.ChartIcon,
         items: [],
       },

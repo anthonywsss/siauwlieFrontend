@@ -3,14 +3,16 @@
   <img alt="Version" src="https://img.shields.io/badge/version-0.3-blue.svg?cacheSeconds=2592000" />
 </p>
 
-![image alt](https://github.com/You2wo/pabrik-tahu-dashboard/blob/169947d55bad79ddb15860447a817749eaec4a1e/preview.png)
 > Container Monitoring
+![image alt](https://github.com/You2wo/pabrik-tahu-dashboard/blob/3c187cb50afa6cea9cfb05caf80a812db39c82ad/preview2.png)
 
-![image alt](https://github.com/You2wo/pabrik-tahu-dashboard/blob/169947d55bad79ddb15860447a817749eaec4a1e/preview.png)
+
 > All Asset
+![image alt](https://github.com/You2wo/pabrik-tahu-dashboard/blob/3c187cb50afa6cea9cfb05caf80a812db39c82ad/preview.png)
 
-![image alt](https://github.com/You2wo/pabrik-tahu-dashboard/blob/169947d55bad79ddb15860447a817749eaec4a1e/preview.png)
+
 > Submit Movement
+![image alt](https://github.com/You2wo/pabrik-tahu-dashboard/blob/3c187cb50afa6cea9cfb05caf80a812db39c82ad/preview3.png)
 
 ## Install
 

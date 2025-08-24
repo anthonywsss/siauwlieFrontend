@@ -1,4 +1,4 @@
-import { InvoiceTable } from "@/components/Tables/invoice-table";
+import AssetTypeTable from "@/components/Tables/assettype.client";
 
 import { Metadata } from "next";
 
@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <div className="space-y-6">
 
-      <InvoiceTable />
+      <AssetTypeTable />
     </div>
   );
 }

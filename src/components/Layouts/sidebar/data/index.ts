@@ -39,7 +39,7 @@ export const NAV_DATA = [
       },
       {
         title: "Disposal History",
-        url: "/DisposalHistory",
+        url: "/disposal-history",
         icon: Icons.ChartIcon,
         items: [],
       },
@@ -56,7 +56,7 @@ export const NAV_DATA = [
     items: [
       {
         title: "All Client",
-        url: "/AllClient",
+        url: "/all-client",
         icon: Icons.User,
         items: [],
       },

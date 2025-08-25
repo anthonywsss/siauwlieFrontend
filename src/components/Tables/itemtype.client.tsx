@@ -51,7 +51,7 @@ export async function ItemType() {
                     <span className="sr-only">Edit </span>
                     <EditIcon />
                   </button>
-                  <button className="hover:text-primary">
+                  <button className="hover:text-red">
                     <span className="sr-only">Delete </span>
                     <TrashIcon />
                   </button>

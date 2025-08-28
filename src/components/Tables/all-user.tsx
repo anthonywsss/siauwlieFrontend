@@ -1,4 +1,3 @@
-// --- same imports as before ---
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -12,12 +11,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PreviewIcon } from "./icons";
 
-type UserItem = {
-  employeeId?: string;
-  username?: string;
-  fullname?: string;
-  role?: string;
+type Item = {
+  id: string;
+  name: string;
+  address: string;
+  personInCharge: string;
+  phone: string;
+  description: string;
 };
 
 function generatePages(current: number, total: number) {
@@ -51,7 +53,7 @@ export default function AllItemsClient() {
   const [goto, setGoto] = useState<string>("");
   const [query, setQuery] = useState<string>("");
 
-  const [items, setItems] = useState<UserItem[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const totalPages = Math.max(1, Math.ceil(total / perPage));
@@ -61,7 +63,7 @@ export default function AllItemsClient() {
     setLoading(true);
 
     const controller = new AbortController();
-    fetch(`/api/users?page=${page}&perPage=${perPage}&q=${encodeURIComponent(query)}`, {
+    fetch(`/api/items?page=${page}&perPage=${perPage}&q=${encodeURIComponent(query)}`, {
       signal: controller.signal,
     })
       .then((res) => res.json())
@@ -72,7 +74,7 @@ export default function AllItemsClient() {
       })
       .catch((err) => {
         if (err.name === "AbortError") return;
-        console.error("fetch users error:", err);
+        console.error("fetch items error:", err);
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -109,7 +111,7 @@ export default function AllItemsClient() {
       <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         <div className="flex items-center gap-3 w-full md:w-auto">
           <input
-            placeholder="Search employee id / username / fullname / role"
+            placeholder="Search name / id / address / person / phone"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -125,11 +127,11 @@ export default function AllItemsClient() {
             className="inline-flex items-center h-10 px-4 py-2 text-sm font-bold leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple w-full md:w-auto justify-center"
             type="button"
             onClick={() => {
-              /* open add user modal (left as TODO) */
+              /* open add client modal (left as TODO) */
             }}
           >
             <AddIcon />
-            <span className="ml-2">Add New User</span>
+            <span className="ml-2">Add New Client</span>
           </button>
         </div>
       </div>
@@ -138,10 +140,12 @@ export default function AllItemsClient() {
         <Table>
           <TableHeader>
             <TableRow className="border-none bg-[#F7F9FC] [&>th]:py-4 [&>th]:text-base">
-              <TableHead className="min-w-[120px]">Employee ID</TableHead>
-              <TableHead className="min-w-[160px]">Username</TableHead>
-              <TableHead className="min-w-[220px]">Fullname</TableHead>
-              <TableHead className="min-w-[160px]">Role</TableHead>
+              <TableHead className="min-w-[80px]">ID</TableHead>
+              <TableHead className="min-w-[180px]">Name</TableHead>
+              <TableHead className="min-w-[240px]">Address</TableHead>
+              <TableHead className="min-w-[160px]">Person in Charge</TableHead>
+              <TableHead className="min-w-[140px]">Phone</TableHead>
+              <TableHead className="min-w-[240px]">Description</TableHead>
               <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -155,43 +159,49 @@ export default function AllItemsClient() {
                   <TableCell className="py-6 h-8 bg-gray-100" />
                   <TableCell className="py-6 h-8 bg-gray-100" />
                   <TableCell className="py-6 h-8 bg-gray-100" />
+                  <TableCell className="py-6 h-8 bg-gray-100" />
+                  <TableCell className="py-6 h-8 bg-gray-100" />
                 </TableRow>
               ))
             ) : (
-              items.map((item, idx) => {
-                // ensure key is always unique even if employeeId is missing/duplicated
-                const rowKey = item.employeeId ? `user-${item.employeeId}` : `user-fallback-${idx}`;
-                return (
-                  <TableRow key={rowKey} className="border-t">
-                    <TableCell className="py-6">
-                      <h5 className="text-dark text-lg font-medium">{item.employeeId ?? "-"}</h5>
-                    </TableCell>
+              items.map((item) => (
+                <TableRow key={item.id} className="border-t">
+                  <TableCell className="py-6">
+                    <h5 className="text-dark text-lg font-medium">{item.id}</h5>
+                  </TableCell>
 
-                    <TableCell>
-                      <p className="text-dark font-medium">{item.username ?? "-"}</p>
-                    </TableCell>
+                  <TableCell>
+                    <p className="text-dark font-medium">{item.name}</p>
+                  </TableCell>
 
-                    <TableCell>
-                      <p className="text-dark">{item.fullname ?? "-"}</p>
-                    </TableCell>
+                  <TableCell>
+                    <p className="text-dark">{item.address}</p>
+                  </TableCell>
 
-                    <TableCell>
-                      <p className="text-dark">{item.role ?? "-"}</p>
-                    </TableCell>
+                  <TableCell>
+                    <p className="text-dark">{item.personInCharge}</p>
+                  </TableCell>
 
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        <button className="p-2 hover:text-primary" aria-label="Edit">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        </button>
-                        <button className="p-2 hover:text-red-600" aria-label="Delete">
-                          <TrashIcon />
-                        </button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
+                  <TableCell>
+                    <p className="text-dark font-medium">{item.phone}</p>
+                  </TableCell>
+
+                  <TableCell>
+                    <p className="text-dark truncate max-w-[420px]">{item.description}</p>
+                  </TableCell>
+
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-3">
+                      <button className="p-2 hover:text-primary" aria-label="Edit">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </button>
+                      <button className="p-2 hover:text-red-600" aria-label="Delete">
+                        <TrashIcon />
+                      </button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>
@@ -203,34 +213,38 @@ export default function AllItemsClient() {
           ? Array.from({ length: perPage }).map((_, i) => (
               <div key={`skeleton-card-${i}`} className="animate-pulse border rounded p-3 mb-3 bg-gray-50" />
             ))
-          : items.map((item, idx) => {
-              const cardKey = item.employeeId ? `user-card-${item.employeeId}` : `user-card-fallback-${idx}`;
-              return (
-                <div key={cardKey} className="border rounded-lg p-3 mb-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm text-gray-500">Employee ID</div>
-                      <div className="text-lg font-medium">{item.employeeId ?? "-"}</div>
-                      <div className="text-sm text-gray-500 mt-1">Username</div>
-                      <div className="font-medium">{item.username ?? "-"}</div>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-sm text-gray-500">Role</div>
-                      <div className="mt-1 font-medium">{item.role ?? "-"}</div>
-                      <div className="text-sm text-gray-500 mt-2">Fullname</div>
-                      <div className="font-medium">{item.fullname ?? "-"}</div>
-                    </div>
+          : items.map((item) => (
+              <div key={item.id} className="border rounded-lg p-3 mb-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm text-gray-500">ID</div>
+                    <div className="text-lg font-medium">{item.id}</div>
+                    <div className="text-sm text-gray-500 mt-1">Name</div>
+                    <div className="font-medium">{item.name}</div>
                   </div>
 
+                  <div className="text-right">
+                    <div className="text-sm text-gray-500">Person</div>
+                    <div className="mt-1 font-medium">{item.personInCharge}</div>
+                    <div className="text-sm text-gray-500 mt-2">Phone</div>
+                    <div className="font-medium">{item.phone}</div>
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <div className="text-sm text-gray-500">Address</div>
+                  <div className="font-medium">{item.address}</div>
+                  <div className="mt-2 text-sm text-gray-500">Description</div>
+                  <div className="">{item.description}</div>
+
                   <div className="flex gap-2 mt-3">
-                    <button className="flex-1 bg-blue-500 text-white px-3 py-2 rounded-md text-sm">Profile</button>
+                    <button className="flex-1 bg-blue-500 text-white px-3 py-2 rounded-md text-sm">History</button>
                     <button className="p-2 border rounded-md" aria-label="Edit">Edit</button>
                     <button className="p-2 border rounded-md text-red-600" aria-label="Delete">Delete</button>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
       </div>
 
       {/* Pagination */}
@@ -275,12 +289,12 @@ export default function AllItemsClient() {
 
           {pages.map((p, i) =>
             p === "..." ? (
-              <span key={`ellipsis-${i}`} className="px-2">
+              <span key={`dot-${i}`} className="px-2">
                 …
               </span>
             ) : (
               <button
-                key={`page-${i}-${String(p)}`}
+                key={p}
                 onClick={() => goToPageNumber(p)}
                 className={cn("rounded border px-3 py-1 min-w-[36px] md:min-w-[40px]", { "ring-2 ring-blue-400 bg-white": p === page })}
                 aria-current={p === page ? "page" : undefined}

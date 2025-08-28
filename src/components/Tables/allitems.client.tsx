@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { TrashIcon, AddIcon } from "@/assets/icons"; // swap to your icon path
+import { TrashIcon, AddIcon } from "@/assets/icons";
 import { cn } from "@/lib/utils";
 import {
   Table,
@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PreviewIcon } from "./icons"; // or adjust
+import { PreviewIcon } from "./icons";
 
 type Item = {
   id: string;
@@ -59,7 +59,6 @@ export default function AllItemsClient() {
   const [loading, setLoading] = useState<boolean>(false);
   const totalPages = Math.max(1, Math.ceil(total / perPage));
 
-  // New filter states
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [statusOpen, setStatusOpen] = useState<boolean>(false);
   const statusRef = useRef<HTMLDivElement | null>(null);
@@ -69,7 +68,6 @@ export default function AllItemsClient() {
   const assetRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    // close dropdowns on outside click
     function handleClick(e: MouseEvent) {
       if (statusRef.current && !statusRef.current.contains(e.target as Node)) {
         setStatusOpen(false);
@@ -177,7 +175,6 @@ export default function AllItemsClient() {
               </button>
 
               {statusOpen && (
-                // full width on mobile, constrained on md+
                 <div className="absolute left-0 mt-2 w-full md:w-56 rounded border bg-white shadow-lg z-50">
                   <ul className="py-1">
                     {STATUS_OPTIONS.map((opt) => (
@@ -290,22 +287,18 @@ export default function AllItemsClient() {
 
         {/* RIGHT: add + total */}
         <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} items`}</div>
           <button
             className="inline-flex items-center h-10 px-4 py-2 text-sm font-bold leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple w-full md:w-auto justify-center"
             type="button"
             onClick={() => {
-              /* open modal / navigate to add form */
             }}
           >
             <AddIcon />
             <span className="ml-2">Add New Categories</span>
           </button>
-
-          <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} items`}</div>
         </div>
       </div>
-
-      {/* Desktop table (hidden on small screens) */}
       <div className="hidden md:block overflow-x-auto">
         <Table>
           <TableHeader>
@@ -480,7 +473,7 @@ export default function AllItemsClient() {
             })}
       </div>
 
-      {/* Pagination controls (responsive) */}
+      {/* Pagination controls*/}
       <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4 flex-wrap">
           <span className="text-sm text-gray-500">Row per page</span>

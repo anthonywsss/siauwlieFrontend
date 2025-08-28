@@ -6,7 +6,7 @@ export const NAV_DATA = [
     items: [
       {
         title: "Dashboard",
-        icon: Icons.HomeIcon,
+        icon: Icons.Squares2X2Icon,
         items: [
           {
             title: "Container Monitoring",
@@ -22,31 +22,31 @@ export const NAV_DATA = [
       {
         title: "All Asset",
         url: "/all-asset",
-        icon: Icons.GlobeIcon,
+        icon: Icons.ArchiveBoxIcon,
         items: [],
       },
       {
         title: "Submit Movement",
         url: "/submit-movement",
-        icon: Icons.ChartIcon,
+        icon: Icons.ArrowUpOnSquareStackIcon,
         items: [],
       },
       {
         title: "Unfinished Delivery",
         url: "/unfin-delivery",
-        icon: Icons.ChartIcon,
+        icon: Icons.TruckIcon,
         items: [],
       },
       {
         title: "Disposal History",
-        url: "/DisposalHistory",
-        icon: Icons.ChartIcon,
+        url: "/disposal-history",
+        icon: Icons.TrashIcon,
         items: [],
       },
       {
-        title: "Asset Type",
+        title: "Asset Type", 
         url: "/asset-type",
-        icon: Icons.ChartIcon,
+        icon: Icons.TagIcon,
         items: [],
       },
     ],
@@ -56,8 +56,8 @@ export const NAV_DATA = [
     items: [
       {
         title: "All Client",
-        url: "/AllClient",
-        icon: Icons.User,
+        url: "/all-client",
+        icon: Icons.UsersIcon,
         items: [],
       },
     ],
@@ -67,14 +67,14 @@ export const NAV_DATA = [
     items: [
       {
         title: "All User",
-        url: "/AllUser",
-        icon: Icons.User,
+        url: "/all-user",
+        icon: Icons.UserGroupIcon,
         items: [],
       },
       {
-        title: "Login/Sigin",
+        title: "Login/Sign in",
         url: "/auth/sign-in",
-        icon: Icons.User,
+        icon: Icons.ArrowRightOnRectangleIcon,
         items: [],
       },
     ],
@@ -84,8 +84,8 @@ export const NAV_DATA = [
     items: [
       {
         title: "Audit Trail",
-        url: "/AuditTrail",
-        icon: Icons.PieChart,
+        url: "/audit-log",
+        icon: Icons.ClipboardDocumentListIcon,
         items: [],
       },
     ],

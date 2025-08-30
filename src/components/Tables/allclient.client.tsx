@@ -87,6 +87,7 @@ export default function AllClient() {
     const statusParam = statusFilter && statusFilter !== "all" ? `&status=${encodeURIComponent(statusFilter)}` : "";
     const assetParam = assetFilter && assetFilter !== "all" ? `&assetType=${encodeURIComponent(assetFilter)}` : "";
 
+    {/* metode fetch diganti axios */}
     fetch(`/api/items?page=${page}&perPage=${perPage}&q=${encodeURIComponent(query)}${statusParam}${assetParam}`, {
       signal: controller.signal,
     })

@@ -23,8 +23,8 @@ export async function UnfinDelivery() {
 
 
   return (
-    <div className="rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:p-7.5">
-        <h1 className="text-[26px] font-bold leading-[30px] text-dark dark:text-white mb-5">Pengiriman Belum Tuntas </h1> 
+    <div className="rounded-[10px] border border-stroke bg-white p-4 shadow-1 sm:p-7.5">
+        <h1 className="text-[26px] font-bold leading-[30px] text-dark mb-5">Pengiriman Belum Tuntas </h1> 
         
       <Table>
         <TableHeader>

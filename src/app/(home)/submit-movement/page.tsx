@@ -1,16 +1,17 @@
-import { InvoiceTable } from "@/components/Tables/invoice-table";
+import MultiStepFormPage from "@/components/FormElements/multi-step";
 
-import { Metadata } from "next";
-
-export const metadata: Metadata = {
+export const metadata = {
   title: "Submit Movement",
 };
 
 export default function Home() {
   return (
-    <div className="space-y-6">
-
-      <InvoiceTable />
-    </div>
-  );
+    
+     <div>
+        <h1 className="text-[26px] font-bold leading-[30px] text-dark mb-5"> Submit Movement </h1> 
+        <div className="space-y-6 rounded-2xlrounded-2xl border border-gray-200 bg-white p-6">
+          <MultiStepFormPage />
+        </div>
+     </div>
+  )
 }

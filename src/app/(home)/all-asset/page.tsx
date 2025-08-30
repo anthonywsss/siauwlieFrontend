@@ -1,5 +1,3 @@
-import SearchBar from "@/components/Search/SearchBar";
-import { AllItemsTable } from "@/components/Tables/allitems";
 import AllItemsClient from "@/components/Tables/allitems.client";
 
 import { Metadata } from "next";

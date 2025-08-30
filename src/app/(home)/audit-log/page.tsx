@@ -1,4 +1,4 @@
-import AllItemsClient from "@/components/Tables/disposal";
+import AllItemsClient from "@/components/Tables/audit-log";
 
 import { Metadata } from "next";
 

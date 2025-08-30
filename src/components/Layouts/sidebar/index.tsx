@@ -25,7 +25,6 @@ export function Sidebar() {
   };
 
   useEffect(() => {
-    // Keep collapsible open, when it's subpage is active
     NAV_DATA.some((section) => {
       return section.items.some((item) => {
         return item.items.some((subItem) => {
@@ -34,7 +33,6 @@ export function Sidebar() {
               toggleExpanded(item.title);
             }
 
-            // Break the loop
             return true;
           }
         });
@@ -114,7 +112,7 @@ export function Sidebar() {
 
                               <ChevronUp
                                 className={cn(
-                                  "ml-auto rotate-180 transition-transform duration-200",
+                                  "ml-auto rotate-180 transition-transform duration-200 h-5 w-5",
                                   expandedItems.includes(item.title) &&
                                     "rotate-0",
                                 )}

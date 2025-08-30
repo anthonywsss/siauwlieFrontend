@@ -1,8 +1,13 @@
-// app/api/items/route.ts
 import { NextResponse } from "next/server";
 
 type Item = {
   id: string;
+  name: string;
+  address: string;
+  personInCharge: string;
+  phone: string;
+  description: string;
+
   qrUrl: string;
   status: string | null;
   clientName: string;
@@ -11,22 +16,90 @@ type Item = {
   assetType: string;
 };
 
-// Example source data generator (keep your real data source here)
 const STATUSES = ["At Warehouse", "Pending", "Missing", "In Transit", "Available"];
 const ASSET_TYPES = ["Container", "Pallet", "Machine", "Crate", "Box"];
+
+const NAMES = [
+  "Toko Camar",
+  "CV. Selaras",
+  "PT. Makmur Jaya",
+  "Warung Makan Sederhana",
+  "Toko Sumber Rejeki",
+  "Bengkel Utama",
+  "Koperasi Sentosa",
+  "Kedai Kopi Rindu",
+  "Distributor Nusantara",
+  "Toko Laris Manis",
+  "Gudang Prima",
+  "Pabrik Indah",
+];
+
+const ADDRESSES = [
+  "Pasar Modern Blok A",
+  "Jl. Merdeka No.12",
+  "Komplek Perumahan B-5",
+  "Gedung Ruko 3 Lt",
+  "Jl. Sudirman Kav. 45",
+  "Blok C Pasar Baru",
+  "Kawasan Industri 2",
+  "Jalan S. Parman No.8",
+  "Perumahan Cendana 4",
+  "Jl. Raya Bogor KM.20",
+];
+
+const PERSONS = [
+  "Anthony",
+  "Siti",
+  "Budi",
+  "Rina",
+  "Agus",
+  "Dewi",
+  "Hendra",
+  "Lina",
+  "Wahyu",
+  "Rizki",
+];
+
+const DESCRIPTIONS = [
+  "Sebelah Toko Akiong",
+  "Gudang belakang kantor",
+  "Depan minimarket",
+  "Lantai 2 gedung ruko",
+  "Di samping pom bensin",
+  "Area parkir utama",
+  "Gedung A, lantai dasar",
+  "Pojok pasar tradisional",
+  "Samping ATM center",
+  "Sebelah apotek sehat",
+];
 
 function makeSampleItems(count = 200): Item[] {
   const items: Item[] = [];
   for (let i = 1; i <= count; i++) {
+    const name = NAMES[i % NAMES.length];
+    const address = ADDRESSES[i % ADDRESSES.length];
+    const personInCharge = PERSONS[i % PERSONS.length];
+    const description = DESCRIPTIONS[i % DESCRIPTIONS.length];
     const status = STATUSES[(i + 1) % STATUSES.length];
+    const assetType = ASSET_TYPES[i % ASSET_TYPES.length];
+
+    const phoneSuffix = (100000000 + i).toString().slice(-9);
+    const phone = `0896${phoneSuffix}`;
+
     items.push({
-      id: `ITEM-${i.toString().padStart(4, "0")}`,
+      id: `CLT-${i.toString().padStart(4, "0")}`,
+      name: `${name}${Math.floor(i / NAMES.length) ? " " + Math.floor(i / NAMES.length) : ""}`,
+      address,
+      personInCharge,
+      phone,
+      description,
+
       qrUrl: `https://example.com/qr/${i}`,
-      status: i % 17 === 0 ? null : status, // some nulls (treated as In Transit in client)
-      clientName: `Client ${((i % 12) + 1)}`,
-      clientId: i % 50,
+      status: i % 17 === 0 ? null : status,
+      clientName: name,
+      clientId: i % 500,
       photoUrl: `https://example.com/photo/${i}`,
-      assetType: ASSET_TYPES[i % ASSET_TYPES.length],
+      assetType,
     });
   }
   return items;
@@ -40,30 +113,39 @@ export async function GET(request: Request) {
   const perPage = Math.max(1, Number(url.searchParams.get("perPage") ?? 10));
   const q = (url.searchParams.get("q") ?? "").trim().toLowerCase();
 
-  // read status and assetType param from querystring
   const statusParamRaw = url.searchParams.get("status") ?? "";
   const statusParam = statusParamRaw.trim().toLowerCase();
   const assetParamRaw = url.searchParams.get("assetType") ?? "";
   const assetParam = assetParamRaw.trim().toLowerCase();
 
-  // start with text query filtering if provided
+
   let filtered: Item[] = q
-    ? allItems.filter(
-        (it) =>
-          it.id.toLowerCase().includes(q) ||
-          it.clientName.toLowerCase().includes(q) ||
-          it.assetType.toLowerCase().includes(q)
-      )
+    ? allItems.filter((it) => {
+        const hay = (
+          it.id +
+          " " +
+          it.name +
+          " " +
+          it.address +
+          " " +
+          it.personInCharge +
+          " " +
+          it.phone +
+          " " +
+          (it.description ?? "") +
+          " " +
+          (it.assetType ?? "") +
+          " " +
+          (it.status ?? "")
+        ).toLowerCase();
+        return hay.includes(q);
+      })
     : allItems.slice();
 
-  // Apply assetType filtering if provided and not "all"
   if (assetParam && assetParam !== "all") {
     filtered = filtered.filter((it) => (it.assetType ?? "").toLowerCase() === assetParam);
   }
-
-  // Apply status filtering only when provided and not "all"
   if (statusParam && statusParam !== "all") {
-    // support "available", "pending", "missing", "in_transit" (or "intransit")
     if (statusParam === "available") {
       filtered = filtered.filter(
         (it) =>
@@ -74,8 +156,11 @@ export async function GET(request: Request) {
       filtered = filtered.filter((it) => !!it.status && /pending/i.test(it.status));
     } else if (statusParam === "missing") {
       filtered = filtered.filter((it) => !!it.status && /(missing|lost)/i.test(it.status));
-    } else if (statusParam === "in_transit" || statusParam === "intransit" || statusParam === "in-transit") {
-      // In Transit should match explicit "In Transit" statuses OR items with null/empty/unknown status
+    } else if (
+      statusParam === "in_transit" ||
+      statusParam === "intransit" ||
+      statusParam === "in-transit"
+    ) {
       filtered = filtered.filter(
         (it) =>
           !it.status ||
@@ -83,7 +168,6 @@ export async function GET(request: Request) {
           /in\s*transit/i.test(it.status)
       );
     } else {
-      // generic fallback: substring match
       filtered = filtered.filter(
         (it) => !!it.status && it.status.toLowerCase().includes(statusParam)
       );

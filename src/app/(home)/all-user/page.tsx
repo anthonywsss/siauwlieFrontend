@@ -1,4 +1,4 @@
-import AllItemsClient from "@/components/Tables/disposal";
+import AllItemsClient from "@/components/Tables/all-user";
 
 import { Metadata } from "next";
 

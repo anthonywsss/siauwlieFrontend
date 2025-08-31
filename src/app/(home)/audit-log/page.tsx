@@ -3,7 +3,7 @@ import AllItemsClient from "@/components/Tables/audit-log";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "All Asset",
+  title: "Audit Trail",
 };
 
 export default function Home() {

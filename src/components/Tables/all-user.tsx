@@ -63,7 +63,7 @@ export default function AllItemsClient() {
     setLoading(true);
 
     const controller = new AbortController();
-    fetch(`/api/items?page=${page}&perPage=${perPage}&q=${encodeURIComponent(query)}`, {
+    fetch(`http://localhost:3000/users?page=${page}&perPage=${perPage}&q=${encodeURIComponent(query)}`, {
       signal: controller.signal,
     })
       .then((res) => res.json())
@@ -131,7 +131,7 @@ export default function AllItemsClient() {
             }}
           >
             <AddIcon />
-            <span className="ml-2">Add New Client</span>
+            <span className="ml-2">Add New User</span>
           </button>
         </div>
       </div>

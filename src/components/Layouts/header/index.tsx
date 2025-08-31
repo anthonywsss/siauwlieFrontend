@@ -6,9 +6,11 @@ import Link from "next/link";
 import { useSidebarContext } from "../sidebar/sidebar-context";
 import { MenuIcon } from "./icons";
 import { UserInfo } from "./user-info";
+import { useAuth } from "@/components/Auth/auth-context";
 
 export function Header() {
   const { toggleSidebar, isMobile } = useSidebarContext();
+  const { user } = useAuth();
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between border-b border-stroke bg-white px-4 py-5 shadow-1 dark:border-stroke-dark dark:bg-gray-dark md:px-5 2xl:px-10">
@@ -40,7 +42,11 @@ export function Header() {
 
       <div className="flex flex-1 items-center justify-end gap-2 min-[375px]:gap-4">
 
-        <p>User Role</p>
+        <p className="text-sm font-medium">
+          {user ? (user.role ?? user.username) : "Guest"}
+        </p>
+
+
 
         <div className="shrink-0">
           <UserInfo />

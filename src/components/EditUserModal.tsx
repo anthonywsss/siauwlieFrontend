@@ -18,6 +18,8 @@ export default function EditUserModal({ open, userData, onClose, onUpdated }: Pr
   const [employeeId, setEmployeeId] = useState("");
   const [role, setRole] = useState("");
   const [roles, setRoles] = useState<string[]>([]);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,9 +56,13 @@ export default function EditUserModal({ open, userData, onClose, onUpdated }: Pr
       setUsername("");
       setFullName("");
       setEmployeeId("");
-      setRole("");
+      setRole(roles.length ? roles[0] : "");
     }
-    // only when userData or roles update
+    // reset password fields whenever userData changes or modal opens
+    setPassword("");
+    setConfirmPassword("");
+    setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData, roles]);
 
   if (!open) return null;
@@ -69,12 +75,37 @@ export default function EditUserModal({ open, userData, onClose, onUpdated }: Pr
 
     try {
       const id = userData.user_id ?? userData.id;
-      await API.put(`/users/${id}`, {
+      if (!id) {
+        setError("Missing user id");
+        setSubmitting(false);
+        return;
+      }
+
+      // basic validation for password if provided
+      if (password) {
+        if (password.length < 6) {
+          setError("Password must be at least 6 characters");
+          setSubmitting(false);
+          return;
+        }
+        if (password !== confirmPassword) {
+          setError("Passwords do not match");
+          setSubmitting(false);
+          return;
+        }
+      }
+
+      const payload: Record<string, any> = {
         username: username.trim(),
         full_name: fullName.trim(),
         employee_id: employeeId.trim(),
         role: role.trim(),
-      });
+      };
+
+      // only include password if user provided one
+      if (password) payload.password = password;
+
+      await API.put(`/users/${id}`, payload);
       onUpdated?.();
       onClose();
     } catch (err: any) {
@@ -123,6 +154,16 @@ export default function EditUserModal({ open, userData, onClose, onUpdated }: Pr
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">New Password (leave blank to keep current)</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded border px-3 py-2" />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Confirm New Password</label>
+            <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full rounded border px-3 py-2" />
           </div>
 
           {error && <div className="text-red-600">{error}</div>}

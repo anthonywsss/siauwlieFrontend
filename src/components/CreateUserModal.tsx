@@ -17,6 +17,8 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
   const [employeeId, setEmployeeId] = useState("");
   const [role, setRole] = useState("");
   const [roles, setRoles] = useState<string[]>([]);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +50,20 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
     };
   }, []);
 
+  // reset when modal closes
+  useEffect(() => {
+    if (!open) {
+      setUsername("");
+      setFullName("");
+      setEmployeeId("");
+      setRole(roles.length ? roles[0] : "");
+      setPassword("");
+      setConfirmPassword("");
+      setError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   if (!open) return null;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -58,6 +74,18 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
       setError("Username is required");
       return;
     }
+    if (!password) {
+      setError("Password is required");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -66,12 +94,16 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
         full_name: fullName.trim(),
         employee_id: employeeId.trim(),
         role: role.trim(),
+        password: password,
       });
       onCreated?.();
+      // reset
       setUsername("");
       setFullName("");
       setEmployeeId("");
-      setRole("");
+      setRole(roles.length ? roles[0] : "");
+      setPassword("");
+      setConfirmPassword("");
       onClose();
     } catch (err: any) {
       console.error("create user error:", err);
@@ -123,6 +155,16 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Password</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded border px-3 py-2" />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Confirm Password</label>
+            <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full rounded border px-3 py-2" />
           </div>
 
           {error && <div className="text-red-600">{error}</div>}

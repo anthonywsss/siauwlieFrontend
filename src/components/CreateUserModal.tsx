@@ -7,7 +7,7 @@ import { useAuth } from "@/components/Auth/auth-context";
 type Props = {
   open: boolean;
   onClose: () => void;
-  onCreated?: () => void; // callback to refresh parent list
+  onCreated?: () => void; // callback
 };
 
 export default function CreateUserModal({ open, onClose, onCreated }: Props) {
@@ -34,7 +34,6 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
 
     setSubmitting(true);
     try {
-      // Postman uses POST /users with payload like this
       const payload = {
         username,
         password,
@@ -44,11 +43,7 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
         photo: "",
       };
       await API.post("/users", payload);
-
-      // call optional global toast if available
       if ((window as any).showToast) (window as any).showToast("User created");
-
-      // notify parent to refresh
       onCreated?.();
 
       // reset & close

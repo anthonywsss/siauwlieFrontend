@@ -1,4 +1,3 @@
-// app/layout.tsx (replace your current file)
 import "@/css/satoshi.css";
 import "@/css/style.css";
 

@@ -1,4 +1,3 @@
-// components/AllItemsClient.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -67,30 +66,27 @@ export default function AllItemsClient() {
   const { signOut } = useAuth();
   const router = useRouter();
 
-  // pagination & search UI state
+  // pagination & search
   const [perPage, setPerPage] = useState<number>(10);
   const [page, setPage] = useState<number>(1);
   const [goto, setGoto] = useState<string>("");
   const [query, setQuery] = useState<string>("");
 
   // data state
-  const [allUsers, setAllUsers] = useState<RawUser[]>([]); // full list fetched from server
-  const [items, setItems] = useState<Item[]>([]); // current page items (mapped)
-  const [total, setTotal] = useState<number>(0); // total after filtering
+  const [allUsers, setAllUsers] = useState<RawUser[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
+  const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // modals & refresh
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUserRaw, setEditingUserRaw] = useState<RawUser | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0); // bump to refetch
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // compute pages from current total and perPage
   const totalPages = Math.max(1, Math.ceil(total / perPage));
   const pages = useMemo(() => generatePages(page, totalPages), [page, totalPages]);
 
-  // Fetch full user list from API once (or when refreshKey changes)
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -99,7 +95,6 @@ export default function AllItemsClient() {
     (async () => {
       try {
         const res = await API.get("/users");
-        // expected shape from Postman: { data: [...], meta: { total: N } }
         const users: RawUser[] = res?.data?.data ?? res?.data ?? [];
         if (!mounted) return;
         setAllUsers(Array.isArray(users) ? users : []);
@@ -123,7 +118,6 @@ export default function AllItemsClient() {
     };
   }, [refreshKey, signOut, router]);
 
-  // Apply client-side search + pagination whenever allUsers, query, page, perPage change
   useEffect(() => {
     // filter
     const q = query.trim().toLowerCase();
@@ -140,16 +134,11 @@ export default function AllItemsClient() {
 
     const totalCount = filtered.length;
     setTotal(totalCount);
-
-    // ensure page is valid
     const validPage = Math.max(1, Math.min(Math.max(1, Math.ceil(totalCount / perPage)), page));
     if (validPage !== page) setPage(validPage);
-
-    // slice for current page
     const start = (validPage - 1) * perPage;
     const pageSlice = filtered.slice(start, start + perPage);
 
-    // map to Item type
     const mapped: Item[] = pageSlice.map((u) => ({
       id: String(u.user_id ?? u.id ?? u.username ?? Math.random().toString(36).slice(2, 9)),
       username: u.username ?? "-",
@@ -161,15 +150,14 @@ export default function AllItemsClient() {
     }));
 
     setItems(mapped);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allUsers, query, page, perPage]);
 
-  // when perPage or query changes, reset page to 1
+  // when reset page to 1
   useEffect(() => {
     setPage(1);
   }, [perPage, query]);
 
-  // pagination helpers
+  // pagination
   function goToPageNumber(n: number | string) {
     if (typeof n === "number") setPage(Math.max(1, Math.min(totalPages, n)));
   }
@@ -191,7 +179,7 @@ export default function AllItemsClient() {
     setActionLoading(String(rawId));
     try {
       await API.delete(`/users/${rawId}`);
-      setRefreshKey((k) => k + 1); // re-fetch full list
+      setRefreshKey((k) => k + 1);
     } catch (err: any) {
       console.error("delete user error:", err);
       if (err?.response?.status === 401) {
@@ -217,7 +205,6 @@ export default function AllItemsClient() {
     setShowCreateModal(true);
   }
 
-  // after create or update, refresh list
   function handleCreatedOrUpdated() {
     setShowCreateModal(false);
     setEditingUserRaw(null);

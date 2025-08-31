@@ -1,5 +1,4 @@
-import {ItemType} from "@/components/Tables/itemtype.client";
-
+import AssetTypeList from "@/components/Tables/itemtype.client";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -9,8 +8,7 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <div className="space-y-6">
-
-      <ItemType />
+      <AssetTypeList />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
 
@@ -16,8 +16,37 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
   const [fullName, setFullName] = useState("");
   const [employeeId, setEmployeeId] = useState("");
   const [role, setRole] = useState("");
+  const [roles, setRoles] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Try to fetch roles from API, fallback to hardcoded list
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await API.get("/roles");
+        const list: string[] = res?.data?.data ?? res?.data ?? [];
+        if (!mounted) return;
+        if (Array.isArray(list) && list.length > 0) {
+          setRoles(list);
+          setRole((prev) => prev || String(list[0] ?? ""));
+        } else {
+          throw new Error("no roles from server");
+        }
+      } catch {
+        // fallback roles observed in your Postman collection
+        const fallback = ["driver", "supervisor", "security"];
+        if (mounted) {
+          setRoles(fallback);
+          setRole((prev) => prev || fallback[0]);
+        }
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   if (!open) return null;
 
@@ -83,7 +112,17 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
 
           <div>
             <label className="block text-sm text-gray-600 mb-1">Role</label>
-            <input value={role} onChange={(e) => setRole(e.target.value)} className="w-full rounded border px-3 py-2" />
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full rounded border px-3 py-2"
+            >
+              {roles.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
           </div>
 
           {error && <div className="text-red-600">{error}</div>}

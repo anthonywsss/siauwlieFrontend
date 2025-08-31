@@ -17,22 +17,47 @@ export default function EditUserModal({ open, userData, onClose, onUpdated }: Pr
   const [fullName, setFullName] = useState("");
   const [employeeId, setEmployeeId] = useState("");
   const [role, setRole] = useState("");
+  const [roles, setRoles] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // fetch roles once, fallback to observed roles from Postman
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await API.get("/roles");
+        const list: string[] = res?.data?.data ?? res?.data ?? [];
+        if (!mounted) return;
+        if (Array.isArray(list) && list.length > 0) {
+          setRoles(list);
+        } else {
+          throw new Error("no roles from server");
+        }
+      } catch {
+        setRoles(["driver", "supervisor", "security"]);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (userData) {
       setUsername(userData.username ?? "");
       setFullName(userData.full_name ?? "");
       setEmployeeId(userData.employee_id ?? "");
-      setRole(userData.role ?? "");
+      // make sure role preselect picks server value or falls back to first role
+      setRole(userData.role ?? (roles.length ? roles[0] : ""));
     } else {
       setUsername("");
       setFullName("");
       setEmployeeId("");
       setRole("");
     }
-  }, [userData]);
+    // only when userData or roles update
+  }, [userData, roles]);
 
   if (!open) return null;
 
@@ -91,7 +116,13 @@ export default function EditUserModal({ open, userData, onClose, onUpdated }: Pr
 
           <div>
             <label className="block text-sm text-gray-600 mb-1">Role</label>
-            <input value={role} onChange={(e) => setRole(e.target.value)} className="w-full rounded border px-3 py-2" />
+            <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full rounded border px-3 py-2">
+              {roles.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
           </div>
 
           {error && <div className="text-red-600">{error}</div>}

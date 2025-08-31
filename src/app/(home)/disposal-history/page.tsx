@@ -3,7 +3,7 @@ import AllItemsClient from "@/components/Tables/disposal";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "All Asset",
+  title: "Disposal History",
 };
 
 export default function Home() {

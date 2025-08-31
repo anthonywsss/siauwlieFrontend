@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import API from "@/lib/api";
 import {
@@ -20,9 +20,47 @@ export type RawDisposal = {
   reason?: string;
 };
 
+function generatePages(current: number, total: number) {
+  const delta = 1;
+  const range: number[] = [];
+  for (let i = Math.max(1, current - delta); i <= Math.min(total, current + delta); i++)
+    range.push(i);
+
+  const pages: (number | string)[] = [];
+  if (1 < current - delta - 1) {
+    pages.push(1);
+    if (2 < current - delta) pages.push("...");
+  } else {
+    for (let i = 1; i < Math.max(1, current - delta); i++) pages.push(i);
+  }
+
+  pages.push(...range);
+
+  if (current + delta + 1 < total) {
+    pages.push("...");
+    pages.push(total);
+  } else {
+    for (let i = Math.max(current + delta + 1, (pages[pages.length - 1] as number) + 1); i <= total; i++)
+      pages.push(i);
+  }
+
+  return Array.from(new Set(pages));
+}
+
 export default function DisposalHistory() {
   const [data, setData] = useState<RawDisposal[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // pagination & search
+    const [perPage, setPerPage] = useState<number>(10);
+    const [page, setPage] = useState<number>(1);
+    const [goto, setGoto] = useState<string>("");
+    const [query, setQuery] = useState<string>("");
+
+    //data state
+    const [total, setTotal] = useState<number>(0);
+    const totalPages = Math.max(1, Math.ceil(total / perPage));
+    const pages = useMemo(() => generatePages(page, totalPages), [page, totalPages]);
 
   useEffect(() => {
     const fetchDisposals = async () => {
@@ -38,6 +76,24 @@ export default function DisposalHistory() {
 
     fetchDisposals();
   }, []);
+
+  
+    useEffect(() => {
+      setPage(1);
+    }, [perPage, query]);
+  
+    function goToPageNumber(n: number | string) {
+      if (typeof n === "number") setPage(Math.max(1, Math.min(totalPages, n)));
+    }
+  
+    function handleGotoSubmit(e: React.FormEvent) {
+      e.preventDefault();
+      const n = parseInt(goto, 10);
+      if (!isNaN(n)) {
+        setPage(Math.max(1, Math.min(totalPages, n)));
+        setGoto("");
+      }
+    }
 
   return (
     <div className="rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:p-7.5">
@@ -89,6 +145,8 @@ export default function DisposalHistory() {
           )}
         </TableBody>
       </Table>
+
+      
     </div>
   );
 }

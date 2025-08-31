@@ -7,17 +7,15 @@ import { useAuth } from "@/components/Auth/auth-context";
 type Props = {
   open: boolean;
   onClose: () => void;
-  onCreated?: () => void; // callback
+  onCreated?: () => void;
 };
 
 export default function CreateUserModal({ open, onClose, onCreated }: Props) {
   const { signOut } = useAuth();
-
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [employeeId, setEmployeeId] = useState("");
-  const [role, setRole] = useState("driver");
+  const [role, setRole] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,31 +25,24 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
     e.preventDefault();
     setError(null);
 
-    if (!username || !password || !fullName) {
-      setError("Username, password and full name are required.");
+    if (!username.trim()) {
+      setError("Username is required");
       return;
     }
 
     setSubmitting(true);
     try {
-      const payload = {
-        username,
-        password,
-        full_name: fullName,
-        employee_id: employeeId,
-        role,
-        photo: "",
-      };
-      await API.post("/users", payload);
-      if ((window as any).showToast) (window as any).showToast("User created");
+      await API.post("/users", {
+        username: username.trim(),
+        full_name: fullName.trim(),
+        employee_id: employeeId.trim(),
+        role: role.trim(),
+      });
       onCreated?.();
-
-      // reset & close
       setUsername("");
-      setPassword("");
       setFullName("");
       setEmployeeId("");
-      setRole("driver");
+      setRole("");
       onClose();
     } catch (err: any) {
       console.error("create user error:", err);
@@ -67,23 +58,21 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded bg-white p-6 shadow-lg">
-        <h3 className="text-2xl font-semibold mb-4">Add New User</h3>
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 p-4">
+      <div className="w-full md:w-[640px] max-h-[95vh] overflow-auto rounded-t-lg md:rounded-lg bg-white p-5 md:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-2xl font-semibold">Add New User</h3>
+          <button onClick={onClose} aria-label="Close" className="text-gray-600">✕</button>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm text-gray-600 mb-1">Username</label>
             <input value={username} onChange={(e) => setUsername(e.target.value)} className="w-full rounded border px-3 py-2" />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Password</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded border px-3 py-2" />
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">Fullname</label>
+            <label className="block text-sm text-gray-600 mb-1">Full Name</label>
             <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full rounded border px-3 py-2" />
           </div>
 
@@ -94,16 +83,12 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
 
           <div>
             <label className="block text-sm text-gray-600 mb-1">Role</label>
-            <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full rounded border px-3 py-2">
-              <option value="admin">admin</option>
-              <option value="supervisor">supervisor</option>
-              <option value="driver">driver</option>
-            </select>
+            <input value={role} onChange={(e) => setRole(e.target.value)} className="w-full rounded border px-3 py-2" />
           </div>
 
           {error && <div className="text-red-600">{error}</div>}
 
-          <div className="flex items-center gap-3 mt-4">
+          <div className="flex items-center gap-3 mt-2">
             <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-600 text-white rounded">
               {submitting ? "Creating..." : "Submit"}
             </button>

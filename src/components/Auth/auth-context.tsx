@@ -1,8 +1,7 @@
-// src/components/Auth/auth-context.tsx
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import API from "./api";
+import API from "@/lib/api";
 import { useRouter } from "next/navigation";
 
 type User = {
@@ -16,11 +15,9 @@ type User = {
 type AuthContextType = {
   user: User | null;
   loading: boolean;
-  // explicit return types
   signIn: (username: string, password: string) => Promise<User | null>;
   signUp: (payload: Record<string, any>) => Promise<User | null>;
   signOut: () => void;
-  // match useState setter shape exactly
   setUser: React.Dispatch<React.SetStateAction<User | null>>;
 };
 
@@ -32,13 +29,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const router = useRouter();
 
   useEffect(() => {
+    // hydrate from localStorage
     try {
-      const rawUser = localStorage.getItem("user");
-      const token = localStorage.getItem("token");
-      if (token) {
-        API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      if (typeof window !== "undefined") {
+        const rawUser = localStorage.getItem("user");
+        const token = localStorage.getItem("token");
+        if (token) {
+          API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        }
+        if (rawUser) setUser(JSON.parse(rawUser));
       }
-      if (rawUser) setUser(JSON.parse(rawUser));
     } catch (e) {
       console.warn("Auth hydration failed", e);
     } finally {
@@ -55,10 +55,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       delete API.defaults.headers.common["Authorization"];
     }
 
-    if (userObj) localStorage.setItem("user", JSON.stringify(userObj));
-    else localStorage.removeItem("user");
+    if (userObj) {
+      const clone = { ...userObj };
+      if ("token" in clone) delete clone.token;
+      localStorage.setItem("user", JSON.stringify(clone));
+    } else {
+      localStorage.removeItem("user");
+    }
 
-    setUser(userObj);
+    setUser(userObj ? (userObj as User) : null);
   };
 
   const extractTokenAndUser = (resData: any): { token: string | null; userObj: User | null } => {
@@ -68,9 +73,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ? dataArray[0].token
         : resData?.token ?? null;
 
-    const userObj =
-      (Array.isArray(dataArray) && dataArray[0]) || resData?.data || resData || null;
-
+    let userObj: any = null;
+    if (Array.isArray(dataArray) && dataArray[0]) {
+      userObj = { ...dataArray[0] };
+      if (userObj.token) delete userObj.token;
+    } else if (resData?.data && typeof resData.data === "object") {
+      userObj = { ...resData.data };
+      if (userObj.token) delete userObj.token;
+    }
     return { token, userObj };
   };
 
@@ -90,7 +100,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp: AuthContextType["signUp"] = async (payload) => {
     setLoading(true);
     try {
-      // adjust endpoint if your backend uses another path
       const res = await API.post("/register", payload);
       const { token, userObj } = extractTokenAndUser(res.data);
       if (!token) throw new Error("Token missing from signup response");

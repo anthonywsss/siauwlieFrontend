@@ -116,16 +116,18 @@ export default function UnfinDelivery() {
     }
 
   return (
-    <div className="rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:p-7.5">
+    <>
+    {/* Desktop Table */}
+    <div className="hidden md:block rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:p-7.5">
       <Table>
         <TableHeader>
           <TableRow className="border-none bg-[#F7F9FC] dark:bg-dark-2 [&>th]:py-4 [&>th]:text-base [&>th]:text-dark [&>th]:dark:text-white">
             <TableHead className="min-w-[155px] xl:pl-7.5">Asset ID</TableHead>
             <TableHead>Client ID</TableHead>
-            <TableHead>Photo</TableHead>
+            <TableHead>Foto QR</TableHead>
             <TableHead>Timestamp</TableHead>
             <TableHead>User ID</TableHead>
-            <TableHead>Action</TableHead>
+            <TableHead>Aksi</TableHead>
           </TableRow>
         </TableHeader>
 
@@ -262,5 +264,57 @@ export default function UnfinDelivery() {
       </div>
 
     </div>
+
+    {/* Mobile List Cards */}
+    <div className="md:hidden">
+      {loading
+        ? Array.from({ length: perPage }).map((_, i) => (
+        <div key={`skeleton-card-${i}`} className="animate-pulse border rounded-lg p-3 mb-3 bg-gray-50" />
+        )): data.map((item, index) => (
+          <div key={index} className="border rounded-lg p-4 mb-3 bg-white dark:bg-gray-dark dark:border-dark-3 shadow-sm">
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <div className="text-sm text-gray-500 dark:text-gray-300">Asset ID</div>
+                <div className="text-base font-medium text-dark dark:text-white">{item.asset_id}</div>
+
+                <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Client ID</div>
+                <div className="text-base text-dark dark:text-white">{item.client_id}</div>
+
+                <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Timestamp</div>
+                <div className="text-base text-dark dark:text-white">
+                  {item.timestamp ? dayjs(item.timestamp).format("MMM DD, YYYY") : "-"}
+                </div>
+
+                <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">User ID</div>
+                <div className="text-base text-dark dark:text-white">{item.user_id}</div>
+
+                <div className="items-start gap-2 mt-3">
+                  {/* Preview button */}
+                  <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Foto QR</div>
+                    <button
+                      onClick={() => handleClick}
+                      className="text-primary hover:underline inline-flex items-center gap-2 mr-5"
+                    >
+                      <PreviewIcon />
+                      <span>Pratinjau</span>
+                    </button>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              {/* Action button */}
+                <a href="#">
+                  <button className="bg-primary text-white px-3 py-1 rounded-md mt-2 text-sm">
+                    Cek Riwayat
+                  </button>
+                </a>  
+            </div>
+          </div>
+          
+      ))}
+    </div>
+
+    
+    </>
   );
 }

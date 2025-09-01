@@ -1,4 +1,4 @@
-import {UnfinDelivery} from "@/components/Tables/unfin.client";
+import UnfinDelivery from "@/components/Tables/unfin.client";
 
 import { Metadata } from "next";
 
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <div className="space-y-6">
-
+      
       <UnfinDelivery />
     </div>
   );

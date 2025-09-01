@@ -1,4 +1,4 @@
-import {UnfinDelivery} from "@/components/Tables/unfin.client";
+import UnfinDelivery from "@/components/Tables/unfin.client";
 
 import { Metadata } from "next";
 

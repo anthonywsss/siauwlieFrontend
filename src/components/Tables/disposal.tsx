@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import API from "@/lib/api";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -146,7 +147,72 @@ export default function DisposalHistory() {
         </TableBody>
       </Table>
 
-      
+      {/* Pagination */}
+      <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-4 flex-wrap">
+          <span className="text-sm text-gray-500">Row per page</span>
+          <select
+            value={perPage}
+            onChange={(e) => {
+              setPerPage(Number(e.target.value));
+              setPage(1);
+            }}
+            className="rounded border px-3 py-1.5"
+          >
+            {[5, 10, 20, 50, 100].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+
+          <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Go to</span>
+            <input
+              type="number"
+              min={1}
+              max={totalPages}
+              value={goto}
+              onChange={(e) => setGoto(e.target.value)}
+              className="w-16 rounded border px-2 py-1"
+            />
+            <button type="submit" className="rounded border px-3 py-1">
+              Go
+            </button>
+          </form>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded border px-3 py-1 disabled:opacity-50">
+            &lt;
+          </button>
+
+          {pages.map((p, i) =>
+            p === "..." ? (
+              <span key={`dot-${i}`} className="px-2">
+                …
+              </span>
+            ) : (
+              <button
+                key={p}
+                onClick={() => goToPageNumber(p)}
+                className={cn("rounded border px-3 py-1 min-w-[36px] md:min-w-[40px]", { "ring-2 ring-blue-400 bg-white": p === page })}
+                aria-current={p === page ? "page" : undefined}
+              >
+                {p}
+              </button>
+            )
+          )}
+
+          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="rounded border px-3 py-1 disabled:opacity-50">
+            &gt;
+          </button>
+
+          <div className="ml-3 text-sm text-gray-500">
+            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} of {total}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

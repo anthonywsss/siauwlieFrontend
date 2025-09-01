@@ -1,5 +1,5 @@
 import Breadcrumb from "@/components/Breadcrumbs/Breadcrumb";
-import { OverviewCardsGroup } from "./_components/overview-cards";
+import OverviewCardsGroup from "./_components/overview-cards";
 
 import { Metadata } from "next";
 

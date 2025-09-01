@@ -130,11 +130,11 @@ export function Sidebar() {
         ? SUBMIT_PATH
         : AUTH_PATH;
 
+
     // stable key for session storage <role>:<target>
     const redirectKey = `${user.role}:${roleTarget}`;
 
     if (isAuthPath || isRoot) {
-      // if target == !redirect
       if (cleanPath !== normalize(roleTarget)) {
         try {
           const already = sessionStorage.getItem("roleRedirectedTo");
@@ -144,7 +144,6 @@ export function Sidebar() {
             return;
           }
         } catch (e) {
-          // fallback
           if (cleanPath !== normalize(roleTarget)) {
             router.replace(roleTarget);
             return;
@@ -153,16 +152,19 @@ export function Sidebar() {
       }
     }
 
-    // 3) check if current path is allowed
-    const matches = allowedUrls.some((u) => {
+    let matches = allowedUrls.some((u) => {
       if (!u) return false;
       if (cleanPath === u) return true;
       if (u !== "/" && cleanPath.startsWith(u + "/")) return true;
       return false;
     });
 
+    if (user?.role === "supervisor" && cleanPath === normalize(DASHBOARD_PATH)) {
+      matches = true;
+    }
+
+
     if (!matches) {
-      // If unauthorizedc clear  previous redirect flag
       try {
         sessionStorage.removeItem("roleRedirectedTo");
       } catch (e) {}

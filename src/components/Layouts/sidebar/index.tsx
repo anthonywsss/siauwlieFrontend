@@ -3,37 +3,191 @@
 import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NAV_DATA } from "./data";
 import { ArrowLeftIcon, ChevronUp } from "./icons";
 import { MenuItem } from "./menu-item";
 import { useSidebarContext } from "./sidebar-context";
+import { useAuth } from "@/components/Auth/auth-context";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { setIsOpen, isOpen, isMobile, toggleSidebar } = useSidebarContext();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const { user } = useAuth();
+  const role = user?.role ?? "guest";
+
+  const prevUserRef = useRef<typeof user | null>(null);
+  useEffect(() => {
+    prevUserRef.current = user ?? null;
+  }, [user]);
 
   const toggleExpanded = (title: string) => {
     setExpandedItems((prev) => (prev.includes(title) ? [] : [title]));
   };
 
-  useEffect(() => {
-    NAV_DATA.some((section) => {
-      return section.items.some((item) => {
-        return item.items.some((subItem) => {
-          if (subItem.url === pathname) {
-            if (!expandedItems.includes(item.title)) {
-              toggleExpanded(item.title);
-            }
+  const AUTH_PATH = "/auth/sign-in";
+  const SUBMIT_PATH = "/submit-movement";
+  const DASHBOARD_PATH = "/dashboard";
 
-            return true;
+  const normalize = (p?: string) => {
+    if (!p) return "";
+    const base = p.split("?")[0].split("#")[0];
+    return base.startsWith("/") ? base : "/" + base;
+  };
+
+  const driverAllowedTokens = ["submit", "movement", "unfinished", "delivery", "auth", "sign-in"];
+  const driverAllowedTitles = new Set(["submit movement", "unfinished delivery", "auth", "sign-in"]);
+
+  const allowedForRole = (r: string, title?: string, url?: string) => {
+    const t = (title ?? "").toLowerCase();
+    const u = (url ?? "").toLowerCase();
+
+    if (r === "supervisor") return true; // supervisor sees everything
+    if (r === "driver" || r === "security") {
+      if (driverAllowedTitles.has(t)) return true;
+      for (const token of driverAllowedTokens) {
+        if (u.includes(token) || t.includes(token)) return true;
+      }
+      return false;
+    }
+
+    return u === AUTH_PATH || t.includes("auth") || t.includes("sign-in");
+  };
+
+  const filteredNav = useMemo(() => {
+    return NAV_DATA.map((section) => {
+      const filteredItems = section.items
+        .map((item) => {
+          if (item.items && item.items.length) {
+            const subFiltered = item.items.filter((sub) => allowedForRole(role, sub.title, sub.url ?? ""));
+            if (!subFiltered.length) return null;
+            return { ...item, items: subFiltered };
           }
-        });
+
+          const href = "url" in item ? (item.url + "") : ("/" + item.title.toLowerCase().split(" ").join("-"));
+          if (!allowedForRole(role, item.title, href)) return null;
+          return item;
+        })
+        .filter(Boolean) as typeof section.items;
+
+      return { ...section, items: filteredItems };
+    }).filter((s) => s.items && s.items.length);
+  }, [role]);
+
+  const allowedUrls = useMemo(() => {
+    const s = new Set<string>();
+    filteredNav.forEach((section) => {
+      section.items.forEach((item) => {
+        if (item.items && item.items.length) {
+          item.items.forEach((sub) => {
+            if (sub.url) s.add(normalize(sub.url));
+          });
+        } else {
+          const href = "url" in item ? (item.url + "") : ("/" + item.title.toLowerCase().split(" ").join("-"));
+          s.add(normalize(href));
+        }
       });
     });
-  }, [pathname]);
+
+    s.add(normalize(AUTH_PATH));
+    s.add(normalize("/auth"));
+    s.add(normalize(SUBMIT_PATH));
+    s.add(normalize(DASHBOARD_PATH));
+
+    return Array.from(s);
+  }, [filteredNav]);
+
+  /*
+   * Redirect logic:
+   *  - Guests -> /auth/sign-in (klo blom auth)
+   *  - After login OR when on root/auth -> send to role specific target
+   *  - If current pathname is not allowed for this role -> /auth/sign-in
+  */
+
+  useEffect(() => {
+    if (!pathname) return;
+
+    const cleanPath = normalize(pathname);
+    const isAuthPath = cleanPath === normalize(AUTH_PATH) || cleanPath.startsWith("/auth");
+    const isRoot = cleanPath === "/" || cleanPath === "";
+
+    // 1) Guest -> auth
+    if (!user) {
+      if (!isAuthPath) {
+        router.replace(AUTH_PATH);
+      }
+      return;
+    }
+
+    // 2)s role target
+    const roleTarget =
+      user.role === "supervisor"
+        ? DASHBOARD_PATH
+        : user.role === "driver" || user.role === "security"
+        ? SUBMIT_PATH
+        : AUTH_PATH;
+
+
+    // stable key for session storage <role>:<target>
+    const redirectKey = `${user.role}:${roleTarget}`;
+
+    if (isAuthPath || isRoot) {
+      if (cleanPath !== normalize(roleTarget)) {
+        try {
+          const already = sessionStorage.getItem("roleRedirectedTo");
+          if (already !== redirectKey) {
+            sessionStorage.setItem("roleRedirectedTo", redirectKey);
+            router.replace(roleTarget);
+            return;
+          }
+        } catch (e) {
+          if (cleanPath !== normalize(roleTarget)) {
+            router.replace(roleTarget);
+            return;
+          }
+        }
+      }
+    }
+
+    let matches = allowedUrls.some((u) => {
+      if (!u) return false;
+      if (cleanPath === u) return true;
+      if (u !== "/" && cleanPath.startsWith(u + "/")) return true;
+      return false;
+    });
+
+    if (user?.role === "supervisor" && cleanPath === normalize(DASHBOARD_PATH)) {
+      matches = true;
+    }
+
+
+    if (!matches) {
+      try {
+        sessionStorage.removeItem("roleRedirectedTo");
+      } catch (e) {}
+      if (cleanPath !== normalize(AUTH_PATH)) {
+        router.replace(AUTH_PATH);
+      }
+      return;
+    }
+  }, [user, pathname, allowedUrls]);
+
+  useEffect(() => {
+    filteredNav.some((section) =>
+      section.items.some((item) =>
+        item.items?.some((subItem) => {
+          if (subItem.url === pathname) {
+            if (!expandedItems.includes(item.title)) toggleExpanded(item.title);
+            return true;
+          }
+          return false;
+        })
+      )
+    );
+  }, [pathname, filteredNav]);
 
   return (
     <>
@@ -80,7 +234,7 @@ export function Sidebar() {
 
           {/* Navigation */}
           <div className="custom-scrollbar mt-6 flex-1 overflow-y-auto pr-3 min-[850px]:mt-10">
-            {NAV_DATA.map((section) => (
+            {filteredNav.map((section) => (
               <div key={section.label} className="mb-6">
                 <h2 className="mb-5 text-sm font-medium text-dark-4 dark:text-dark-6">
                   {section.label}
@@ -90,12 +244,10 @@ export function Sidebar() {
                   <ul className="space-y-2">
                     {section.items.map((item) => (
                       <li key={item.title}>
-                        {item.items.length ? (
+                        {item.items && item.items.length ? (
                           <div>
                             <MenuItem
-                              isActive={item.items.some(
-                                ({ url }) => url === pathname,
-                              )}
+                              isActive={item.items.some(({ url }) => url === pathname)}
                               onClick={() => toggleExpanded(item.title)}
                             >
                               <item.icon
@@ -108,8 +260,7 @@ export function Sidebar() {
                               <ChevronUp
                                 className={cn(
                                   "ml-auto rotate-180 transition-transform duration-200 h-5 w-5",
-                                  expandedItems.includes(item.title) &&
-                                    "rotate-0",
+                                  expandedItems.includes(item.title) && "rotate-0",
                                 )}
                                 aria-hidden="true"
                               />

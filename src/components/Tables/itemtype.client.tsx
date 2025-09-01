@@ -162,7 +162,7 @@ export default function AssetTypeList() {
   // Delete asset type
   async function handleDelete(rawId?: number | string) {
     if (!rawId) return;
-    if (!confirm("Delete this asset type? This cannot be undone.")) return;
+    if (!confirm("Hapus asset ini? Aksi ini tidak bisa diulang")) return;
 
     setActionLoading(String(rawId));
     try {
@@ -177,7 +177,7 @@ export default function AssetTypeList() {
         } catch {}
         return;
       }
-      alert(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to delete asset type");
+      alert(err?.response?.data?.meta?.message ?? err?.message ?? "Gagal menghapus asset");
     } finally {
       setActionLoading(null);
     }
@@ -205,7 +205,7 @@ export default function AssetTypeList() {
       <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         <div className="flex items-center gap-3 w-full md:w-auto">
           <input
-            placeholder="Search id / name / description"
+            placeholder="Cari ID/ Nama/ Deksripsi"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="h-10 rounded border px-3 py-2 w-full md:w-96"
@@ -213,7 +213,7 @@ export default function AssetTypeList() {
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} asset types`}</div>
+          <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} Tipe Asset`}</div>
 
           <button
             className="inline-flex items-center h-10 px-4 py-2 text-sm font-bold leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple w-full md:w-auto justify-center"
@@ -222,7 +222,7 @@ export default function AssetTypeList() {
             disabled={actionLoading !== null}
           >
             <AddIcon />
-            <span className="ml-2">Add New Asset Type</span>
+            <span className="ml-2">Tambahkan Tipe Asset</span>
           </button>
         </div>
       </div>
@@ -233,10 +233,10 @@ export default function AssetTypeList() {
           <TableHeader>
             <TableRow className="border-none bg-[#F7F9FC] [&>th]:py-4 [&>th]:text-base">
               <TableHead className="min-w-[140px]">ID</TableHead>
-              <TableHead className="min-w-[220px]">Name</TableHead>
-              <TableHead className="min-w-[320px]">Description</TableHead>
-              <TableHead className="min-w-[200px]">Created At</TableHead>
-              <TableHead className="text-right">Action</TableHead>
+              <TableHead className="min-w-[220px]">Nama</TableHead>
+              <TableHead className="min-w-[320px]">Deskripsi</TableHead>
+              <TableHead className="min-w-[200px]">Tanggal Ditambahkan</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -254,7 +254,7 @@ export default function AssetTypeList() {
             ) : items.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="px-4 py-6 text-center text-slate-500">
-                  No asset types found.
+                  Asset tidak ditemukan
                 </TableCell>
               </TableRow>
             ) : (
@@ -318,14 +318,14 @@ export default function AssetTypeList() {
               <div key={item.id} className="border rounded-lg p-3 mb-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-sm text-gray-500">Name</div>
+                    <div className="text-sm text-gray-500">Nama</div>
                     <div className="text-lg font-medium">{item.name}</div>
-                    <div className="text-sm text-gray-500 mt-1">Description</div>
+                    <div className="text-sm text-gray-500 mt-1">Deskripsi</div>
                     <div className="font-medium truncate">{item.description}</div>
                   </div>
 
                   <div className="text-right">
-                    <div className="text-sm text-gray-500">Created</div>
+                    <div className="text-sm text-gray-500">Tanggal Ditambahkan</div>
                     <div className="mt-1 font-medium">{item.createdAt}</div>
                   </div>
                 </div>
@@ -339,7 +339,7 @@ export default function AssetTypeList() {
                     aria-label="Delete"
                     onClick={() => handleDelete(item.raw?.id ?? item.id)}
                   >
-                    Delete
+                    Hapus
                   </button>
                 </div>
               </div>
@@ -349,7 +349,7 @@ export default function AssetTypeList() {
       {/* Pagination */}
       <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4 flex-wrap">
-          <span className="text-sm text-gray-500">Row per page</span>
+          <span className="text-sm text-gray-500">Baris per halaman</span>
           <select
             value={perPage}
             onChange={(e) => setPerPage(Number(e.target.value))}
@@ -363,7 +363,7 @@ export default function AssetTypeList() {
           </select>
 
           <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Go to</span>
+            <span className="text-sm text-gray-500">Pindah ke halaman</span>
             <input
               type="number"
               min={1}
@@ -373,7 +373,7 @@ export default function AssetTypeList() {
               className="w-16 rounded border px-2 py-1"
             />
             <button type="submit" className="rounded border px-3 py-1">
-              Go
+              Kirim
             </button>
           </form>
         </div>
@@ -405,7 +405,7 @@ export default function AssetTypeList() {
           </button>
 
           <div className="ml-3 text-sm text-gray-500">
-            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} of {total}
+            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} dari {total}
           </div>
         </div>
       </div>

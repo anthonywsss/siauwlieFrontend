@@ -101,10 +101,10 @@ export default function DisposalHistory() {
       <Table>
         <TableHeader>
           <TableRow className="border-none bg-[#F7F9FC] dark:bg-dark-2 [&>th]:py-4 [&>th]:text-base [&>th]:text-dark [&>th]:dark:text-white">
-            <TableHead className="min-w-[155px] xl:pl-7.5">Container ID</TableHead>
-            <TableHead>Reason</TableHead>
+            <TableHead className="min-w-[155px] xl:pl-7.5">ID Kontainer</TableHead>
+            <TableHead>Alasan</TableHead>
             <TableHead>Timestamp</TableHead>
-            <TableHead>Disposed by</TableHead>
+            <TableHead>Diselesaikan oleh</TableHead>
           </TableRow>
         </TableHeader>
 
@@ -150,7 +150,7 @@ export default function DisposalHistory() {
       {/* Pagination */}
       <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4 flex-wrap">
-          <span className="text-sm text-gray-500">Row per page</span>
+          <span className="text-sm text-gray-500">Baris per halaman</span>
           <select
             value={perPage}
             onChange={(e) => {
@@ -167,7 +167,7 @@ export default function DisposalHistory() {
           </select>
 
           <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Go to</span>
+            <span className="text-sm text-gray-500">Pindah ke halaman</span>
             <input
               type="number"
               min={1}
@@ -177,7 +177,7 @@ export default function DisposalHistory() {
               className="w-16 rounded border px-2 py-1"
             />
             <button type="submit" className="rounded border px-3 py-1">
-              Go
+              kirim
             </button>
           </form>
         </div>
@@ -209,7 +209,7 @@ export default function DisposalHistory() {
           </button>
 
           <div className="ml-3 text-sm text-gray-500">
-            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} of {total}
+            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} dari {total}
           </div>
         </div>
       </div>

@@ -23,7 +23,7 @@ export default function MultiStepFormPage() {
       <div className="space-y-6 rounded-2xl px-5 py-4 sm:px-6 sm:py-5">
         <Select
           items={[
-            { label: "Dropdown Status", value: "" },
+            { label: "Pilih Status", value: "" },
             { label: "Di Pabrik", value: "inbound_at_factory" },
             { label: "Perjalanan ke Pabrik", value: "outbound_to_factory" },
             { label: "Di Klien", value: "inbound_at_client" },
@@ -38,7 +38,7 @@ export default function MultiStepFormPage() {
 
         <Select
           items={[
-            { label: "Dropdown Klien", value: "" },
+            { label: "Pilih Klien", value: "" },
             { label: "Klien01", value: "klien01" },
           ]}
           label="Klien"
@@ -50,7 +50,7 @@ export default function MultiStepFormPage() {
 
         <Select
           items={[
-            { label: "Dropdown Tipe Asset", value: "" },
+            { label: "Pilih Tipe Asset", value: "" },
             { label: "Kontainer", value: "kontainer" },
           ]}
           label="Tipe Asset"
@@ -64,7 +64,7 @@ export default function MultiStepFormPage() {
 
     <Step key={1}>
       {/* Step 2: Photo input */}
-      <label className="block mb-2 font-medium">Take a photo</label>
+      <label className="block mb-2 font-medium">Ambil foto QR yang tertempel pada asset</label>
       <input
         type="file"
         accept="image/*"
@@ -77,8 +77,7 @@ export default function MultiStepFormPage() {
     <Step key={2}>
       {/* Step 3: Confirmation */}
       <div className="space-y-4 text-left">
-        <h2 className="text-xl font-semibold">Confirm Your Details</h2>
-        <p className="text-gray-600">Please review your information before submitting.</p>
+        <h2 className="text-xl font-semibold">Konfirmasi</h2>
         <ConfirmationStep />
       </div>
     </Step>,
@@ -118,7 +117,7 @@ export default function MultiStepFormPage() {
             onClick={prevStep}
             className="px-4 py-2 rounded-lg border bg-gray-100"
           >
-            Back
+            Kembali
           </button>
         )}
         {currentStep < steps.length - 1 ? (
@@ -126,14 +125,14 @@ export default function MultiStepFormPage() {
             onClick={nextStep}
             className="px-4 py-2 rounded-lg bg-blue-600 text-white "
           >
-            Next
+            Berikutnya
           </button>
         ) : (
           <button
             onClick={handleSubmit}
             className="px-4 py-2 rounded-lg bg-green-600 text-white"
           >
-            Submit
+            Kirim
           </button>
         )}
       </div>

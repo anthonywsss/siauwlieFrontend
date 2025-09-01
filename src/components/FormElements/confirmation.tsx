@@ -5,12 +5,12 @@ import { useState } from "react";
 export default function ConfirmationStep() {
   const [input, setInput] = useState("");
 
-  const isValid = input === "Confirm my request";
+  const isValid = input === "Konfirmasi Laporan";
 
   return (
     <div className="space-y-4 text-left">
       <p>
-        Type exactly: <b>Confirm my request</b>
+        Ketik: <b>Konfirmasi Laporan</b>
       </p>
       <input
         type="text"
@@ -20,9 +20,9 @@ export default function ConfirmationStep() {
       />
 
       {isValid ? (
-        <p className="text-green-600 font-medium">✅ Confirmation ready</p>
+        <p className="text-green-600 font-medium">✅ Laporan Terkonfirmasi</p>
       ) : (
-        <p className="text-red-500 text-sm">❌ Input doesn’t match</p>
+        <p className="text-red-500 text-sm">❌ Masukan Konfirmasi yang sesuai </p>
       )}
     </div>
   );

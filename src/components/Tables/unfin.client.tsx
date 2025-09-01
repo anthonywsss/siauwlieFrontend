@@ -200,7 +200,7 @@ export default function UnfinDelivery() {
       {/* Pagination */}
       <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4 flex-wrap">
-          <span className="text-sm text-gray-500">Row per page</span>
+          <span className="text-sm text-gray-500">Baris per halaman</span>
           <select
             value={perPage}
             onChange={(e) => {
@@ -217,7 +217,7 @@ export default function UnfinDelivery() {
           </select>
 
           <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Go to</span>
+            <span className="text-sm text-gray-500">Pindah ke halaman</span>
             <input
               type="number"
               min={1}
@@ -227,7 +227,7 @@ export default function UnfinDelivery() {
               className="w-16 rounded border px-2 py-1"
             />
             <button type="submit" className="rounded border px-3 py-1">
-              Go
+              kirim
             </button>
           </form>
         </div>
@@ -259,7 +259,7 @@ export default function UnfinDelivery() {
           </button>
 
           <div className="ml-3 text-sm text-gray-500">
-            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} of {total}
+            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} dari {total}
           </div>
         </div>
       </div>

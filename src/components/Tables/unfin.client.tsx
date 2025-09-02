@@ -1,3 +1,4 @@
+// components/unfin.client.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -6,6 +7,8 @@ import API from "@/lib/api";
 import { PreviewIcon, CloseIcon } from "./icons";
 import { cn } from "@/lib/utils";
 import { Dialog } from "@headlessui/react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -18,9 +21,11 @@ import {
 export type RawUnfin = {
   asset_id?: string;
   client_id?: number;
-  photo?: string;
-  timestamp?: string;
+  photo?: string | null;
+  timestamp?: string | null;
   user_id?: number;
+  quantity?: number | null;
+  notes?: string | null;
 };
 
 function generatePages(current: number, total: number) {
@@ -51,271 +56,335 @@ function generatePages(current: number, total: number) {
 }
 
 export default function UnfinDelivery() {
+  const router = useRouter();
   const [data, setData] = useState<RawUnfin[]>([]);
   const [loading, setLoading] = useState(true);
 
   // pagination & search
-    const [perPage, setPerPage] = useState<number>(10);
-    const [page, setPage] = useState<number>(1);
-    const [goto, setGoto] = useState<string>("");
-    const [query, setQuery] = useState<string>("");
+  const [perPage, setPerPage] = useState<number>(10);
+  const [page, setPage] = useState<number>(1);
+  const [goto, setGoto] = useState<string>("");
+  const [query, setQuery] = useState<string>("");
 
-    //data state
-    const [total, setTotal] = useState<number>(0);
-    const totalPages = Math.max(1, Math.ceil(total / perPage));
-    const pages = useMemo(() => generatePages(page, totalPages), [page, totalPages]);
-    const [image, setImage] = useState<string | null>(null);
-    const [isOpen, setIsOpen] = useState(false);
+  // data state
+  const [total, setTotal] = useState<number>(0);
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const pages = useMemo(() => generatePages(page, totalPages), [page, totalPages]);
 
-    const handleClick = async () => {
-      try {
-      const res = await API.get("/movements/unfinished");
-      const item = res.data?.data?.[0]; 
-
-        if (item) {
-          setImage(item.photo); 
-          setIsOpen(true);
-        }
-      }catch (err) {
-        console.error("Failed to fetch image:", err);
-      } 
-    };
-
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    const fetchDisposals = async () => {
+    let mounted = true;
+    const fetchUnfinished = async () => {
+      setLoading(true);
       try {
-        const res = await API.get("/movements/unfinished"); 
-        setData(res.data?.data ?? []);
+        const res = await API.get("/movements/unfinished");
+        const items: RawUnfin[] = res.data?.data ?? [];
+        if (!mounted) return;
+        setData(items);
+        const metaTotal = res.data?.meta?.total;
+        setTotal(typeof metaTotal === "number" ? metaTotal : items.length);
       } catch (err) {
-        console.error("Error fetching disposals:", err);
+        console.error("Error fetching unfinished deliveries:", err);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
-    fetchDisposals();
-  }, []);
+    fetchUnfinished();
+    return () => {
+      mounted = false;
+    };
+  }, [perPage, page, query]);
 
-  
-    useEffect(() => {
-      setPage(1);
-    }, [perPage, query]);
-  
-    function goToPageNumber(n: number | string) {
-      if (typeof n === "number") setPage(Math.max(1, Math.min(totalPages, n)));
+  const openPreview = (photo?: string | null) => {
+    if (!photo) {
+      setPreviewSrc(null);
+      setIsOpen(true);
+      return;
     }
-  
-    function handleGotoSubmit(e: React.FormEvent) {
-      e.preventDefault();
-      const n = parseInt(goto, 10);
-      if (!isNaN(n)) {
-        setPage(Math.max(1, Math.min(totalPages, n)));
-        setGoto("");
-      }
+    setPreviewSrc(photo);
+    setIsOpen(true);
+  };
+
+  const goToDetail = (assetId?: string) => {
+    if (!assetId) return;
+    router.push(`/unfinished/${encodeURIComponent(String(assetId))}`);
+  };
+
+  function goToPageNumber(n: number | string) {
+    if (typeof n === "number") setPage(Math.max(1, Math.min(totalPages, n)));
+  }
+
+  function handleGotoSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const n = parseInt(goto, 10);
+    if (!isNaN(n)) {
+      setPage(Math.max(1, Math.min(totalPages, n)));
+      setGoto("");
     }
+  }
+
+  const visible = data.slice((page - 1) * perPage, page * perPage);
 
   return (
     <>
-    {/* Desktop Table */}
-    <div className="hidden md:block rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:p-7.5">
-      <h1 className="text-[26px] font-bold leading-[30px] text-dark mb-5"> Pengiriman Belum Tuntas </h1> 
-      <Table>
-        <TableHeader>
-          <TableRow className="border-none bg-[#F7F9FC] dark:bg-dark-2 [&>th]:py-4 [&>th]:text-base [&>th]:text-dark [&>th]:dark:text-white">
-            <TableHead className="min-w-[155px] xl:pl-7.5">Asset ID</TableHead>
-            <TableHead>Client ID</TableHead>
-            <TableHead>Foto QR</TableHead>
-            <TableHead>Timestamp</TableHead>
-            <TableHead>User ID</TableHead>
-            <TableHead>Aksi</TableHead>
-          </TableRow>
-        </TableHeader>
-
-        <TableBody>
-          {data.map((item, index) => (
-            <TableRow key={index} className="border-[#eee] dark:border-dark-3">
-              <TableCell className="min-w-[20px] xl:pl-3">
-                <h5 className="text-dark dark:text-white">{item.asset_id}</h5>
-              </TableCell>
-        
-              <TableCell>
-                <h5 className="text-dark dark:text-white">{item.client_id}</h5>
-              </TableCell>
-        
-              <TableCell>
-                <button
-                  onClick={handleClick}
-                  rel="noreferrer"
-                  className="text-primary hover:underline inline-flex items-center gap-2"
-                >
-                  <PreviewIcon />
-                  <span>Pratinjau</span>
-                </button>
-                {/* Modal */}
-                <Dialog open={isOpen} onClose={() => setIsOpen(false)} className="relative z-50">
-                  <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-                  <div className="fixed inset-0 flex items-center justify-center p-4">
-                    <Dialog.Panel className="bg-white p-4 rounded-lg shadow-lg relative">
-                      <Dialog.Title className="text-lg font-semibold mb-2">Pratinjau Gambar</Dialog.Title>
-                      {image ? (
-                      <img src={image} alt="Preview" className="max-w-[500px] rounded-md border" />
-                      ) : (
-                      <p className="text-sm text-gray-500">Tidak ada gambar</p>
-                      )}
-                      <a
-                        onClick={() => setIsOpen(false)}
-                        className="absolute top-2 right-2"
-                      >
-                        <CloseIcon />
-                      </a>
-                    </Dialog.Panel>
-                  </div>
-                </Dialog>
-              </TableCell>
-
-        
-              <TableCell>
-                <p className="text-dark dark:text-white">
-                  {item.timestamp ? dayjs(item.timestamp).format("MMM DD, YYYY") : "-"}
-                </p>
-              </TableCell>
-
-              <TableCell>
-                <h5 className="text-dark dark:text-white">{item.user_id}</h5>
-              </TableCell>
-        
-              <TableCell>
-                <a href="">
-                  <button className="flex items-center justify-center w-fit px-4 py-2 text-md font-bold leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg active:bg-purple-600 hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple mb-6 mt-6">
-                    Cek Riwayat
-                  </button>
-                </a>
-              </TableCell>
+      {/* Desktop Table*/}
+      <div className="hidden md:block rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:p-7.5">
+        <h1 className="text-[26px] font-bold leading-[30px] text-dark mb-5"> Pengiriman Belum Tuntas </h1>
+        <Table>
+          <TableHeader>
+            <TableRow className="border-none bg-[#F7F9FC] dark:bg-dark-2 [&>th]:py-4 [&>th]:text-base [&>th]:text-dark [&>th]:dark:text-white">
+              <TableHead className="min-w-[155px] xl:pl-7.5">Asset ID</TableHead>
+              <TableHead>Client ID</TableHead>
+              <TableHead>Foto</TableHead>
+              <TableHead>Timestamp</TableHead>
+              <TableHead>User ID</TableHead>
+              <TableHead>Aksi</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
 
-      {/* Pagination */}
-      <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-4 flex-wrap">
-          <span className="text-sm text-gray-500">Baris per halaman</span>
-          <select
-            value={perPage}
-            onChange={(e) => {
-              setPerPage(Number(e.target.value));
-              setPage(1);
-            }}
-            className="rounded border px-3 py-1.5"
-          >
-            {[5, 10, 20, 50, 100].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
+          <TableBody>
+            {visible.map((item, index) => (
+              <TableRow key={index} className="border-[#eee] dark:border-dark-3">
+                <TableCell className="min-w-[20px] xl:pl-3">
+                  <h5 className="text-dark dark:text-white">{item.asset_id}</h5>
+                </TableCell>
+
+                <TableCell>
+                  <h5 className="text-dark dark:text-white">{item.client_id}</h5>
+                </TableCell>
+
+                <TableCell>
+                  <div className="w-28 flex-shrink-0">
+                    {item.photo ? (
+                      <img
+                        src={item.photo}
+                        alt={`photo-${item.asset_id}`}
+                        className="w-24 h-24 object-cover rounded border cursor-pointer"
+                        onClick={() => openPreview(item.photo)}
+                      />
+                    ) : (
+                      <div className="w-24 h-24 bg-gray-50 border rounded flex items-center justify-center text-xs text-gray-400">
+                        No Photo
+                      </div>
+                    )}
+                  </div>
+                </TableCell>
+
+                <TableCell>
+                  <p className="text-dark dark:text-white">
+                    {item.timestamp ? dayjs(item.timestamp).format("MMM DD, YYYY") : "-"}
+                  </p>
+                </TableCell>
+
+                <TableCell>
+                  <h5 className="text-dark dark:text-white">{item.user_id}</h5>
+                </TableCell>
+
+                <TableCell>
+                  {/* Link to detail page */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => goToDetail(item.asset_id)}
+                      className="flex items-center justify-center w-fit px-4 py-2 text-md font-bold leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg active:bg-purple-600 hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple"
+                    >
+                      Cek Riwayat
+                    </button>
+                    {/* small preview icon duplicate for quick access */}
+                    <button
+                      onClick={() => openPreview(item.photo)}
+                      className="px-3 py-1 rounded border text-sm"
+                      aria-label={`Preview photo for ${item.asset_id}`}
+                    >
+                      Preview
+                    </button>
+                  </div>
+                </TableCell>
+              </TableRow>
             ))}
-          </select>
+          </TableBody>
+        </Table>
 
-          <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Pindah ke halaman</span>
-            <input
-              type="number"
-              min={1}
-              max={totalPages}
-              value={goto}
-              onChange={(e) => setGoto(e.target.value)}
-              className="w-16 rounded border px-2 py-1"
-            />
-            <button type="submit" className="rounded border px-3 py-1">
-              kirim
-            </button>
-          </form>
-        </div>
+        {/* Pagination (exactly same behavior as before) */}
+        <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4 flex-wrap">
+            <span className="text-sm text-gray-500">Baris per halaman</span>
+            <select
+              value={perPage}
+              onChange={(e) => {
+                setPerPage(Number(e.target.value));
+                setPage(1);
+              }}
+              className="rounded border px-3 py-1.5"
+            >
+              {[5, 10, 20, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded border px-3 py-1 disabled:opacity-50">
-            &lt;
-          </button>
-
-          {pages.map((p, i) =>
-            p === "..." ? (
-              <span key={`dot-${i}`} className="px-2">
-                …
-              </span>
-            ) : (
-              <button
-                key={p}
-                onClick={() => goToPageNumber(p)}
-                className={cn("rounded border px-3 py-1 min-w-[36px] md:min-w-[40px]", { "ring-2 ring-blue-400 bg-white": p === page })}
-                aria-current={p === page ? "page" : undefined}
-              >
-                {p}
+            <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">Pindah ke halaman</span>
+              <input
+                type="number"
+                min={1}
+                max={totalPages}
+                value={goto}
+                onChange={(e) => setGoto(e.target.value)}
+                className="w-16 rounded border px-2 py-1"
+              />
+              <button type="submit" className="rounded border px-3 py-1">
+                kirim
               </button>
-            )
-          )}
+            </form>
+          </div>
 
-          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="rounded border px-3 py-1 disabled:opacity-50">
-            &gt;
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded border px-3 py-1 disabled:opacity-50">
+              &lt;
+            </button>
 
-          <div className="ml-3 text-sm text-gray-500">
-            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} dari {total}
+            {pages.map((p, i) =>
+              p === "..." ? (
+                <span key={`dot-${i}`} className="px-2">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  onClick={() => goToPageNumber(p)}
+                  className={cn("rounded border px-3 py-1 min-w-[36px] md:min-w-[40px]", { "ring-2 ring-blue-400 bg-white": p === page })}
+                  aria-current={p === page ? "page" : undefined}
+                >
+                  {p}
+                </button>
+              )
+            )}
+
+            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="rounded border px-3 py-1 disabled:opacity-50">
+              &gt;
+            </button>
+
+            <div className="ml-3 text-sm text-gray-500">
+              {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} dari {total}
+            </div>
           </div>
         </div>
       </div>
 
-    </div>
+      {/* Mobile List Cards (responsive improvements only) */}
+      <div className="md:hidden space-y-3">
+        {loading
+          ? Array.from({ length: perPage }).map((_, i) => (
+              <div key={`skeleton-card-${i}`} className="animate-pulse border rounded-lg p-3 mb-0 bg-gray-50" />
+            ))
+          : visible.map((item, index) => (
+              <div
+                key={index}
+                className="border rounded-lg p-4 bg-white dark:bg-gray-dark dark:border-dark-3 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs text-gray-500">Asset ID</div>
+                    <div className="text-sm font-medium text-dark dark:text-white truncate">{item.asset_id}</div>
 
-    {/* Mobile List Cards */}
-    <div className="md:hidden">
-      {loading
-        ? Array.from({ length: perPage }).map((_, i) => (
-        <div key={`skeleton-card-${i}`} className="animate-pulse border rounded-lg p-3 mb-3 bg-gray-50" />
-        )): data.map((item, index) => (
-          <div key={index} className="border rounded-lg p-4 mb-3 bg-white dark:bg-gray-dark dark:border-dark-3 shadow-sm">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="text-sm text-gray-500 dark:text-gray-300">Asset ID</div>
-                <div className="text-base font-medium text-dark dark:text-white">{item.asset_id}</div>
+                    <div className="mt-2 grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="text-xs text-gray-500">Client ID</div>
+                        <div className="text-sm text-dark dark:text-white">{item.client_id}</div>
+                      </div>
 
-                <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Client ID</div>
-                <div className="text-base text-dark dark:text-white">{item.client_id}</div>
+                      <div>
+                        <div className="text-xs text-gray-500">User ID</div>
+                        <div className="text-sm text-dark dark:text-white">{item.user_id}</div>
+                      </div>
+                    </div>
 
-                <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Timestamp</div>
-                <div className="text-base text-dark dark:text-white">
-                  {item.timestamp ? dayjs(item.timestamp).format("MMM DD, YYYY") : "-"}
+                    <div className="mt-2">
+                      <div className="text-xs text-gray-500">Timestamp</div>
+                      <div className="text-sm text-dark dark:text-white">{item.timestamp ? dayjs(item.timestamp).format("MMM DD, YYYY HH:mm") : "-"}</div>
+                    </div>
+                  </div>
+
+                  <div className="w-28 flex-shrink-0">
+                    {item.photo ? (
+                      <img
+                        src={item.photo}
+                        alt={`photo-${item.asset_id}`}
+                        className="w-24 h-24 object-cover rounded border cursor-pointer"
+                        onClick={() => openPreview(item.photo)}
+                      />
+                    ) : (
+                      <div className="w-24 h-24 bg-gray-50 border rounded flex items-center justify-center text-xs text-gray-400">
+                        No Photo
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">User ID</div>
-                <div className="text-base text-dark dark:text-white">{item.user_id}</div>
-
-                <div className="items-start gap-2 mt-3">
-                  {/* Preview button */}
-                  <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Foto QR</div>
-                    <button
-                      onClick={() => handleClick}
-                      className="text-primary hover:underline inline-flex items-center gap-2 mr-5"
-                    >
-                      <PreviewIcon />
-                      <span>Pratinjau</span>
-                    </button>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              {/* Action button */}
-                <a href="#">
-                  <button className="bg-primary text-white px-3 py-1 rounded-md mt-2 text-sm">
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    onClick={() => goToDetail(item.asset_id)}
+                    className="flex-1 px-3 py-2 rounded bg-primary text-white font-bold text-sm"
+                  >
                     Cek Riwayat
                   </button>
-                </a>  
+
+                  <button
+                    onClick={() => openPreview(item.photo)}
+                    className="px-3 py-2 rounded border text-sm"
+                  >
+                    <div className="inline-flex items-center gap-2">
+                      <PreviewIcon />
+                      <span>Pratinjau</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            ))}
+      </div>
+
+      {/* Responsive Preview Modal / Lightbox (matches detail behavior) */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => {
+            setIsOpen(false);
+            setPreviewSrc(null);
+          }}
+        >
+          <div
+            className="max-w-[98vw] max-h-[96vh] overflow-auto bg-white rounded shadow-lg p-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setPreviewSrc(null);
+                }}
+                className="px-3 py-1 rounded border text-sm inline-flex items-center gap-2"
+              >
+                <CloseIcon />
+                Close
+              </button>
+            </div>
+
+            <div className="mt-3">
+              {previewSrc ? (
+                <img src={previewSrc} alt="preview" className="max-w-full max-h-[80vh] object-contain mx-auto" />
+              ) : (
+                <div className="p-8 text-center text-gray-500">Tidak ada gambar tersedia untuk item ini.</div>
+              )}
             </div>
           </div>
-          
-      ))}
-    </div>
-
-    
+        </div>
+      )}
     </>
   );
 }

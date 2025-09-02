@@ -8,6 +8,8 @@ import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import CreateAssetTypeModal from "@/components/CreateAssetTypeModal";
 import EditAssetTypeModal from "@/components/EditAssetTypeModal";
+import DeleteAssetTypeModal from "@/components/DeleteAssetTypeModal";
+
 import dayjs from "dayjs";
 import {
   Table,
@@ -79,6 +81,7 @@ export default function AssetTypeList() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingRaw, setEditingRaw] = useState<RawAssetType | null>(null);
+  const [deletingRaw, setDeletingRaw] = useState<RawAssetType | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
@@ -294,12 +297,14 @@ export default function AssetTypeList() {
                       {/* DELETE BUTTON */}
                       <button
                         className="p-2 hover:text-red-600 disabled:opacity-50"
-                        aria-label="Hapus"
-                        onClick={() => handleDelete(item.raw?.id ?? item.id)}
+                        aria-label="Delete"
+                        onClick={() => setDeletingRaw(item.raw ?? { id: item.id })}
                         disabled={actionLoading !== null}
                       >
-                        {actionLoading === String(item.raw?.id ?? item.id) ? "Menghapus..." : <TrashIcon />}
+                        <TrashIcon />
                       </button>
+
+
                     </div>
                   </TableCell>
                 </TableRow>
@@ -339,11 +344,12 @@ export default function AssetTypeList() {
                   </button>
                   <button
                     className="p-2 border rounded-md text-red-600"
-                    aria-label="Hapus"
-                    onClick={() => handleDelete(item.raw?.id ?? item.id)}
+                    aria-label="Delete"
+                    onClick={() => setDeletingRaw(item.raw ?? { id: item.id })}
                   >
                     Hapus
                   </button>
+
                 </div>
               </div>
             ))}
@@ -424,6 +430,17 @@ export default function AssetTypeList() {
         onClose={() => setEditingRaw(null)}
         onUpdated={handleCreatedOrUpdated}
       />
+
+      <DeleteAssetTypeModal
+        open={!!deletingRaw}
+        assetType={deletingRaw ?? undefined}
+        onClose={() => setDeletingRaw(null)}
+        onDeleted={() => {
+          setDeletingRaw(null);
+          setRefreshKey((k) => k + 1);
+        }}
+      />
+
 
     </div>
   );

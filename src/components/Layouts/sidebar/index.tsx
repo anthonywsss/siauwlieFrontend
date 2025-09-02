@@ -100,11 +100,27 @@ export function Sidebar() {
     return Array.from(s);
   }, [filteredNav]);
 
+  // Function to check if a path should be excluded from redirect system
+  const isExcludedFromRedirect = (path: string) => {
+    const cleanPath = normalize(path);
+    const excludedPaths = [
+      '/unfinished-delivery',
+      '/unfinished'  // Add other variations if needed
+    ];
+    
+    return excludedPaths.some(excludedPath => 
+      cleanPath === excludedPath || 
+      cleanPath.startsWith(excludedPath + "/") ||
+      cleanPath.startsWith(excludedPath + "?")
+    );
+  };
+
   /*
    * Redirect logic:
    *  - Guests -> /auth/sign-in (klo blom auth)
    *  - After login OR when on root/auth -> send to role specific target
    *  - If current pathname is not allowed for this role -> /auth/sign-in
+   *  - EXCLUDE unfinished delivery pages from redirect checks
   */
 
   useEffect(() => {
@@ -114,6 +130,11 @@ export function Sidebar() {
     const isAuthPath = cleanPath === normalize(AUTH_PATH) || cleanPath.startsWith("/auth");
     const isRoot = cleanPath === "/" || cleanPath === "";
 
+    // Skip redirect logic for excluded paths (unfinished delivery)
+    if (isExcludedFromRedirect(cleanPath)) {
+      return;
+    }
+
     // 1) Guest -> auth
     if (!user) {
       if (!isAuthPath) {
@@ -122,14 +143,13 @@ export function Sidebar() {
       return;
     }
 
-    // 2)s role target
+    // 2) role target
     const roleTarget =
       user.role === "supervisor"
         ? DASHBOARD_PATH
         : user.role === "driver" || user.role === "security"
         ? SUBMIT_PATH
         : AUTH_PATH;
-
 
     // stable key for session storage <role>:<target>
     const redirectKey = `${user.role}:${roleTarget}`;
@@ -162,7 +182,6 @@ export function Sidebar() {
     if (user?.role === "supervisor" && cleanPath === normalize(DASHBOARD_PATH)) {
       matches = true;
     }
-
 
     if (!matches) {
       try {

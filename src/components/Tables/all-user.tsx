@@ -8,6 +8,8 @@ import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import CreateUserModal from "@/components/CreateUserModal";
 import EditUserModal from "@/components/EditUserModal";
+import DeleteUserModal from "@/components/DeleteUserModal";
+
 import dayjs from "dayjs";
 import {
   Table,
@@ -83,6 +85,7 @@ export default function AllItemsClient() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUserRaw, setEditingUserRaw] = useState<RawUser | null>(null);
+  const [deletingUserRaw, setDeletingUserRaw] = useState<RawUser | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
@@ -314,7 +317,7 @@ export default function AllItemsClient() {
                       <button
                         className="p-2 hover:text-red-600 disabled:opacity-50"
                         aria-label="Delete"
-                        onClick={() => handleDelete(item.raw?.user_id ?? item.id)}
+                        onClick={() => setDeletingUserRaw(item.raw ?? { user_id: item.id })}
                         disabled={actionLoading !== null}
                       >
                         {actionLoading === String(item.raw?.user_id ?? item.id) ? (
@@ -368,8 +371,8 @@ export default function AllItemsClient() {
                     </button>
                     <button
                       className="p-2 border rounded-md text-red-600"
-                      aria-label="Hapus"
-                      onClick={() => handleDelete(item.raw?.user_id ?? item.id)}
+                      aria-label="Delete"
+                      onClick={() => setDeletingUserRaw(item.raw ?? { user_id: item.id })}
                     >
                       Hapus
                     </button>
@@ -460,6 +463,17 @@ export default function AllItemsClient() {
         onClose={() => setEditingUserRaw(null)}
         onUpdated={handleCreatedOrUpdated}
       />
+
+      <DeleteUserModal
+        open={!!deletingUserRaw}
+        userData={deletingUserRaw ?? undefined}
+        onClose={() => setDeletingUserRaw(null)}
+        onDeleted={() => {
+          setDeletingUserRaw(null);
+          setRefreshKey((k) => k + 1);
+        }}
+      />
+
     </div>
   );
 }

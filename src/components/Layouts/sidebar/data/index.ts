@@ -12,6 +12,10 @@ export const NAV_DATA = [
             title: "Container Monitoring",
             url: "/",
           },
+          {
+            title: "Testing",
+            url: "/testing",
+          },
         ],
       },
     ],

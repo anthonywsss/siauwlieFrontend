@@ -32,10 +32,13 @@ export default function MultiStepFormPage() {
   const [client_id, setClientId] = useState("");
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
   const [quantity, setQuantity] = useState<number>(0);
   const [movement_type] = useState("OUT");
-  const [photo, setPhoto] = useState<File | null>(null);
   const [notes, setNotes] = useState("");
+  
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [base64Photo, setBase64Photo] = useState<string | null>(null);
 
   // data states
   const [allClients, setAllClients] = useState<RawClient[]>([]);
@@ -59,6 +62,7 @@ export default function MultiStepFormPage() {
       (pos) => {
         setLatitude(pos.coords.latitude);
         setLongitude(pos.coords.longitude);
+        setAccuracy(pos.coords.accuracy);
       },
       (err) => {
         console.error("Error getting location:", err);
@@ -101,7 +105,7 @@ export default function MultiStepFormPage() {
     };
   }, [router, signOut]);
 
-  // fetch all assets
+  // Fetch all assets
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -119,7 +123,7 @@ export default function MultiStepFormPage() {
     };
   }, []);
 
-  // input asset ID
+  // Input asset ID
   const handleIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setAssetId(value);
@@ -128,38 +132,117 @@ export default function MultiStepFormPage() {
     setSelectedAsset(found || null);
   };
 
+  //base64 image converter
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setPhoto(file);
+
+    if (file) {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => setBase64Photo(reader.result as string);
+      reader.onerror = (err) => console.error("Error reading file:", err);
+    } else {
+      setBase64Photo(null);
+    }
+  };
+
+  //status sekarang
+  const status_sekarang = (() => {
+    if (!selectedAsset) return "Belum ada";
+
+    if (selectedAsset.status.trim() === "outbound_to_client") {
+      return "Perjalanan ke pelanggan";
+    } else if (selectedAsset.status.trim() === "inbount_at_client") {
+      return "Digunakan pelanggan";
+    } else if (selectedAsset.status.trim() === "outbound_to_factory") {
+      return "Perjalanan ke pabrik";
+    } else if (selectedAsset.status.trim() === "inbound_at_factory") {
+      return "Di pabrik";
+    } else {
+      return "-";
+    }
+  })();
+  // status selanjutnya
+  const status_selanjutnya = (() => {
+    if (!status_sekarang) return "Belum ada";
+
+    if (status_sekarang.trim() === "Di pabrik") {
+      return "Perjalanan ke pelanggan";
+    } else if (status_sekarang.trim() === "Perjalanan ke pelanggan") {
+      return "Digunakan pelanggan";
+    } else if (status_sekarang.trim() === "Digunakan pelanggan") {
+      return "Perjalanan ke pabrik";
+    } else if (status_sekarang.trim() === "Perjalanan ke pabrik") {
+      return "Di pabrik";
+    } else {
+      return "-";
+    }
+  })();
+
+  const movement_type_api = (() => {
+  switch (status_selanjutnya) {
+    case "Perjalanan ke pelanggan": return "outbound_to_client";
+    case "Digunakan pelanggan": return "inbound_at_client";
+    case "Perjalanan ke pabrik": return "outbound_to_factory";
+    case "Di pabrik": return "inbound_at_factory";
+    default: return "outbound_to_client";
+  }
+})();
+
+
   // submit movement
   const handleSubmit = async (e: React.FormEvent) => {
+    
     e.preventDefault();
 
-    let base64Photo = null;
+    if (!asset_id) return alert("Asset ID tidak boleh kosong");
+    if (!client_id) return alert("Pilih Klien terlebih dahulu");
+    if (quantity <= 0) return alert("Masukkan kuantitas yang valid");
+    if (latitude === null || longitude === null || accuracy === null) {
+      return alert("Lokasi belum diambil, izinkan akses lokasi");
+    }
 
-    if (photo) {
-      const reader = new FileReader();
-      base64Photo = await new Promise<string>((resolve, reject) => {
+    let finalPhoto = base64Photo;
+
+    if (photo && !base64Photo) {
+      finalPhoto = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
         reader.readAsDataURL(photo);
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = (error) => reject(error);
+        reader.onerror = (err) => reject(err);
       });
     }
 
     const body = {
       asset_id,
-      movement_type,
-      client_id,
+      movement_type: movement_type_api,
+      client_id: Number(client_id),
       quantity,
       notes,
       latitude,
       longitude,
-      photo: base64Photo,
+      accuracy,
+      photo: finalPhoto,
     };
 
+    console.log("Submitting body:", body);
+
     try {
-      const res = await API.post("/movements", body);
-      console.log("Success:", res.data);
-    } catch (err) {
-      console.error("Error submitting:", err);
+    const res = await API.post("/movements", body);
+    console.log("Success:", res.data);
+    alert("Data berhasil dikirim!");
+  } catch (err: any) {
+    console.error("Error submitting:", err);
+
+    if (err?.response?.status === 400) {
+      alert("Data tidak valid, periksa input Anda");
+    } else if (err?.response?.status === 500) {
+      alert("Terjadi kesalahan server, coba lagi nanti");
+    } else {
+      alert("Gagal mengirim data: " + err.message);
     }
+  }
   };
 
   // steps
@@ -179,22 +262,25 @@ export default function MultiStepFormPage() {
         <p>atau</p>
 
         <input
-          type="number"
+          type="text"
           placeholder="Masukan Asset ID secara manual"
           className="w-full rounded-lg border px-3 py-2"
           value={asset_id}
           onChange={handleIdChange}
         />
 
-        {/* tampilkan hasil pencarian */}
-        <div className="mt-4 text-sm text-gray-600">
-          <p>ID: {selectedAsset?.id || "Belum ada"}</p>
-          <p>Status: {selectedAsset?.status || "Belum ada"}</p>
-        </div>
       </div>
     </Step>,
 
     <Step key={1}>
+      {/* tampilkan hasil pencarian */}
+        <div className="mt-4 text-md text-black">
+          <p className="text-lg font-medium">Keterangan Asset</p>
+          <p>ID: {selectedAsset?.id || "Belum ada"}</p>
+          <p>Status Sekarang: {status_sekarang}</p>
+          <p>Kirim Status: {status_selanjutnya}</p>
+        </div>
+        
       {/* Step 2: Klien dan Kuantitas */}
       <Select
         items={[
@@ -207,6 +293,7 @@ export default function MultiStepFormPage() {
         required
         className="mb-5 mt-5"
       />
+      <p>Selected Client ID: {client_id}</p>
       <input
         type="number"
         placeholder="Kuantitas"
@@ -226,7 +313,7 @@ export default function MultiStepFormPage() {
           accept="image/*"
           capture="environment"
           className="w-full rounded-lg border px-3 py-2"
-          onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+          onChange={handlePhotoChange}
         />
         <TextAreaGroup
           label="Tambahkan Catatan (Opsional)"
@@ -244,6 +331,7 @@ export default function MultiStepFormPage() {
         <div className="mt-4">
           <p>Latitude: {latitude !== null ? latitude : "-"}</p>
           <p>Longitude: {longitude !== null ? longitude : "-"}</p>
+          <p>Accuracy: {accuracy !== null ? accuracy : "-" }</p>
         </div>
       </div>
     </Step>,

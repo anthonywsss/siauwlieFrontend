@@ -30,7 +30,6 @@ export default function CreateAssetTypeModal({ open, onClose, onCreated }: Props
 
     setSubmitting(true);
     try {
-      // IMPORTANT: use singular /asset-type as in your Postman collection
       const payload = {
         name: name.trim(),
         description: description.trim(),
@@ -39,7 +38,6 @@ export default function CreateAssetTypeModal({ open, onClose, onCreated }: Props
       await API.post("/asset-type", payload);
 
       onCreated?.();
-      // reset fields
       setName("");
       setDescription("");
       onClose();
@@ -47,7 +45,6 @@ export default function CreateAssetTypeModal({ open, onClose, onCreated }: Props
       console.error("create asset type error:", err);
       if (err?.response?.status === 401) {
         signOut();
-        // mirror other modals' behavior
         window.location.href = "/auth/sign-in";
         return;
       }

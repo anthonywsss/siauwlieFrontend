@@ -4,13 +4,18 @@ import React, { useEffect, useState } from "react";
 import { compactFormat } from "@/lib/format-number";
 import { OverviewCard } from "./card";
 import * as icons from "./icons";
-import { getOverviewData } from "@/lib/fetch/overview";
+import API from "@/lib/api";
+
+type AssetSummaryItem = {
+  count: number;
+  percentage: number;
+};
 
 type OverviewShape = {
-  inbound_at_factory: { value?: number; count?: number; growthRate?: number; [k: string]: any };
-  outbound_to_client: { value?: number; count?: number; growthRate?: number; [k: string]: any };
-  inbound_at_client: { value?: number; count?: number; growthRate?: number; [k: string]: any };
-  outbound_to_factory: { value?: number; count?: number; growthRate?: number; [k: string]: any };
+  inbound_at_factory: AssetSummaryItem;
+  outbound_to_client: AssetSummaryItem;
+  inbound_at_client: AssetSummaryItem;
+  outbound_to_factory: AssetSummaryItem;
 };
 
 export default function OverviewCardsGroup() {
@@ -20,21 +25,29 @@ export default function OverviewCardsGroup() {
 
   useEffect(() => {
     let mounted = true;
-    setLoading(true);
-    getOverviewData()
-      .then((d) => {
+
+    (async () => {
+      try {
+        const res = await API.get("/assets/summary");
         if (!mounted) return;
-        setData(d as OverviewShape);
-      })
-      .catch((err) => {
+
+        // Map API response data
+        const summary: OverviewShape = res?.data?.data ?? {
+          inbound_at_factory: { count: 0, percentage: 0 },
+          outbound_to_client: { count: 0, percentage: 0 },
+          inbound_at_client: { count: 0, percentage: 0 },
+          outbound_to_factory: { count: 0, percentage: 0 },
+        };
+
+        setData(summary);
+      } catch (err: any) {
         console.error("Failed to fetch overview:", err);
         if (!mounted) return;
         setError(err?.message ?? "Failed to fetch overview");
-      })
-      .finally(() => {
-        if (!mounted) return;
-        setLoading(false);
-      });
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
 
     return () => {
       mounted = false;
@@ -53,8 +66,8 @@ export default function OverviewCardsGroup() {
         label="At Factory"
         data={{
           ...inbound_at_factory,
-          value: compactFormat(inbound_at_factory?.value ?? 0),
-          growthRate: inbound_at_factory?.growthRate ?? 0, // ✅ fix
+          value: compactFormat(inbound_at_factory.count),
+          growthRate: inbound_at_factory.percentage,
         }}
         Icon={icons.Factory}
       />
@@ -63,8 +76,8 @@ export default function OverviewCardsGroup() {
         label="Delivery to Client"
         data={{
           ...outbound_to_client,
-          value: "$" + compactFormat(outbound_to_client?.value ?? 0),
-          growthRate: outbound_to_client?.growthRate ?? 0, // ✅ fix
+          value: compactFormat(outbound_to_client.count),
+          growthRate: outbound_to_client.percentage,
         }}
         Icon={icons.Product}
       />
@@ -73,8 +86,8 @@ export default function OverviewCardsGroup() {
         label="On Client"
         data={{
           ...inbound_at_client,
-          value: compactFormat(inbound_at_client?.value ?? 0),
-          growthRate: inbound_at_client?.growthRate ?? 0, // ✅ fix
+          value: compactFormat(inbound_at_client.count),
+          growthRate: inbound_at_client.percentage,
         }}
         Icon={icons.Users}
       />
@@ -83,8 +96,8 @@ export default function OverviewCardsGroup() {
         label="Delivery to Factory"
         data={{
           ...outbound_to_factory,
-          value: compactFormat(outbound_to_factory?.value ?? 0),
-          growthRate: outbound_to_factory?.growthRate ?? 0, // ✅ fix
+          value: compactFormat(outbound_to_factory.count),
+          growthRate: outbound_to_factory.percentage,
         }}
         Icon={icons.Profit}
       />

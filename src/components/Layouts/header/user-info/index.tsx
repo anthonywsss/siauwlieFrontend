@@ -19,7 +19,7 @@ export function UserInfo() {
 
   return (
     <Dropdown isOpen={isOpen} setIsOpen={setIsOpen}>
-      <DropdownTrigger className="rounded align-middle outline-none ring-primary ring-offset-2 focus-visible:ring-1">
+      <DropdownTrigger className=" z-100 rounded align-middle outline-none ring-primary ring-offset-2 focus-visible:ring-1">
         <span className="sr-only">My Account</span>
         <figure className="flex items-center gap-3">
           <Image src={USER.img} className="size-12" alt={`Avatar of ${USER.name}`} width={40} height={40} />
@@ -34,7 +34,7 @@ export function UserInfo() {
         </figure>
       </DropdownTrigger>
 
-      <DropdownContent className="border border-stroke bg-white shadow-md min-[230px]:min-w-[17.5rem]" align="end">
+      <DropdownContent className=" z-100 border border-stroke bg-white shadow-md min-[230px]:min-w-[17.5rem]" align="end">
         <figure className="flex items-center gap-2.5 px-5 py-3.5">
           <Image src={USER.img} alt={`Avatar for ${USER.name}`} width={48} height={48} />
           <figcaption className="text-base font-medium">

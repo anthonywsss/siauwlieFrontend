@@ -22,7 +22,6 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Try to fetch roles from API, fallback to hardcoded list
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -37,7 +36,6 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
           throw new Error("no roles from server");
         }
       } catch {
-        // fallback roles observed in your Postman collection
         const fallback = ["driver", "supervisor", "security"];
         if (mounted) {
           setRoles(fallback);
@@ -50,7 +48,6 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
     };
   }, []);
 
-  // reset when modal closes
   useEffect(() => {
     if (!open) {
       setUsername("");
@@ -61,7 +58,6 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
       setConfirmPassword("");
       setError(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   if (!open) return null;

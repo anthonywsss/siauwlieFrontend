@@ -3,18 +3,27 @@
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { cn } from "@/lib/utils";
 import { SetStateActionType } from "@/types/set-state-action-type";
+import { createPortal } from "react-dom";
 import {
   createContext,
   type PropsWithChildren,
   useContext,
   useEffect,
-  useRef,
 } from "react";
+import {
+  useFloating,
+  offset,
+  flip,
+  shift,
+  type Placement,
+} from "@floating-ui/react";
 
 type DropdownContextType = {
   isOpen: boolean;
   handleOpen: () => void;
   handleClose: () => void;
+  refs: ReturnType<typeof useFloating>["refs"];
+  floatingStyles: ReturnType<typeof useFloating>["floatingStyles"];
 };
 
 const DropdownContext = createContext<DropdownContextType | null>(null);
@@ -34,27 +43,10 @@ type DropdownProps = {
 };
 
 export function Dropdown({ children, isOpen, setIsOpen }: DropdownProps) {
-  const triggerRef = useRef<HTMLElement>(null);
-
-  const handleKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === "Escape") {
-      handleClose();
-    }
-  };
-
-  useEffect(() => {
-    if (isOpen) {
-      triggerRef.current = document.activeElement as HTMLElement;
-
-      document.body.style.pointerEvents = "none";
-    } else {
-      document.body.style.removeProperty("pointer-events");
-
-      setTimeout(() => {
-        triggerRef.current?.focus();
-      }, 0);
-    }
-  }, [isOpen]);
+  const { refs, floatingStyles } = useFloating({
+    placement: "bottom-end",
+    middleware: [offset(6), flip(), shift()],
+  });
 
   function handleClose() {
     setIsOpen(false);
@@ -64,11 +56,19 @@ export function Dropdown({ children, isOpen, setIsOpen }: DropdownProps) {
     setIsOpen(true);
   }
 
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") handleClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
   return (
-    <DropdownContext.Provider value={{ isOpen, handleOpen, handleClose }}>
-      <div className="relative" onKeyDown={handleKeyDown}>
-        {children}
-      </div>
+    <DropdownContext.Provider
+      value={{ isOpen, handleOpen, handleClose, refs, floatingStyles }}
+    >
+      {children}
     </DropdownContext.Provider>
   );
 }
@@ -81,10 +81,9 @@ type DropdownContentProps = {
 
 export function DropdownContent({
   children,
-  align = "center",
   className,
 }: DropdownContentProps) {
-  const { isOpen, handleClose } = useDropdownContext();
+  const { isOpen, handleClose, refs, floatingStyles } = useDropdownContext();
 
   const contentRef = useClickOutside<HTMLDivElement>(() => {
     if (isOpen) handleClose();
@@ -92,35 +91,40 @@ export function DropdownContent({
 
   if (!isOpen) return null;
 
-  return (
+  const dropdown = (
     <div
-      ref={contentRef}
+      ref={(node) => {
+        refs.setFloating(node);
+        (contentRef as any).current = node;
+      }}
       role="menu"
       aria-orientation="vertical"
+      style={floatingStyles}
       className={cn(
-        "fade-in-0 zoom-in-95 pointer-events-auto absolute z-99 mt-2 min-w-[8rem] origin-top-right rounded-lg",
-        {
-          "animate-in right-0": align === "end",
-          "left-0": align === "start",
-          "left-1/2 -translate-x-1/2": align === "center",
-        },
+        "fade-in-0 zoom-in-95 pointer-events-auto z-[99999] min-w-[8rem] rounded-lg border border-stroke bg-white shadow-md",
         className,
       )}
     >
       {children}
     </div>
   );
+
+  return createPortal(dropdown, document.body);
 }
 
 type DropdownTriggerProps = React.HTMLAttributes<HTMLButtonElement> & {
   children: React.ReactNode;
 };
 
-export function DropdownTrigger({ children, className }: DropdownTriggerProps) {
-  const { handleOpen, isOpen } = useDropdownContext();
+export function DropdownTrigger({
+  children,
+  className,
+}: DropdownTriggerProps) {
+  const { handleOpen, isOpen, refs } = useDropdownContext();
 
   return (
     <button
+      ref={refs.setReference}
       className={className}
       onClick={handleOpen}
       aria-expanded={isOpen}
@@ -134,6 +138,5 @@ export function DropdownTrigger({ children, className }: DropdownTriggerProps) {
 
 export function DropdownClose({ children }: PropsWithChildren) {
   const { handleClose } = useDropdownContext();
-
   return <div onClick={handleClose}>{children}</div>;
 }

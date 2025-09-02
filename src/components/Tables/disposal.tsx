@@ -21,6 +21,15 @@ export type RawDisposal = {
   reason?: string;
 };
 
+export type datas = {
+  id?: number | string;
+  asset_id?: string;
+  disposed_at?: string;
+  disposed_by?: string;
+  reason?: string;
+  raw?: RawDisposal;
+};
+
 function generatePages(current: number, total: number) {
   const delta = 1;
   const range: number[] = [];
@@ -59,15 +68,20 @@ export default function DisposalHistory() {
     const [query, setQuery] = useState<string>("");
 
     //data state
-    const [total, setTotal] = useState<number>(0);
-    const totalPages = Math.max(1, Math.ceil(total / perPage));
-    const pages = useMemo(() => generatePages(page, totalPages), [page, totalPages]);
+      const [total, setTotal] = useState<number>(0);
+      const [actionLoading, setActionLoading] = useState<string | null>(null);
+      const [error, setError] = useState<string | null>(null);
+      const [datas, setdatas] = useState<datas[]>([]);
+    
+      const totalPages = Math.max(1, Math.ceil(total / perPage));
+      const pages = useMemo(() => generatePages(page, totalPages), [page, totalPages]);
 
   useEffect(() => {
     const fetchDisposals = async () => {
       try {
         const res = await API.get("/disposal-history"); 
-        setData(res.data?.data ?? []);
+        const types: RawDisposal[] = res?.data?.data ?? res?.data ?? [];
+        setData(types);
       } catch (err) {
         console.error("Error fetching disposals:", err);
       } finally {
@@ -80,8 +94,35 @@ export default function DisposalHistory() {
 
   
     useEffect(() => {
-      setPage(1);
-    }, [perPage, query]);
+        const q = query.trim().toLowerCase();
+        const filtered = data.filter((t) => {
+          if (!q) return true;
+          const fields = [String(t.id ?? ""), String(t.asset_id ?? ""), String(t.reason ?? "")];
+          return fields.some((f) => f.toLowerCase().includes(q));
+        });
+    
+        const totalCount = filtered.length;
+        setTotal(totalCount);
+        const validPage = Math.max(1, Math.min(Math.max(1, Math.ceil(totalCount / perPage)), page));
+        if (validPage !== page) setPage(validPage);
+        const start = (validPage - 1) * perPage;
+        const pageSlice = filtered.slice(start, start + perPage);
+    
+        const mapped: datas[] = pageSlice.map((t) => ({
+          id: String(t.id ?? Math.random().toString(36).slice(2, 9)),
+          asset_id: t.asset_id ?? "-",
+          reason: t.reason ?? "-",
+          disposed_at: t.disposed_at ?? "-",
+          disposed_by: t.disposed_by ?? "-",
+          raw: t,
+        }));
+    
+        setdatas(mapped);
+      }, [data, query, page, perPage]);
+
+        useEffect(() => {
+          setPage(1);
+        }, [perPage, query]);
   
     function goToPageNumber(n: number | string) {
       if (typeof n === "number") setPage(Math.max(1, Math.min(totalPages, n)));
@@ -97,122 +138,173 @@ export default function DisposalHistory() {
     }
 
   return (
+    <>
+    {/* Search Bar and Total */ }
     <div className="rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:p-7.5">
-      <Table>
-        <TableHeader>
-          <TableRow className="border-none bg-[#F7F9FC] dark:bg-dark-2 [&>th]:py-4 [&>th]:text-base [&>th]:text-dark [&>th]:dark:text-white">
-            <TableHead className="min-w-[155px] xl:pl-7.5">ID Kontainer</TableHead>
-            <TableHead>Alasan</TableHead>
-            <TableHead>Timestamp</TableHead>
-            <TableHead>Diselesaikan oleh</TableHead>
-          </TableRow>
-        </TableHeader>
-
-        <TableBody>
-          {loading ? (
-            <TableRow>
-              <TableCell colSpan={4} className="text-center py-6">
-                Loading...
-              </TableCell>
-            </TableRow>
-          ) : data.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={4} className="text-center py-6">
-                No data available
-              </TableCell>
-            </TableRow>
-          ) : (
-            data.map((item, index) => (
-              <TableRow key={index} className="border-[#eee] dark:border-dark-3">
-                <TableCell className="min-w-[155px] xl:pl-7.5">
-                  <h5 className="text-dark dark:text-white">{item.asset_id ?? "-"}</h5>
-                </TableCell>
-
-                <TableCell>
-                  <h5 className="text-dark dark:text-white">{item.reason ?? "-"}</h5>
-                </TableCell>
-
-                <TableCell>
-                  <p className="text-dark dark:text-white">
-                    {item.disposed_at ? dayjs(item.disposed_at).format("MMM DD, YYYY") : "-"}
-                  </p>
-                </TableCell>
-
-                <TableCell>
-                  <h5 className="text-gray-7 dark:text-white">{item.disposed_by ?? "-"}</h5>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-
-      {/* Pagination */}
-      <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-4 flex-wrap">
-          <span className="text-sm text-gray-500">Baris per halaman</span>
-          <select
-            value={perPage}
-            onChange={(e) => {
-              setPerPage(Number(e.target.value));
-              setPage(1);
-            }}
-            className="rounded border px-3 py-1.5"
-          >
-            {[5, 10, 20, 50, 100].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-
-          <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Pindah ke halaman</span>
+      <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 w-full md:w-auto">
             <input
-              type="number"
-              min={1}
-              max={totalPages}
-              value={goto}
-              onChange={(e) => setGoto(e.target.value)}
-              className="w-16 rounded border px-2 py-1"
+              placeholder="Cari ID / Dibuang oleh"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-10 rounded border px-3 py-2 w-full md:w-96"
             />
-            <button type="submit" className="rounded border px-3 py-1">
-              kirim
-            </button>
-          </form>
+          </div>
+      
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} Asset yang dibuang`}</div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded border px-3 py-1 disabled:opacity-50">
-            &lt;
-          </button>
-
-          {pages.map((p, i) =>
-            p === "..." ? (
-              <span key={`dot-${i}`} className="px-2">
-                …
-              </span>
+      {/* Desktop Table */ }
+      <div className="hidden md:block rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:p-7.5">
+        <h1 className="text-[26px] font-bold leading-[30px] text-dark mb-5"> Catatan Pembuangan </h1>
+      
+      
+        <Table>
+          <TableHeader>
+            <TableRow className="border-none bg-[#F7F9FC] dark:bg-dark-2 [&>th]:py-4 [&>th]:text-base [&>th]:text-dark [&>th]:dark:text-white">
+              <TableHead className="min-w-[155px] xl:pl-7.5">ID Kontainer</TableHead>
+              <TableHead>Alasan</TableHead>
+              <TableHead>Waktu Pencatatan</TableHead>
+              <TableHead>Dibuang oleh</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center py-6">
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : datas.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center py-6">
+                  Data tidak tersedia.
+                </TableCell>
+              </TableRow>
             ) : (
-              <button
-                key={p}
-                onClick={() => goToPageNumber(p)}
-                className={cn("rounded border px-3 py-1 min-w-[36px] md:min-w-[40px]", { "ring-2 ring-blue-400 bg-white": p === page })}
-                aria-current={p === page ? "page" : undefined}
-              >
-                {p}
+              datas.map((item, index) => (
+                <TableRow key={index} className="border-[#eee] dark:border-dark-3">
+                  <TableCell className="min-w-[155px] xl:pl-7.5">
+                    <h5 className="text-dark">{item.asset_id ?? "-"}</h5>
+                  </TableCell>
+                  <TableCell>
+                    <h5 className="text-dark">{item.reason ?? "-"}</h5>
+                  </TableCell>
+                  <TableCell>
+                    <p className="text-dark">
+                      {item.disposed_at ? dayjs(item.disposed_at).format("MMM DD, YYYY - HH:mm") : "-"}
+                    </p>
+                  </TableCell>
+                  <TableCell>
+                    <h5 className="text-gray-7">{item.disposed_by ?? "-"}</h5>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+        {/* Pagination */}
+        <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4 flex-wrap">
+            <span className="text-sm text-gray-500">Baris per halaman</span>
+            <select
+              value={perPage}
+              onChange={(e) => {
+                setPerPage(Number(e.target.value));
+                setPage(1);
+              }}
+              className="rounded border px-3 py-1.5"
+            >
+              {[5, 10, 20, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">Pindah ke halaman</span>
+              <input
+                type="number"
+                min={1}
+                max={totalPages}
+                value={goto}
+                onChange={(e) => setGoto(e.target.value)}
+                className="w-16 rounded border px-2 py-1"
+              />
+              <button type="submit" className="rounded border px-3 py-1">
+                kirim
               </button>
-            )
-          )}
-
-          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="rounded border px-3 py-1 disabled:opacity-50">
-            &gt;
-          </button>
-
-          <div className="ml-3 text-sm text-gray-500">
-            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} dari {total}
+            </form>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded border px-3 py-1 disabled:opacity-50">
+              &lt;
+            </button>
+            {pages.map((p, i) =>
+              p === "..." ? (
+                <span key={`dot-${i}`} className="px-2">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  onClick={() => goToPageNumber(p)}
+                  className={cn("rounded border px-3 py-1 min-w-[36px] md:min-w-[40px]", { "ring-2 ring-blue-400 bg-white": p === page })}
+                  aria-current={p === page ? "page" : undefined}
+                >
+                  {p}
+                </button>
+              )
+            )}
+            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="rounded border px-3 py-1 disabled:opacity-50">
+              &gt;
+            </button>
+            <div className="ml-3 text-sm text-gray-500">
+              {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} dari {total}
+            </div>
           </div>
         </div>
       </div>
+      {/* Mobile List Cards */}
+          <div className="md:hidden">
+            {loading
+              ? Array.from({ length: perPage }).map((_, i) => (
+              <div key={`skeleton-card-${i}`} className="animate-pulse border rounded-lg p-3 mb-3 bg-gray-50" />
+              )): datas.map((item, index) => (
+                <div key={index} className="border rounded-lg p-4 mb-3 bg-white dark:bg-gray-dark dark:border-dark-3 shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="text-sm text-gray-500 dark:text-gray-300">ID Kontainer</div>
+                      <div className="text-base font-medium text-dark">{item.id}</div>
+      
+                      <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Alasan</div>
+                      <div className="text-base text-dark">{item.reason}</div>
+      
+                      <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Waktu Pencatatan</div>
+                      <div className="text-base text-dark">
+                        {item.disposed_at ? dayjs(item.disposed_at).format("MMM DD, YYYY - HH:mm") : "-"}
+                      </div>
+      
+                      <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Dibuang oleh</div>
+                      <div className="text-base text-dark">{item.disposed_by}</div>
+      
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    {/* Action button */}
+                      <a href="#">
+                        <button className="bg-primary text-white px-3 py-1 rounded-md mt-2 text-sm">
+                          Cek Riwayat
+                        </button>
+                      </a>
+                  </div>
+                </div>
+      
+            ))}
+          </div>
     </div>
+    </>
   );
 }

@@ -23,4 +23,5 @@ ClipboardDocumentListIcon,
 ArrowLeftIcon as ArrowLeftIcon,
 GlobeAltIcon as GlobeIcon,
 ChartBarIcon as ChartIcon,
+ArrowUpIcon as ArrowUp,
 } from "@heroicons/react/24/outline";

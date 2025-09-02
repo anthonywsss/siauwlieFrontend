@@ -8,6 +8,7 @@ import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import CreateUserModal from "@/components/CreateUserModal";
 import EditUserModal from "@/components/EditUserModal";
+import dayjs from "dayjs";
 import {
   Table,
   TableBody,
@@ -217,7 +218,7 @@ export default function AllItemsClient() {
       <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         <div className="flex items-center gap-3 w-full md:w-auto">
           <input
-            placeholder="Search username / full name / employee id / role"
+            placeholder="Cari Username/ Nama/ ID Karyawan/ Peran"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -235,7 +236,7 @@ export default function AllItemsClient() {
             disabled={actionLoading !== null}
           >
             <AddIcon />
-            <span className="ml-2">Add New User</span>
+            <span className="ml-2">Daftarkan User Baru</span>
           </button>
         </div>
       </div>
@@ -246,11 +247,11 @@ export default function AllItemsClient() {
           <TableHeader>
             <TableRow className="border-none bg-[#F7F9FC] [&>th]:py-4 [&>th]:text-base">
               <TableHead className="min-w-[180px]">Username</TableHead>
-              <TableHead className="min-w-[240px]">Full Name</TableHead>
-              <TableHead className="min-w-[160px]">Employee ID</TableHead>
-              <TableHead className="min-w-[140px]">Role</TableHead>
-              <TableHead className="min-w-[240px]">Created At</TableHead>
-              <TableHead className="text-right">Action</TableHead>
+              <TableHead className="min-w-[240px]">Nama Lengkap</TableHead>
+              <TableHead className="min-w-[160px]">ID Karyawan</TableHead>
+              <TableHead className="min-w-[140px]">Peran</TableHead>
+              <TableHead className="min-w-[240px]">Tanggal Daftar</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -292,7 +293,7 @@ export default function AllItemsClient() {
                   </TableCell>
 
                   <TableCell>
-                    <p className="text-dark">{item.createdAt}</p>
+                    {item.createdAt ? dayjs(item.createdAt).format("MMM DD, YYYY - hh:mm") : "-"}
                   </TableCell>
 
                   <TableCell className="text-right">
@@ -343,21 +344,23 @@ export default function AllItemsClient() {
                   <div>
                     <div className="text-sm text-gray-500">Username</div>
                     <div className="text-lg font-medium">{item.username}</div>
-                    <div className="text-sm text-gray-500 mt-1">Full Name</div>
+                    <div className="text-sm text-gray-500 mt-1">Nama Lengkap</div>
                     <div className="font-medium">{item.fullName}</div>
                   </div>
 
                   <div className="text-right">
-                    <div className="text-sm text-gray-500">Role</div>
+                    <div className="text-sm text-gray-500">Peran</div>
                     <div className="mt-1 font-medium">{item.role}</div>
-                    <div className="text-sm text-gray-500 mt-2">Employee</div>
+                    <div className="text-sm text-gray-500 mt-2">ID Karyawan</div>
                     <div className="font-medium">{item.employeeId}</div>
                   </div>
                 </div>
 
                 <div className="mt-3">
-                  <div className="text-sm text-gray-500">Created</div>
-                  <div className="">{item.createdAt}</div>
+                  <div className="text-sm text-gray-500">Tanggal Daftar</div>
+                  <div className="">
+                    {item.createdAt ? dayjs(item.createdAt).format("MMM DD, YYYY - hh:mm") : "-"}
+                  </div>
 
                   <div className="flex gap-2 mt-3">
                     <button className="flex-1 bg-blue-500 text-white px-3 py-2 rounded-md text-sm" onClick={() => handleEditOpen(item.raw)}>
@@ -365,10 +368,10 @@ export default function AllItemsClient() {
                     </button>
                     <button
                       className="p-2 border rounded-md text-red-600"
-                      aria-label="Delete"
+                      aria-label="Hapus"
                       onClick={() => handleDelete(item.raw?.user_id ?? item.id)}
                     >
-                      Delete
+                      Hapus
                     </button>
                   </div>
                 </div>
@@ -379,7 +382,7 @@ export default function AllItemsClient() {
       {/* Pagination */}
       <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4 flex-wrap">
-          <span className="text-sm text-gray-500">Row per page</span>
+          <span className="text-sm text-gray-500">Baris per halaman</span>
           <select
             value={perPage}
             onChange={(e) => {
@@ -395,7 +398,7 @@ export default function AllItemsClient() {
           </select>
 
           <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Go to</span>
+            <span className="text-sm text-gray-500">Pindah ke halaman</span>
             <input
               type="number"
               min={1}
@@ -405,7 +408,7 @@ export default function AllItemsClient() {
               className="w-16 rounded border px-2 py-1"
             />
             <button type="submit" className="rounded border px-3 py-1">
-              Go
+              kirim
             </button>
           </form>
         </div>
@@ -437,7 +440,7 @@ export default function AllItemsClient() {
           </button>
 
           <div className="ml-3 text-sm text-gray-500">
-            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} of {total}
+            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} dari {total}
           </div>
         </div>
       </div>

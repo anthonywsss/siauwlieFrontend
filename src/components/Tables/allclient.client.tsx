@@ -144,62 +144,6 @@ export default function AllClient() {
         {/* LEFT: filters + search */}
         <div className="flex flex-col md:flex-row md:items-center gap-3 w-full md:w-auto">
           <div className="flex items-center gap-3 flex-wrap w-full md:w-auto">
-            {/* Asset Type Filter dropdown */}
-            <div ref={assetRef} className="relative w-full md:w-auto">
-              <button
-                type="button"
-                onClick={() => setAssetOpen((s) => !s)}
-                className="inline-flex items-center h-10 w-full md:w-auto px-3 py-2 text-sm font-medium rounded border bg-white"
-                aria-haspopup="true"
-                aria-expanded={assetOpen}
-              >
-                <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path>
-                </svg>
-                <span className="truncate">{ASSET_TYPE_OPTIONS.find((o) => o.value === assetFilter)?.label ?? "Asset Type"}</span>
-                <svg className="w-3 h-3 ml-2" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-
-              {assetOpen && (
-                <div className="absolute left-0 mt-2 w-full md:w-48 rounded border bg-white shadow-lg z-50">
-                  <ul className="py-1">
-                    {ASSET_TYPE_OPTIONS.map((opt) => (
-                      <li key={opt.value}>
-                        <button
-                          className={cn(
-                            "w-full text-left px-3 py-2 text-sm hover:bg-gray-100",
-                            { "font-semibold": assetFilter === opt.value }
-                          )}
-                          onClick={() => {
-                            setAssetFilter(opt.value);
-                            setPage(1);
-                            setAssetOpen(false);
-                          }}
-                          type="button"
-                        >
-                          {opt.label}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="border-t px-3 py-2 text-right">
-                    <button
-                      className="text-sm underline"
-                      type="button"
-                      onClick={() => {
-                        setAssetFilter("all");
-                        setPage(1);
-                        setAssetOpen(false);
-                      }}
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* Search input */}
             <div className="w-full md:w-auto">
@@ -238,11 +182,11 @@ export default function AllClient() {
         <Table>
           <TableHeader>
             <TableRow className="border-none bg-[#F7F9FC] [&>th]:py-4 [&>th]:text-base">
-              <TableHead className="min-w-[110px]">Employee Id</TableHead>
+              <TableHead className="min-w-[110px]">ID Karyawan</TableHead>
               <TableHead className="min-w-[200px]">Username</TableHead>
-              <TableHead className="min-w-[120px]">Fullname</TableHead>
-              <TableHead className="min-w-[120px]">Role</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="min-w-[120px]">Nama Lengkap</TableHead>
+              <TableHead className="min-w-[120px]">Peran</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -340,7 +284,7 @@ export default function AllClient() {
                 <div key={item.id} className="border rounded-lg p-3 mb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-sm text-gray-500">Id</div>
+                      <div className="text-sm text-gray-500">Id Karyawan</div>
                       <div className="text-lg font-medium">{item.id}</div>
                     </div>
 
@@ -352,11 +296,11 @@ export default function AllClient() {
 
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <div>
-                      <div className="text-sm text-gray-500">Client</div>
+                      <div className="text-sm text-gray-500">Klien</div>
                       <div className="font-medium">{item.usn}</div>
                     </div>
                     <div>
-                      <div className="text-sm text-gray-500">Type</div>
+                      <div className="text-sm text-gray-500">Tipe</div>
                       <div className="font-medium">{item.fullname}</div>
                     </div>
                   </div>
@@ -375,7 +319,7 @@ export default function AllClient() {
       {/* Pagination controls (responsive) */}
       <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4 flex-wrap">
-          <span className="text-sm text-gray-500">Row per page</span>
+          <span className="text-sm text-gray-500">Baris per halaman</span>
           <select
             value={perPage}
             onChange={(e) => {
@@ -392,7 +336,7 @@ export default function AllClient() {
           </select>
 
           <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Go to</span>
+            <span className="text-sm text-gray-500">Pindah ke halaman</span>
             <input
               type="number"
               min={1}
@@ -434,7 +378,7 @@ export default function AllClient() {
           </button>
 
           <div className="ml-3 text-sm text-gray-500">
-            {Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} of {total}
+            {Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} dari {total}
           </div>
         </div>
       </div>

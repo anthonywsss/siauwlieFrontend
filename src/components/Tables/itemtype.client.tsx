@@ -8,6 +8,7 @@ import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import CreateAssetTypeModal from "@/components/CreateAssetTypeModal";
 import EditAssetTypeModal from "@/components/EditAssetTypeModal";
+import dayjs from "dayjs";
 import {
   Table,
   TableBody,
@@ -273,7 +274,7 @@ export default function AssetTypeList() {
                   </TableCell>
 
                   <TableCell>
-                    <p className="text-dark font-medium">{item.createdAt}</p>
+                    {item.createdAt ? dayjs(item.createdAt).format("MMM DD, YYYY - hh:mm") : "-"}
                   </TableCell>
 
                   <TableCell className="text-right">
@@ -293,11 +294,11 @@ export default function AssetTypeList() {
                       {/* DELETE BUTTON */}
                       <button
                         className="p-2 hover:text-red-600 disabled:opacity-50"
-                        aria-label="Delete"
+                        aria-label="Hapus"
                         onClick={() => handleDelete(item.raw?.id ?? item.id)}
                         disabled={actionLoading !== null}
                       >
-                        {actionLoading === String(item.raw?.id ?? item.id) ? "Deleting..." : <TrashIcon />}
+                        {actionLoading === String(item.raw?.id ?? item.id) ? "Menghapus..." : <TrashIcon />}
                       </button>
                     </div>
                   </TableCell>
@@ -326,7 +327,9 @@ export default function AssetTypeList() {
 
                   <div className="text-right">
                     <div className="text-sm text-gray-500">Tanggal Ditambahkan</div>
-                    <div className="mt-1 font-medium">{item.createdAt}</div>
+                    <div className="mt-1 font-medium">
+                      {item.createdAt ? dayjs(item.createdAt).format("MMM DD, YYYY - HH:mm") : "-"}
+                    </div>
                   </div>
                 </div>
 
@@ -336,7 +339,7 @@ export default function AssetTypeList() {
                   </button>
                   <button
                     className="p-2 border rounded-md text-red-600"
-                    aria-label="Delete"
+                    aria-label="Hapus"
                     onClick={() => handleDelete(item.raw?.id ?? item.id)}
                   >
                     Hapus

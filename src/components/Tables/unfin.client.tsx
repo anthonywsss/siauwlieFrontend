@@ -126,7 +126,7 @@ export default function UnfinDelivery() {
             <TableHead className="min-w-[155px] xl:pl-7.5">Asset ID</TableHead>
             <TableHead>Client ID</TableHead>
             <TableHead>Foto QR</TableHead>
-            <TableHead>Timestamp</TableHead>
+            <TableHead>Waktu Pencatatan</TableHead>
             <TableHead>User ID</TableHead>
             <TableHead>Aksi</TableHead>
           </TableRow>
@@ -177,7 +177,7 @@ export default function UnfinDelivery() {
         
               <TableCell>
                 <p className="text-dark dark:text-white">
-                  {item.timestamp ? dayjs(item.timestamp).format("MMM DD, YYYY") : "-"}
+                  {item.timestamp ? dayjs(item.timestamp).format("MMM DD, YYYY - HH:mm") : "-"}
                 </p>
               </TableCell>
 
@@ -281,9 +281,9 @@ export default function UnfinDelivery() {
                 <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Client ID</div>
                 <div className="text-base text-dark dark:text-white">{item.client_id}</div>
 
-                <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Timestamp</div>
+                <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Waktu Pencatatan</div>
                 <div className="text-base text-dark dark:text-white">
-                  {item.timestamp ? dayjs(item.timestamp).format("MMM DD, YYYY") : "-"}
+                  {item.timestamp ? dayjs(item.timestamp).format("MMM DD, YYYY - HH:mm") : "-"}
                 </div>
 
                 <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">User ID</div>

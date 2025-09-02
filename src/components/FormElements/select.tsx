@@ -26,7 +26,7 @@ export function Select({
   value,
   onChange,
   required,
-}: PropsType) {
+}: PropsType  & {prefixIcon?: React.ComponentType}) {
   const id = useId();
   const [isOptionSelected, setIsOptionSelected] = useState(false);
 

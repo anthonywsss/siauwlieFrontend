@@ -10,6 +10,7 @@ import CreateAssetTypeModal from "@/components/CreateAssetTypeModal";
 import EditAssetTypeModal from "@/components/EditAssetTypeModal";
 import DeleteAssetTypeModal from "@/components/DeleteAssetTypeModal";
 
+import dayjs from "dayjs";
 import {
   Table,
   TableBody,
@@ -276,7 +277,7 @@ export default function AssetTypeList() {
                   </TableCell>
 
                   <TableCell>
-                    <p className="text-dark font-medium">{item.createdAt}</p>
+                    {item.createdAt ? dayjs(item.createdAt).format("MMM DD, YYYY - hh:mm") : "-"}
                   </TableCell>
 
                   <TableCell className="text-right">
@@ -331,7 +332,9 @@ export default function AssetTypeList() {
 
                   <div className="text-right">
                     <div className="text-sm text-gray-500">Tanggal Ditambahkan</div>
-                    <div className="mt-1 font-medium">{item.createdAt}</div>
+                    <div className="mt-1 font-medium">
+                      {item.createdAt ? dayjs(item.createdAt).format("MMM DD, YYYY - HH:mm") : "-"}
+                    </div>
                   </div>
                 </div>
 

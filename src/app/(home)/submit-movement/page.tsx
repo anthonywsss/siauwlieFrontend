@@ -1,4 +1,4 @@
-import MultiStepFormPage from "@/components/FormElements/multi-step";
+import MultiStepFormPage from "@/components/FormElements/submit-movement";
 
 export const metadata = {
   title: "Laporkan Pergerakan",

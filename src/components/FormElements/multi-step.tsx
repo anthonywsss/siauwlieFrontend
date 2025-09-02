@@ -1,8 +1,12 @@
+// Multi Step: Create New Asset Flow
 "use client";
 
-import { useState, ReactNode } from "react";
+import { useState, ReactNode, useEffect } from "react";
 import { Select } from "@/components/FormElements/select";
 import ConfirmationStep from "@/components/FormElements/confirmation";
+import API from "@/lib/api";
+import { useAuth } from "@/components/Auth/auth-context";
+import { useRouter } from "next/navigation";
 
 // Simple MultiStepForm & Step implementation
 type StepProps = { children: ReactNode };
@@ -10,12 +14,89 @@ function Step({ children }: StepProps) {
   return <>{children}</>;
 }
 
+type RawClient = {
+  id: string;
+  name: string;
+};
+
+type AssetType = {
+  id: string;
+  name: string;
+};
+
 export default function MultiStepFormPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [status, setStatus] = useState("");
   const [client, setClient] = useState("");
   const [assetType, setAssetType] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
+
+  const [allClients, setAllClients] = useState<RawClient[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const { signOut } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        const res = await API.get("/clients");
+        const clients: RawClient[] = res?.data?.data ?? res?.data ?? [];
+        if (!mounted) return;
+        setAllClients(Array.isArray(clients) ? clients : []);
+      } catch (err: any) {
+        console.error("fetch clients error:", err);
+        if (err?.response?.status === 401) {
+          signOut();
+          try {
+            router.push("/auth/sign-in");
+          } catch {}
+          return;
+        }
+        setError(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to fetch clients");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const [alltype, setAllType] = useState<AssetType[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        const res = await API.get("/asset-type");
+        const type: AssetType[] = res?.data?.data ?? res?.data ?? [];
+        if (!mounted) return;
+        setAllType(Array.isArray(type) ? type : []);
+      } catch (err: any) {
+        console.error("fetch asset type error:", err);
+        if (err?.response?.status === 401) {
+          signOut();
+          try {
+            router.push("/auth/sign-in");
+          } catch {}
+          return;
+        }
+        setError(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to fetch asset type");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const steps = [
     <Step key={0}>
@@ -38,9 +119,9 @@ export default function MultiStepFormPage() {
 
         <Select
           items={[
-            { label: "Pilih Klien", value: "" },
-            { label: "Klien01", value: "klien01" },
-          ]}
+              { label: "Pilih Klien", value: "" },
+              ...allClients.map((c) => ({ label: c.name, value: c.id })),
+              ]}
           label="Klien"
           value={client}
           onChange={setClient}
@@ -50,9 +131,9 @@ export default function MultiStepFormPage() {
 
         <Select
           items={[
-            { label: "Pilih Tipe Asset", value: "" },
-            { label: "Kontainer", value: "kontainer" },
-          ]}
+              { label: "Pilih Tipe Aset", value: "" },
+              ...alltype.map((c) => ({ label: c.name, value: c.id })),
+              ]}
           label="Tipe Asset"
           value={assetType}
           onChange={setAssetType}

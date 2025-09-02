@@ -32,7 +32,7 @@ export function Select({
 
   return (
     <div className={cn("space-y-3", className)}>
-      <label htmlFor={id} className="block text-body-sm font-medium text-dark dark:text-white">
+      <label htmlFor={id} className="block text-body-md font-medium text-dark dark:text-white">
         {label} {required && <span className="ml-1 text-red">*</span>}
       </label>
 

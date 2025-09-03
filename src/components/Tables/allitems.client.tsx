@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { TrashIcon, AddIcon } from "@/assets/icons";
 import { cn } from "@/lib/utils";
+import CreateNewAsset from "@/components/CreateNewAsset";
 import {
   Table,
   TableBody,
@@ -23,6 +24,16 @@ type Item = {
   assetType: string;
 };
 
+type RawAsset = {
+  id: string;
+  qrUrl: string;
+  status: string | null;
+  clientName: string;
+  clientId: string | number;
+  photoUrl: string;
+  assetType: string;
+  [k: string]: any;
+};
 function generatePages(current: number, total: number) {
   const delta = 1;
   const range = [] as number[];
@@ -66,6 +77,11 @@ export default function AllItemsClient() {
   const [assetFilter, setAssetFilter] = useState<string>("all");
   const [assetOpen, setAssetOpen] = useState<boolean>(false);
   const assetRef = useRef<HTMLDivElement | null>(null);
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingRaw, setEditingRaw] = useState<RawAsset | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -128,6 +144,22 @@ export default function AllItemsClient() {
       setPage(Math.max(1, Math.min(totalPages, n)));
       setGoto("");
     }
+  }
+
+  // open edit modal
+  function handleEditOpen(raw?: Item | null) {
+    setEditingRaw(raw ?? null);
+  }
+
+  // open create modal
+  function handleCreateOpen() {
+    setShowCreateModal(true);
+  }
+
+  function handleCreatedOrUpdated() {
+    setShowCreateModal(false);
+    setEditingRaw(null);
+    setRefreshKey((k) => k + 1);
   }
 
   const STATUS_OPTIONS: { label: string; value: string }[] = [
@@ -291,8 +323,8 @@ export default function AllItemsClient() {
           <button
             className="inline-flex items-center h-10 px-4 py-2 text-sm font-bold leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple w-full md:w-auto justify-center"
             type="button"
-            onClick={() => {
-            }}
+            onClick={handleCreateOpen}
+            disabled={actionLoading !== null}
           >
             <AddIcon />
             <span className="ml-2">Add New Categories</span>
@@ -539,6 +571,13 @@ export default function AllItemsClient() {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+        <CreateNewAsset
+          open={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onCreated={handleCreatedOrUpdated}
+        />
     </div>
   );
 }

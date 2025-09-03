@@ -153,7 +153,7 @@ export default function MultiStepFormPage() {
 
     if (selectedAsset.status.trim() === "outbound_to_client") {
       return "Perjalanan ke pelanggan";
-    } else if (selectedAsset.status.trim() === "inbount_at_client") {
+    } else if (selectedAsset.status.trim() === "inbound_at_client") {
       return "Digunakan pelanggan";
     } else if (selectedAsset.status.trim() === "outbound_to_factory") {
       return "Perjalanan ke pabrik";

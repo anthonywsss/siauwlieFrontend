@@ -1,11 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-export default function ConfirmationStep() {
+type Props = {
+  onValidityChange?: (valid: boolean) => void;
+};
+
+export default function ConfirmationStep({ onValidityChange }: Props) {
   const [input, setInput] = useState("");
 
   const isValid = input === "Konfirmasi Laporan";
+
+  useEffect(() => {
+    onValidityChange?.(isValid);
+  }, [isValid, onValidityChange]);
 
   return (
     <div className="space-y-4 text-left">
@@ -22,7 +30,7 @@ export default function ConfirmationStep() {
       {isValid ? (
         <p className="text-green-600 font-medium">✅ Laporan Terkonfirmasi</p>
       ) : (
-        <p className="text-red-500 text-sm">❌ Masukan Konfirmasi yang sesuai </p>
+        <p className="text-red-500 text-sm">❌ Masukan Konfirmasi yang sesuai</p>
       )}
     </div>
   );

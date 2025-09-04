@@ -5,18 +5,31 @@ import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import { Camera, Upload, MapPin, Check, ArrowLeft, ArrowRight, X, QrCode, Scan, RotateCcw } from "lucide-react";
+import jsQR from "jsqr";
 
 const clamp = (v: number, min: number, max: number) =>
   Math.max(min, Math.min(max, v));
 
 type Client = { id: number; name: string };
 
-const MOVEMENT_TYPES = [
-  { value: "outbound_to_client", label: "Outbound to Client", icon: "📤" },
-  { value: "inbound_at_client", label: "Inbound at Client", icon: "📥" },
-  { value: "outbound_to_factory", label: "Outbound to Factory", icon: "🏭" },
-  { value: "inbound_at_factory", label: "Inbound at Factory", icon: "🏭" },
+
+type MovementConfig = {
+  value: string;
+  label: string;
+  icon: string;
+  requiresQuantity: boolean;
+  clientPolicy: "required" | "forbidden" | "optional";
+};
+
+const MOVEMENT_TYPES: MovementConfig[] = [
+  { value: "outbound_to_client", label: "Outbound to Client", icon: "📤", requiresQuantity: true, clientPolicy: "required" },
+  { value: "inbound_at_client",  label: "Inbound at Client",  icon: "📥", requiresQuantity: false, clientPolicy: "forbidden" },
+  { value: "outbound_to_factory", label: "Outbound to Factory", icon: "🏭", requiresQuantity: false, clientPolicy: "forbidden" },
+  { value: "inbound_at_factory", label: "Inbound at Factory", icon: "🏭", requiresQuantity: false, clientPolicy: "required" },
 ];
+const USE_PLACEHOLDER_FOR_NON_REQUIRED_CLIENT = false;
+const CLIENT_PLACEHOLDER = "-";
+
 
 const STEPS = [
   { id: 0, title: "Scan Asset", description: "QR Code or Manual Entry" },
@@ -53,6 +66,7 @@ export default function SubmitMovement() {
   const [showScanner, setShowScanner] = useState(false);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const scanIntervalRef = useRef<number | null>(null);
+  const lastScanTimeRef = useRef<number>(0);
 
   // Auto-clear messages
   useEffect(() => {
@@ -71,7 +85,7 @@ export default function SubmitMovement() {
 
   // Authentication check
   useEffect(() => {
-    if (!user) router.push("/sign-in");
+    if (!user) router.push("/auth/sign-in");
   }, [user, router]);
 
   // Load clients
@@ -81,9 +95,6 @@ export default function SubmitMovement() {
         const res = await API.get("/clients");
         const list = res?.data?.data ?? [];
         setClients(Array.isArray(list) ? list : []);
-        if (Array.isArray(list) && list[0]) {
-          setClientId(Number(list[0].id));
-        }
       } catch (err) {
         console.error("Failed to fetch clients", err);
         setError("Failed to load clients");
@@ -92,6 +103,19 @@ export default function SubmitMovement() {
       }
     })();
   }, []);
+
+  // When movement type changes, reconcile client selection based on policy
+  useEffect(() => {
+    const cfg = MOVEMENT_TYPES.find(t => t.value === movementType);
+    if (!cfg) return;
+    if (cfg.clientPolicy === "required") {
+      if (!clientId || !clients.some(c => c.id === clientId)) {
+        if (clients[0]) setClientId(clients[0].id);
+      }
+    } else if (cfg.clientPolicy === "forbidden") {
+      if (clientId !== null) setClientId(null);
+    }
+  }, [movementType, clients]);
 
   // Enhanced file conversion with error handling
   const fileToBase64 = useCallback((file: File): Promise<string> =>
@@ -123,7 +147,7 @@ export default function SubmitMovement() {
     }
   };
 
-  // Enhanced QR image processing
+  // Enhanced QR image processing with better jsQR handling
   const onQrImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     if (!file) return;
@@ -142,25 +166,30 @@ export default function SubmitMovement() {
       });
 
       const canvas = document.createElement("canvas");
-      canvas.width = img.naturalWidth || img.width;
-      canvas.height = img.naturalHeight || img.height;
+      const maxSize = 800; // Limit canvas size for better performance
+      const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+      
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
       
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas not supported");
       
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-      const mod = await import("jsqr");
-      const jsQR = (mod && (mod as any).default) || mod;
-      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      // Load jsQR dynamically
+      const { default: jsQR } = await import("jsqr");
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "dontInvert", // Improve performance
+      });
       
       if (code && code.data) {
         setAssetId(String(code.data).trim());
         setSuccess(`QR Code detected: ${code.data}`);
         setStep(1);
       } else {
-        setScanError("No QR code found in image");
+        setScanError("No QR code found in image. Try with better lighting or positioning.");
       }
     } catch (err: any) {
       setScanError(err.message || "Failed to process QR image");
@@ -169,7 +198,7 @@ export default function SubmitMovement() {
     }
   };
 
-  // Enhanced camera scanner with better error handling
+  // Enhanced camera scanner with throttling
   const startScanner = async () => {
     setScanError(null);
     setShowScanner(true);
@@ -178,8 +207,8 @@ export default function SubmitMovement() {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          width: { ideal: 640, max: 1280 }, // Reduce resolution for better performance
+          height: { ideal: 480, max: 720 },
         },
       });
       
@@ -195,7 +224,7 @@ export default function SubmitMovement() {
     } catch (err: any) {
       console.error("Camera error:", err);
       setCameraPermission('denied');
-      setScanError("Camera access denied or unavailable");
+      setScanError("Camera access denied or unavailable. Please enable camera permissions.");
       setShowScanner(false);
     }
   };
@@ -219,16 +248,23 @@ export default function SubmitMovement() {
   const toggleCamera = async () => {
     stopScanner();
     setFacingMode(facingMode === 'environment' ? 'user' : 'environment');
-    // Wait a moment for the state to update before restarting
     setTimeout(startScanner, 300);
   };
 
-  // Improved scan loop with performance optimization
+  // Optimized scan loop with throttling and better error handling
   const startScanLoop = useCallback(() => {
     const scanFrame = async () => {
       if (!videoRef.current || !canvasRef.current || !overlayRef.current || !scanning) {
         return;
       }
+
+      const now = Date.now();
+      // Throttle scanning to every 250ms for better performance
+      if (now - lastScanTimeRef.current < 250) {
+        scanIntervalRef.current = requestAnimationFrame(scanFrame);
+        return;
+      }
+      lastScanTimeRef.current = now;
 
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -242,8 +278,10 @@ export default function SubmitMovement() {
         return;
       }
 
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // Use smaller canvas for QR detection to improve performance
+      const scale = 0.5;
+      canvas.width = video.videoWidth * scale;
+      canvas.height = video.videoHeight * scale;
       overlay.width = video.videoWidth;
       overlay.height = video.videoHeight;
 
@@ -251,21 +289,25 @@ export default function SubmitMovement() {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
       try {
-        const mod = await import("jsqr");
-        const jsQR = (mod && (mod as any).default) || mod;
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        const { default: jsQR } = await import("jsqr");
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert", // Better performance
+        });
 
         overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
 
         if (code && code.data) {
+          // Scale coordinates back up for overlay
+          const scaleUp = 1 / scale;
+          
           // Draw detection box
           overlayCtx.strokeStyle = "#00ff00";
           overlayCtx.lineWidth = 4;
           overlayCtx.beginPath();
-          overlayCtx.moveTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
-          overlayCtx.lineTo(code.location.topRightCorner.x, code.location.topRightCorner.y);
-          overlayCtx.lineTo(code.location.bottomRightCorner.x, code.location.bottomRightCorner.y);
-          overlayCtx.lineTo(code.location.bottomLeftCorner.x, code.location.bottomLeftCorner.y);
+          overlayCtx.moveTo(code.location.topLeftCorner.x * scaleUp, code.location.topLeftCorner.y * scaleUp);
+          overlayCtx.lineTo(code.location.topRightCorner.x * scaleUp, code.location.topRightCorner.y * scaleUp);
+          overlayCtx.lineTo(code.location.bottomRightCorner.x * scaleUp, code.location.bottomRightCorner.y * scaleUp);
+          overlayCtx.lineTo(code.location.bottomLeftCorner.x * scaleUp, code.location.bottomLeftCorner.y * scaleUp);
           overlayCtx.closePath();
           overlayCtx.stroke();
 
@@ -320,10 +362,15 @@ export default function SubmitMovement() {
         { 
           enableHighAccuracy: true, 
           timeout: 15000,
-          maximumAge: 300000 // 5 minutes
+          maximumAge: 300000
         }
       );
     });
+  };
+
+  // Get current movement type config
+  const getCurrentMovementConfig = () => {
+    return MOVEMENT_TYPES.find(t => t.value === movementType);
   };
 
   // Enhanced form validation
@@ -335,24 +382,37 @@ export default function SubmitMovement() {
           return false;
         }
         break;
-      case 1:
+
+      case 1: {
         if (!movementType) {
           setError("Movement type is required");
           return false;
         }
-        // Only require client for client-related movements
-        if ((movementType === "outbound_to_client" || movementType === "inbound_at_client") && !clientId) {
-          setError("Client selection is required for this movement type");
-          return false;
+
+        const config = getCurrentMovementConfig();
+
+        if (config?.clientPolicy === "required") {
+          if (loadingClients) {
+            setError("Please wait for clients to load");
+            return false;
+          }
+          const valid = clients.some(c => c.id === clientId);
+          if (!valid) {
+            setError("Client selection is required for this movement type");
+            return false;
+          }
         }
-        if (quantity < 1) {
+
+        if (config?.requiresQuantity && quantity < 1) {
           setError("Quantity must be at least 1");
           return false;
         }
         break;
+      }
     }
     return true;
   };
+
 
   // Navigation handlers
   const handleNext = () => {
@@ -365,60 +425,103 @@ export default function SubmitMovement() {
     setStep(Math.max(step - 1, 0));
   };
 
-  // Enhanced submit handler
-  const handleSubmit = async () => {
-    if (!validateStep(1)) return;
+  // Enhanced submit handler with conditional fields
+const handleSubmit = async () => {
+  if (!validateStep(1)) return;
 
-    setBusy(true);
-    setError(null);
+  setBusy(true);
+  setError(null);
 
-    try {
-      let finalPhoto = photoBase64;
-      if (finalPhoto.startsWith("data:image")) {
-        finalPhoto = finalPhoto.split(",")[1];
-      }
-
-      const body: any = {
-        asset_id: assetId.trim(),
-        movement_type: movementType,
-        quantity: clamp(Math.trunc(quantity), 1, 32767),
-        latitude: latitude ? clamp(latitude, -90, 90) : null,
-        longitude: longitude ? clamp(longitude, -180, 180) : null,
-        photo: finalPhoto || "",
-        notes: notes.trim() || "",
-      };
-
-      // Only include client_id for client-related movements
-      if (movementType === "outbound_to_client" || movementType === "inbound_at_client") {
-        body.client_id = clientId;
-      }
-
-      const res = await API.post("/movements", body);
-      setSuccess("Movement submitted successfully!");
-      
-      // Reset form
-      setAssetId("");
-      setMovementType(null);
-      setClientId(clients[0]?.id || null);
-      setQuantity(1);
-      setLatitude(null);
-      setLongitude(null);
-      setPhotoBase64("");
-      setNotes("");
-      setStep(0);
-
-    } catch (err: any) {
-      const msg = err?.response?.data?.meta?.message || 
-                   err?.response?.data?.message || 
-                   err?.message || 
-                   "Submission failed";
-      setError(msg);
-    } finally {
-      setBusy(false);
+  try {
+    let finalPhoto = photoBase64;
+    if (finalPhoto.startsWith("data:image")) {
+      finalPhoto = finalPhoto.split(",")[1];
     }
+
+    const config = getCurrentMovementConfig();
+
+    if (config?.clientPolicy === "required" && !(typeof clientId === 'number' && Number.isFinite(clientId) && clients.some(c => c.id === clientId))) {
+      setError("Client selection is required for this movement type");
+      setBusy(false);
+      return;
+    }
+
+  const body: any = {
+    asset_id: assetId.trim(),
+    movement_type: movementType,
+    // include lat/lng only when they are real numbers
+    ...(Number.isFinite(Number(latitude)) ? { latitude: clamp(Number(latitude), -90, 90) } : {}),
+    ...(Number.isFinite(Number(longitude)) ? { longitude: clamp(Number(longitude), -180, 180) } : {}),
+    photo: finalPhoto || "",
+    notes: notes.trim() || ""
   };
 
+  // quantity when required
+  if (config?.requiresQuantity) {
+    body.quantity = clamp(Math.trunc(Number(quantity) || 0), 1, 32767);
+  }
+
+  // attach client_id ONLY when the current movement expects a client and we actually have one
+  if (config?.clientPolicy === "required") {
+    if (typeof clientId === 'number' && Number.isFinite(clientId)) {
+      body.client_id = clientId;
+      // Defensive mapping: some backends expect factory_id for inbound_at_factory
+      if (movementType === 'inbound_at_factory') {
+        (body as any).factory_id = body.client_id;
+      }
+    } else {
+      throw new Error("Client is required but missing");
+    }
+  } else {
+    if (USE_PLACEHOLDER_FOR_NON_REQUIRED_CLIENT) {
+      body.client_id = CLIENT_PLACEHOLDER;
+    } else {
+      if ('client_id' in body) delete (body as any).client_id;
+    }
+  }
+
+  // final safety: never send null/undefined/empty client_id
+  if (body.client_id == null || body.client_id === "") {
+    delete (body as any).client_id;
+  }
+
+  // Good: log exact JSON that will be sent (not the live object)
+  console.log("Submitting movement (payload):", JSON.stringify(body));
+  const res = await API.post("/movements", body);
+
+    // Reset form
+    setAssetId("");
+    setMovementType(null);
+    setClientId(null);
+    setQuantity(1);
+    setLatitude(null);
+    setLongitude(null);
+    setPhotoBase64("");
+    setNotes("");
+    setStep(0);
+
+  } catch (err: any) {
+    console.error("Submit error details:", {
+      response: err.response?.data,
+      status: err.response?.status,
+      message: err.message
+    });
+
+    const msg = err?.response?.data?.error ||
+                err?.response?.data?.message ||
+                err?.response?.data?.meta?.message ||
+                err?.message ||
+                "Submission failed";
+    setError(msg);
+  } finally {
+    setBusy(false);
+  }
+};
+
+
   if (!user) return null;
+
+  const currentConfig = getCurrentMovementConfig();
 
   return (
     <div className="min-h-screen bg-gray-50 py-6">
@@ -644,14 +747,19 @@ export default function SubmitMovement() {
                           className="sr-only"
                         />
                         <span className="text-2xl mr-3">{type.icon}</span>
-                        <span className="font-medium">{type.label}</span>
+                        <div>
+                          <div className="font-medium">{type.label}</div>
+                          <div className="text-xs text-gray-500">
+                            {type.requiresQuantity ? "Requires quantity" : "No quantity needed"}
+                          </div>
+                        </div>
                       </label>
                     ))}
                   </div>
                 </div>
 
                 {/* Client Selection - Only show for client-related movements */}
-                {(movementType === "outbound_to_client" || movementType === "inbound_at_client") && (
+                {currentConfig?.clientPolicy === "required" && (
                   <div className="md:col-span-2 animate-fade-in">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Client *
@@ -661,7 +769,7 @@ export default function SubmitMovement() {
                     ) : (
                       <select
                         value={clientId || ""}
-                        onChange={(e) => setClientId(Number(e.target.value))}
+                        onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                       >
                         <option value="">Select a client</option>
@@ -675,56 +783,69 @@ export default function SubmitMovement() {
                   </div>
                 )}
 
-                {/* Quantity */}
-                <div>
+                {/* Quantity Input - Only show if required */}
+                {currentConfig?.requiresQuantity && (
+                  <div className="animate-fade-in">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Quantity *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={quantity}
+                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                )}
+
+                {/* Notes */}
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Quantity *
+                    Notes
                   </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={32767}
-                    value={quantity}
-                    onChange={(e) => setQuantity(Number(e.target.value))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Additional information about this movement..."
                   />
                 </div>
 
-                {/* Photo */}
-                <div>
+                {/* Photo Upload */}
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Photo (Optional)
+                    Photo Evidence
                   </label>
                   <div className="flex items-center space-x-4">
-                    <label className="flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
-                      <Camera className="w-8 h-8 text-gray-400 mb-1" />
-                      <span className="text-xs text-gray-500">Add Photo</span>
+                    <label className="flex-1 cursor-pointer">
                       <input
                         type="file"
                         accept="image/*"
                         onChange={onPhotoChange}
                         className="hidden"
                       />
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors">
+                        <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                        <div className="text-sm text-gray-600">
+                          {photoBase64 ? "Change photo" : "Upload photo"}
+                        </div>
+                      </div>
                     </label>
                     {photoBase64 && (
-                      <div className="relative animate-fade-in">
+                      <div className="flex-1">
                         <img
                           src={photoBase64}
                           alt="Preview"
-                          className="w-24 h-24 object-cover rounded-lg"
+                          className="w-full h-32 object-cover rounded-lg border"
                         />
-                        <button
-                          onClick={() => setPhotoBase64("")}
-                          className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Location */}
+                {/* Location Capture */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Location
@@ -734,48 +855,36 @@ export default function SubmitMovement() {
                       type="button"
                       onClick={takeLocation}
                       disabled={busy}
-                      className="inline-flex items-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                      className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50"
                     >
                       <MapPin className="w-4 h-4 mr-2" />
-                      {busy ? "Getting Location..." : "Capture Location"}
+                      {latitude && longitude ? "Update Location" : "Capture Location"}
                     </button>
-                    {(latitude !== null && longitude !== null) && (
-                      <div className="text-sm text-gray-600 animate-fade-in">
-                        📍 {latitude.toFixed(6)}, {longitude.toFixed(6)}
+                    {latitude && longitude && (
+                      <div className="text-sm text-gray-600">
+                        Captured: {latitude.toFixed(6)}, {longitude.toFixed(6)}
                       </div>
                     )}
                   </div>
                 </div>
-
-                {/* Notes */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Notes (Optional)
-                  </label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={3}
-                    placeholder="Add any additional notes..."
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  />
-                </div>
               </div>
 
+              {/* Navigation Buttons */}
               <div className="flex justify-between pt-6">
                 <button
                   onClick={handlePrev}
-                  className="inline-flex items-center px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium transition-colors"
+                  className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800"
                 >
-                  <ArrowLeft className="w-5 h-5 mr-2" />
-                  Previous
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
                 </button>
                 <button
                   onClick={handleNext}
-                  className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors hover:scale-105"
+                  disabled={busy || (currentConfig?.clientPolicy === "required" && !clients.some(c => c.id === clientId))}
+                  className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
-                  Review
-                  <ArrowRight className="w-5 h-5 ml-2" />
+                  Next
+                  <ArrowRight className="w-4 h-4 ml-2" />
                 </button>
               </div>
             </div>
@@ -783,108 +892,87 @@ export default function SubmitMovement() {
 
           {step === 2 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Confirm & Submit</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Confirm Movement</h2>
               
-              {/* Summary */}
-              <div className="bg-gray-50 rounded-lg p-6 space-y-4 animate-fade-in">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-sm text-gray-600">Asset ID</div>
-                    <div className="font-medium">{assetId}</div>
+              {/* Summary Card */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="font-medium text-lg mb-4">Movement Summary</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Asset ID:</span>
+                    <span className="font-medium">{assetId}</span>
                   </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Movement Type</div>
-                    <div className="font-medium">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Movement Type:</span>
+                    <span className="font-medium">
                       {MOVEMENT_TYPES.find(t => t.value === movementType)?.label}
-                    </div>
+                    </span>
                   </div>
-                  {(movementType === "outbound_to_client" || movementType === "inbound_at_client") && (
-                    <div>
-                      <div className="text-sm text-gray-600">Client</div>
-                      <div className="font-medium">
-                        {clients.find(c => c.id === clientId)?.name || "Not selected"}
-                      </div>
+                  {currentConfig?.clientPolicy === "required" && clientId && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Client:</span>
+                      <span className="font-medium">
+                        {clients.find(c => c.id === clientId)?.name}
+                      </span>
                     </div>
                   )}
-                  <div>
-                    <div className="text-sm text-gray-600">Quantity</div>
-                    <div className="font-medium">{quantity}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Location</div>
-                    <div className="font-medium">
-                      {(latitude !== null && longitude !== null) 
-                        ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
-                        : "Not captured"}
+                  {currentConfig?.requiresQuantity && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Quantity:</span>
+                      <span className="font-medium">{quantity}</span>
                     </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Photo</div>
-                    <div className="font-medium">
-                      {photoBase64 ? "Attached" : "Not attached"}
-                    </div>
-                  </div>
+                  )}
                   {notes && (
-                    <div className="md:col-span-2">
-                      <div className="text-sm text-gray-600">Notes</div>
-                      <div className="font-medium">{notes}</div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Notes:</span>
+                      <span className="font-medium">{notes}</span>
+                    </div>
+                  )}
+                  {latitude && longitude && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Location:</span>
+                      <span className="font-medium">
+                        {latitude.toFixed(6)}, {longitude.toFixed(6)}
+                      </span>
                     </div>
                   )}
                 </div>
               </div>
 
+              {/* Photo Preview */}
+              {photoBase64 && (
+                <div>
+                  <h3 className="font-medium text-lg mb-4">Photo Evidence</h3>
+                  <img
+                    src={photoBase64}
+                    alt="Movement evidence"
+                    className="w-full max-w-md rounded-lg border"
+                  />
+                </div>
+              )}
+
+              {/* Navigation Buttons */}
               <div className="flex justify-between pt-6">
                 <button
                   onClick={handlePrev}
-                  className="inline-flex items-center px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium transition-colors"
+                  className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800"
                 >
-                  <ArrowLeft className="w-5 h-5 mr-2" />
+                  <ArrowLeft className="w-4 h-4 mr-2" />
                   Back
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={busy}
-                  className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium transition-colors hover:scale-105"
+                  disabled={busy || (currentConfig?.clientPolicy === "required" && !clients.some(c => c.id === clientId))}
+                  className="flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                 >
-                  {busy ? "Submitting..." : "Submit Movement"}
-                  <Check className="w-5 h-5 ml-2" />
+                  {busy ? "Submitting..." : "Confirm Movement"}
+                  <Check className="w-4 h-4 ml-2" />
                 </button>
               </div>
             </div>
           )}
         </div>
       </div>
-
-      <style jsx global>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        
-        @keyframes scanLine {
-          0% { top: 0; opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
-          100% { top: 100%; opacity: 0; }
-        }
-        
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-        
-        .animate-fade-in {
-          animation: fadeIn 0.5s ease-out;
-        }
-        
-        .animate-scan-line {
-          animation: scanLine 2s ease-in-out infinite;
-        }
-        
-        .animate-pulse {
-          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-      `}</style>
     </div>
   );
 }

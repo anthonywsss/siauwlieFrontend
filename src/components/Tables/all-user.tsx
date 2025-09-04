@@ -317,7 +317,7 @@ export default function AllItemsClient() {
                       <button
                         className="p-2 hover:text-red-600 disabled:opacity-50"
                         aria-label="Delete"
-                        onClick={() => setDeletingUserRaw(item.raw ?? { user_id: item.id })}
+                        onClick={() => setDeletingUserRaw((item.raw ?? { user_id: item.id }) as RawUser)}
                         disabled={actionLoading !== null}
                       >
                         {actionLoading === String(item.raw?.user_id ?? item.id) ? (
@@ -372,7 +372,7 @@ export default function AllItemsClient() {
                     <button
                       className="p-2 border rounded-md text-red-600"
                       aria-label="Delete"
-                      onClick={() => setDeletingUserRaw(item.raw ?? { user_id: item.id })}
+                      onClick={() => setDeletingUserRaw((item.raw ?? { user_id: item.id }) as RawUser)}
                     >
                       Hapus
                     </button>

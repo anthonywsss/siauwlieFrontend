@@ -21,9 +21,13 @@ export function OverviewCard({ data, label, Icon }: PropsType) {
           <dt className="mb-1.5 text-heading-6 font-bold text-dark dark:text-white">
             {label}
           </dt>
-
-          <dd className="text-lg font-medium text-dark-1">{data.value} Container</dd>
+          <dd className="text-lg font-medium text-dark-1">
+            {data.value} Container
+          </dd>
         </dl>
+        <span className="text-sm font-medium text-green-600">
+          {Math.round(data.growthRate)}%
+        </span>
       </div>
     </div>
   );

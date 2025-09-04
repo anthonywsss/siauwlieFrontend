@@ -23,6 +23,7 @@ export default function DeleteAssetTypeModal({ open, assetType, onClose, onDelet
   const { signOut } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -47,8 +48,7 @@ export default function DeleteAssetTypeModal({ open, assetType, onClose, onDelet
 
     try {
       await API.delete(`/asset-type/${id}`);
-      onDeleted?.();
-      onClose();
+      setShowInfo(true);
     } catch (err: any) {
       console.error("delete asset type error:", err);
       if (err?.response?.status === 401) {
@@ -67,20 +67,35 @@ export default function DeleteAssetTypeModal({ open, assetType, onClose, onDelet
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 p-4">
       <div className="w-full md:w-[520px] max-h-[95vh] overflow-auto rounded-t-lg md:rounded-lg bg-white p-5 md:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-2xl font-semibold">Hapus Tipe Asset</h3>
-          <button onClick={onClose} aria-label="Close" className="text-gray-600">✕</button>
-        </div>
-
+     
         <form onSubmit={handleDelete} className="space-y-4">
-          <div>
-            <p className="text-sm text-gray-700">Apakah Anda yakin ingin menghapus tipe asset ini? Aksi ini tidak bisa dibatalkan.</p>
+          {showInfo ? (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-2xl font-semibold">Asset Type Deleted</h3>
+                <button onClick={onClose} aria-label="Close" className="text-gray-600">✕</button>
+              </div>
+              <p className="text-sm text-gray-700"> Asset Type has been successfully <span className="text-red-500 font-semibold">deleted</span>.</p>
 
-            <div className="mt-3 text-sm text-gray-800">
-              <div><strong>ID:</strong> {String(assetType?.id ?? "—")}</div>
-              <div className="mt-1"><strong>Nama:</strong> {assetType?.name ?? "—"}</div>
-              <div className="mt-1"><strong>Deskripsi:</strong> {assetType?.description ?? "—"}</div>
-            </div>
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => {
+                    onDeleted?.();
+                    setShowInfo(false);
+                    onClose();
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-sm text-black rounded"
+                >
+                  Okay
+                </button>
+              </div>
+
+            </>
+        ) : (
+          <>
+          <div>
+            <h3 className="mb-3 text-2xl font-semibold">Delete Asset Type</h3>
+            <p className="text-sm text-gray-700">Are you sure you want to delete this asset type? This action can not be undone.</p>
           </div>
 
           {error && <div className="text-red-600">{error}</div>}
@@ -91,7 +106,7 @@ export default function DeleteAssetTypeModal({ open, assetType, onClose, onDelet
               disabled={submitting}
               className="px-4 py-2 bg-red-600 text-white rounded"
             >
-              {submitting ? "Menghapus..." : "Ya, Hapus"}
+              {submitting ? "Menghapus..." : "Delete Type"}
             </button>
 
             <button
@@ -100,9 +115,11 @@ export default function DeleteAssetTypeModal({ open, assetType, onClose, onDelet
               className="px-4 py-2 border rounded"
               disabled={submitting}
             >
-              Batal
+              Cancel
             </button>
           </div>
+            </>
+            )}
         </form>
       </div>
     </div>

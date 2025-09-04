@@ -282,7 +282,7 @@ export default function AssetTypeList() {
 
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-3">
-                      {/* EDIT BUTTON (pencil) */}
+                      {/* EDIT BUTTON */}
                       <button
                         className="p-2 hover:text-primary"
                         aria-label="Edit"

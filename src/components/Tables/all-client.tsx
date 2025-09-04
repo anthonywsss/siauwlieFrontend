@@ -8,6 +8,7 @@ import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import CreateClientModal from "@/components/CreateClientModal";
 import EditClientModal from "@/components/EditClientModal";
+import DeleteClientModal from "@/components/DeleteClientModal";
 import {
   Table,
   TableBody,
@@ -85,6 +86,8 @@ export default function AllClientsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingClientRaw, setEditingClientRaw] = useState<RawClient | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const [deletingRaw, setDeletingRaw] = useState<RawClient | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
   const pages = useMemo(() => generatePages(page, totalPages), [page, totalPages]);
@@ -307,7 +310,7 @@ export default function AllClientsPage() {
 
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-3">
-                      {/* EDIT BUTTON (pencil) */}
+                      {/* EDIT BUTTON */}
                       <button
                         className="p-2 hover:text-primary"
                         aria-label="Edit"
@@ -322,15 +325,14 @@ export default function AllClientsPage() {
                       {/* DELETE BUTTON */}
                       <button
                         className="p-2 hover:text-red-600 disabled:opacity-50"
-                        aria-label="Hapus"
-                        onClick={() => handleDelete(item.raw?.id ?? item.id)}
+                        aria-label="Delete"
+                        onClick={() => {
+                          const raw: RawClient = item.raw ?? { id: Number(item.id) };
+                          setDeletingRaw(raw);
+                        }}
                         disabled={actionLoading !== null}
                       >
-                        {actionLoading === String(item.raw?.id ?? item.id) ? (
-                          "Menghapus..."
-                        ) : (
-                          <TrashIcon />
-                        )}
+                        <TrashIcon />
                       </button>
                     </div>
                   </TableCell>
@@ -466,6 +468,16 @@ export default function AllClientsPage() {
         clientData={editingClientRaw ?? undefined}
         onClose={() => setEditingClientRaw(null)}
         onUpdated={handleCreatedOrUpdated}
+      />
+
+      <DeleteClientModal
+        open={!!deletingRaw}
+        client={deletingRaw ?? undefined}
+        onClose={() => setDeletingRaw(null)}
+        onDeleted={() => {
+          setDeletingRaw(null);
+          setRefreshKey((k) => k + 1);
+        }}
       />
     </div>
   );

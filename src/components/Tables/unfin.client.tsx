@@ -73,6 +73,7 @@ export default function UnfinDelivery() {
 
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  
 
   useEffect(() => {
     let mounted = true;
@@ -110,7 +111,7 @@ export default function UnfinDelivery() {
 
   const goToDetail = (assetId?: string) => {
     if (!assetId) return;
-    router.push(`/unfinished/${encodeURIComponent(String(assetId))}`);
+    router.push(` /unfinished/${encodeURIComponent(String(assetId))}`);
   };
 
   function goToPageNumber(n: number | string) {

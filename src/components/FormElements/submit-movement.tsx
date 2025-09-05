@@ -55,9 +55,9 @@ const USE_PLACEHOLDER_FOR_NON_REQUIRED_CLIENT = false;
 const CLIENT_PLACEHOLDER = "-";
 
 const STEPS = [
-  { id: 0, title: "Scan Asset", description: "QR Code or Manual Entry" },
-  { id: 1, title: "Movement Details", description: "Type, Client & Info" },
-  { id: 2, title: "Confirm & Submit", description: "Review & Send" },
+  { id: 0, title: "Pindai Asset", description: "Kode QR atau Input Manual" },
+  { id: 1, title: "Pergerakan", description: "Tipe, Klien & Informasi lain" },
+  { id: 2, title: "Konfirmasi", description: "Kirimkan data" },
 ];
 
 // Success Popup Component
@@ -716,8 +716,8 @@ export default function SubmitMovement() {
       <div className="max-w-4xl mx-auto px-3 sm:px-4">
         {/* Header */}
         <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6 animate-fadeIn">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Submit Movement</h1>
-          <p className="text-sm sm:text-base text-gray-600">Track and record asset movements dengan scan QR</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Laporan Pergerakan</h1>
+          <p className="text-sm sm:text-base text-gray-600">Rekam jejak asset dengan memindai kode QR</p>
         </div>
 
         {/* Progress Steps */}
@@ -773,7 +773,7 @@ export default function SubmitMovement() {
         <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
           {step === 0 && (
             <div className="space-y-4 sm:space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Scan Asset QR Code</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Pindai kode QR</h2>
               
               {/* QR Scanner */}
               {showScanner ? (
@@ -821,7 +821,7 @@ export default function SubmitMovement() {
                     
                     <div className="absolute bottom-2 left-2 right-2 text-center">
                       <div className="bg-black bg-opacity-50 text-white px-3 py-1 text-xs sm:text-sm rounded-lg animate-pulse">
-                        Posisikan QR code di dalam frame
+                        Posisikan QR dalam frame
                       </div>
                     </div>
                   </div>
@@ -836,8 +836,8 @@ export default function SubmitMovement() {
                     <div className="bg-blue-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 animate-pulse">
                       <Scan className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
                     </div>
-                    <h3 className="font-medium text-base sm:text-lg mb-1 sm:mb-2">Scan QR Code</h3>
-                    <p className="text-xs sm:text-sm text-gray-500">Pake camera untuk scan QR</p>
+                    <h3 className="font-medium text-base sm:text-lg mb-1 sm:mb-2">Pindai kode QR</h3>
+                    <p className="text-xs sm:text-sm text-gray-500"> Gunakan kamera untuk memindai kode QR</p>
                   </div>
 
                   {/* Upload QR Image Option */}
@@ -845,8 +845,8 @@ export default function SubmitMovement() {
                     <div className="bg-blue-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
                       <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
                     </div>
-                    <h3 className="font-medium text-base sm:text-lg mb-1 sm:mb-2">Upload QR Image</h3>
-                    <p className="text-xs sm:text-sm text-gray-500">Upload an image containing a QR code</p>
+                    <h3 className="font-medium text-base sm:text-lg mb-1 sm:mb-2">Unggah QR Image</h3>
+                    <p className="text-xs sm:text-sm text-gray-500">Unggah kode QR</p>
                     <input
                       type="file"
                       accept="image/*"
@@ -868,13 +868,13 @@ export default function SubmitMovement() {
               <div className="border-t pt-4 sm:pt-6 mt-4 sm:mt-6">
                 <h3 className="font-medium text-base sm:text-lg mb-3 sm:mb-4 flex items-center">
                   <QrCode className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                  Or enter manually
+                  Atau isi ID Asset secara manual
                 </h3>
                 <input
                   type="text"
                   value={assetId}
                   onChange={(e) => setAssetId(e.target.value)}
-                  placeholder="Enter Asset ID"
+                  placeholder="Masukan ID Asset"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
                 />
               </div>
@@ -885,7 +885,7 @@ export default function SubmitMovement() {
                   disabled={!assetId.trim() || busy}
                   className="inline-flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium transition-all duration-300 hover:scale-[1.02] text-sm sm:text-base"
                 >
-                  Next
+                  Selanjutnya
                   <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-1 sm:ml-2" />
                 </button>
               </div>
@@ -894,19 +894,19 @@ export default function SubmitMovement() {
 
           {step === 1 && (
             <div className="space-y-4 sm:space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Movement Details</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Pergerakan</h2>
               
               {/* Asset ID Display */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 flex justify-between items-center animate-fadeIn">
                 <div>
-                  <div className="text-xs sm:text-sm text-blue-700">Asset ID</div>
+                  <div className="text-xs sm:text-sm text-blue-700">ID Asset</div>
                   <div className="font-medium text-blue-900 text-sm sm:text-base">{assetId}</div>
                 </div>
                 <button 
                   onClick={() => setStep(0)}
                   className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm font-medium transition-colors"
                 >
-                  Change
+                  Ubah
                 </button>
               </div>
 
@@ -914,17 +914,17 @@ export default function SubmitMovement() {
                 {/* MOVEMENT TYPE: read-only (auto-picked) */}
                 <div className="md:col-span-2">
                   <label className="block text-sm sm:text-base font-medium text-gray-700 mb-3">
-                    Movement Type (automatically selected)
+                    Pergerakan (Sistem Otomatis)
                   </label>
 
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <div className="p-3 rounded-lg border border-gray-200 bg-gray-50 min-w-0 flex-1">
-                      <div className="text-xs text-gray-500">Current Asset Status</div>
+                      <div className="text-xs text-gray-500">Status Pergerakan Saat ini</div>
                       <div className="font-medium text-sm mt-1">{assetCurrentStatus ?? "Unknown"}</div>
                     </div>
 
                     <div className="p-3 rounded-lg border border-blue-200 bg-blue-50 min-w-0 flex-1">
-                      <div className="text-xs text-blue-700">Selected Movement</div>
+                      <div className="text-xs text-blue-700">Status Pergerakan Selanjutnya</div>
                       <div className="font-medium text-sm mt-1">
                         {MOVEMENT_TYPES.find(t => t.value === movementType)?.label ?? (fetchingAssetStatus ? "Determining..." : "Unknown")}
                       </div>
@@ -933,7 +933,7 @@ export default function SubmitMovement() {
                   </div>
 
                   <div className="text-xs text-gray-500 mt-2">
-                    The movement type is chosen automatically based on this asset's current status. Users cannot change it manually.
+                    Status pergerakan ini diisi oleh sistem secara otomatis. User tidak bisa mengganti status pergerakan secara manual.
                   </div>
                 </div>
 
@@ -941,7 +941,7 @@ export default function SubmitMovement() {
                 {currentConfig?.clientPolicy === "required" && (
                   <div className="md:col-span-2 animate-fadeIn">
                     <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
-                      Client *
+                      Klien *
                     </label>
                     {loadingClients ? (
                       <div className="text-gray-500 text-sm sm:text-base">Loading clients...</div>
@@ -951,7 +951,7 @@ export default function SubmitMovement() {
                         onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-sm sm:text-base"
                       >
-                        <option value="">Select a client</option>
+                        <option value="">Pilih Klien</option>
                         {clients.map((client) => (
                           <option key={client.id} value={client.id}>
                             {client.name}
@@ -966,7 +966,7 @@ export default function SubmitMovement() {
                 {currentConfig?.requiresQuantity && (
                   <div className="animate-fadeIn">
                     <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
-                      Quantity *
+                      Kuantitas *
                     </label>
                     <input
                       type="number"
@@ -981,21 +981,21 @@ export default function SubmitMovement() {
                 {/* Notes */}
                 <div className="md:col-span-2">
                   <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
-                    Notes
+                    Catatan
                   </label>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={3}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
-                    placeholder="Additional information about this movement..."
+                    placeholder="Tambahkan catatan mengenai pergerakan ini ..."
                   />
                 </div>
 
                 {/* Photo Upload */}
                 <div className="md:col-span-2">
                   <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
-                    Photo Evidence
+                    Bukti Foto
                   </label>
                   <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
                     <label className="flex-1 cursor-pointer">
@@ -1008,7 +1008,7 @@ export default function SubmitMovement() {
                       <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors">
                         <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mx-auto mb-2" />
                         <div className="text-xs sm:text-sm text-gray-600">
-                          {photoBase64 ? "Change photo" : "Upload photo"}
+                          {photoBase64 ? "Change photo" : "Unggah Foto"}
                         </div>
                       </div>
                     </label>
@@ -1027,7 +1027,7 @@ export default function SubmitMovement() {
                 {/* Location Capture */}
                 <div className="md:col-span-2">
                   <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
-                    Location
+                    Lokasi
                   </label>
                   <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                     <button
@@ -1037,11 +1037,11 @@ export default function SubmitMovement() {
                       className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 text-sm sm:text-base"
                     >
                       <MapPin className="w-4 h-4 mr-2" />
-                      {latitude && longitude ? "Update Location" : "Capture Location"}
+                      {latitude && longitude ? "Perbarui Lokasi" : "Rekam Lokasi"}
                     </button>
                     {latitude && longitude && (
                       <div className="text-xs sm:text-sm text-gray-600">
-                        Captured: {latitude.toFixed(6)}, {longitude.toFixed(6)}
+                        Rekaman: {latitude.toFixed(6)}, {longitude.toFixed(6)}
                       </div>
                     )}
                   </div>
@@ -1055,14 +1055,14 @@ export default function SubmitMovement() {
                   className="flex items-center px-3 py-2 text-gray-600 hover:text-gray-800 text-sm sm:text-base"
                 >
                   <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" />
-                  Back
+                  Kembali
                 </button>
                 <button
                   onClick={handleNext}
                   disabled={busy || (currentConfig?.clientPolicy === "required" && !clients.some(c => c.id === clientId))}
                   className="flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm sm:text-base"
                 >
-                  Next
+                  Selanjutnya
                   <ArrowRight className="w-4 h-4 ml-1 sm:ml-2" />
                 </button>
               </div>
@@ -1071,25 +1071,25 @@ export default function SubmitMovement() {
 
           {step === 2 && (
             <div className="space-y-4 sm:space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Confirm Movement</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Konfirmasi Laporan</h2>
               
               {/* Summary Card */}
               <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
-                <h3 className="font-medium text-lg mb-3 sm:mb-4">Movement Summary</h3>
+                <h3 className="font-medium text-lg mb-3 sm:mb-4">Rangkuman Pergerakan</h3>
                 <div className="space-y-2 sm:space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-gray-600 text-sm sm:text-base">Asset ID:</span>
+                    <span className="text-gray-600 text-sm sm:text-base">ID Asset:</span>
                     <span className="font-medium text-sm sm:text-base">{assetId}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600 text-sm sm:text-base">Movement Type:</span>
+                    <span className="text-gray-600 text-sm sm:text-base">Status Pergerakan:</span>
                     <span className="font-medium text-sm sm:text-base">
                       {MOVEMENT_TYPES.find(t => t.value === movementType)?.label}
                     </span>
                   </div>
                   {currentConfig?.clientPolicy === "required" && clientId && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600 text-sm sm:text-base">Client:</span>
+                      <span className="text-gray-600 text-sm sm:text-base">Klien:</span>
                       <span className="font-medium text-sm sm:text-base">
                         {clients.find(c => c.id === clientId)?.name}
                       </span>
@@ -1097,19 +1097,19 @@ export default function SubmitMovement() {
                   )}
                   {currentConfig?.requiresQuantity && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600 text-sm sm:text-base">Quantity:</span>
+                      <span className="text-gray-600 text-sm sm:text-base">Kuantitas:</span>
                       <span className="font-medium text-sm sm:text-base">{quantity}</span>
                     </div>
                   )}
                   {notes && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600 text-sm sm:text-base">Notes:</span>
+                      <span className="text-gray-600 text-sm sm:text-base">Catatan:</span>
                       <span className="font-medium text-sm sm:text-base">{notes}</span>
                     </div>
                   )}
                   {latitude && longitude && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600 text-sm sm:text-base">Location:</span>
+                      <span className="text-gray-600 text-sm sm:text-base">Lokasi:</span>
                       <span className="font-medium text-sm sm:text-base">
                         {latitude.toFixed(6)}, {longitude.toFixed(6)}
                       </span>
@@ -1121,7 +1121,7 @@ export default function SubmitMovement() {
               {/* Photo Preview */}
               {photoBase64 && (
                 <div>
-                  <h3 className="font-medium text-lg mb-3 sm:mb-4">Photo Evidence</h3>
+                  <h3 className="font-medium text-lg mb-3 sm:mb-4">Bukti Foto</h3>
                   <img
                     src={photoBase64}
                     alt="Movement evidence"
@@ -1137,14 +1137,14 @@ export default function SubmitMovement() {
                   className="flex items-center px-3 py-2 text-gray-600 hover:text-gray-800 text-sm sm:text-base"
                 >
                   <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" />
-                  Back
+                  Kembali
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={busy || (currentConfig?.clientPolicy === "required" && !clients.some(c => c.id === clientId))}
                   className="flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm sm:text-base"
                 >
-                  {busy ? "Submitting..." : "Confirm Movement"}
+                  {busy ? "Mengirim ..." : "Konfirmasi Laporan"}
                   <Check className="w-4 h-4 ml-1 sm:ml-2" />
                 </button>
               </div>

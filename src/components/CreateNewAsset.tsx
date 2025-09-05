@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Step } from "@/components/FormElements/step";
 import ConfirmationStep from "@/components/FormElements/confirmation";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
+import { Camera } from "lucide-react";
 
 type CreateNewAssetProps = {
   open: boolean;
@@ -12,14 +13,26 @@ type CreateNewAssetProps = {
   onCreated: () => void;
 };
 
+type Client = { id: number; name: string };
+type RawType = { id: number; name: string };
+
 export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAssetProps) {
   const { signOut } = useAuth();
 
   const [status, setStatus] = useState("");
-  const [assetType, setAssetType] = useState("");
-  const [client, setClient] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [base64Photo, setBase64Photo] = useState<string | null>(null);
+  
+  const [client, setClient] =useState<Client[]>([]);
+  const [clientId, setClientId] = useState<number | null>(null);
+  const [loadingClients, setLoadingClients] = useState(true);
+
+  const [type, setType] =useState<RawType[]>([]);
+  const [typeId, setTypeId] = useState<number | null>(null);
+  const [loadingType, setLoadingType] = useState(true);
+
+  const [qrData, setQrData] = useState<string | null>(null);
+  const [opened, setOpened] = useState(false);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -27,13 +40,77 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+// fetch client
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await API.get("/clients");
+        const list = res?.data?.data ?? [];
+        setClient(Array.isArray(list) ? list : []);
+      } catch (err) {
+        console.error("Failed to fetch clients", err);
+        setError("Failed to load clients");
+      } finally {
+        setLoadingClients(false);
+      }
+    })();
+  }, []);
+
+  // fetch asset type
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await API.get("/asset-type");
+        const list = res?.data?.data ?? [];
+        setType(Array.isArray(list) ? list : []);
+      } catch (err) {
+        console.error("Failed to fetch asset type", err);
+        setError("Failed to load asset type");
+      } finally {
+        setLoadingType(false);
+      }
+    })();
+  }, []);
+
+  // Enhanced file conversion with error handling
+    const fileToBase64 = useCallback((file: File): Promise<string> =>
+      new Promise((resolve, reject) => {
+        if (file.size > 10 * 1024 * 1024) { // 10MB limit
+          reject(new Error("File too large (max 10MB)"));
+          return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsDataURL(file);
+      }), []);
+  
+      // Enhanced photo upload
+      const onPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] ?? null;
+        setPhoto(file); // keep the file itself in state
+
+        if (file) {
+          try {
+            const base64 = await fileToBase64(file);
+            setBase64Photo(base64); // store the base64 version
+          } catch (err: any) {
+            setError(err.message || "Failed to upload photo");
+            setBase64Photo(null);
+          }
+        } else {
+          setBase64Photo(null);
+        }
+      };
+
   if (!open) return null;
 
   // steps defined as functions (not JSX directly)
   const steps = [
+    // Step 1: Status, Asset Type, Client
     () => (
       <Step>
-        {/* Step 1: Status, Asset Type, Client */}
         <div className="space-y-6 rounded-2xl px-5 py-4 sm:px-6 sm:py-5">
           <div>
             <label className="block mb-2 font-medium">Status</label>
@@ -43,69 +120,92 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
               className="w-full rounded-lg border px-3 py-2"
             >
               <option value="">Pilih Status</option>
-              <option value="inbound_at_factory">Inbound at Factory</option>
-              <option value="inbound_at_client">Inbound at Client</option>
-              <option value="outbound_from_factory">Outbound from Factory</option>
-              <option value="outbound_from_client">Outbound from Client</option>
+              <option value="inbound_at_factory">At Factory</option>
+              <option value="inbound_at_client">At Client</option>
+              <option value="outbound_from_factory">In Transit to Factory</option>
+              <option value="outbound_from_client">In Transit to Client</option>
             </select>
           </div>
 
           <div>
-            <label className="block mb-2 font-medium">Jenis Asset</label>
+            <label className="block mb-2 font-medium">Asset Type</label>
             <select
-              value={assetType}
-              onChange={(e) => setAssetType(e.target.value)}
-              className="w-full rounded-lg border px-3 py-2"
+              value={typeId || ""}
+              onChange={(e) => setTypeId(e.target.value ? Number(e.target.value) : null)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg"
             >
-              <option value="">Pilih Jenis Asset</option>
-              <option value="1">Container</option>
-              <option value="2">Pallet</option>
+              <option value="">Select Asset Type</option>
+              {type.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
             </select>
           </div>
 
           <div>
             <label className="block mb-2 font-medium">Client</label>
-            <Select
-              items={[
-                { label: "Pilih Klien", value: "" },
-                ...allClients.map((c) => ({ label: c.name, value: c.id })),
-              ]}
-              label="Klien"
-              value={client}
-              onChange={setClient}
-              required
-              className="mb-5"
-            />
-
+            <select
+              value={clientId || ""}
+              onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+            >
+              <option value="">Select Client</option>
+              {client.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
           </div>
         </div>
       </Step>
     ),
+
+    // Step 2: Photo Upload
     () => (
       <Step>
-        {/* Step 2: Photo input */}
-        <label className="block mb-2 font-medium">
-          Ambil foto QR yang tertempel pada asset
-        </label>
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="w-full rounded-lg border px-3 py-2"
-          onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
-        />
+        <label className="block mb-2 font-medium">Upload Foto QR Asset</label>
+        <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
+          <label className="flex-1 cursor-pointer">
+            <input type="file" accept="image/*" onChange={onPhotoChange} className="hidden" />
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors">
+              <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mx-auto mb-2" />
+              <div className="text-xs sm:text-sm text-gray-600">
+                {base64Photo ? "Change photo" : "Unggah Foto"}
+              </div>
+            </div>
+          </label>
+          {base64Photo && (
+            <div className="flex-1">
+              <img src={base64Photo} alt="Preview" className="w-full h-32 object-cover rounded-lg border" />
+            </div>
+          )}
+        </div>
       </Step>
     ),
+
+    // Step 3: Confirmation
     () => (
       <Step>
-        {/* Step 3: Confirmation */}
         <div className="space-y-4 text-left">
           <h2 className="text-xl font-semibold">Konfirmasi</h2>
           <ConfirmationStep onValidityChange={setIsConfirmed} />
         </div>
       </Step>
     ),
+
+    // Step 4: Display QR
+    () => (
+      <Step>
+        <div className="space-y-4 text-center">
+          <h2 className="text-xl font-semibold">QR Asset</h2>
+          {qrData ? (
+            <img src={qrData} alt="Asset QR" className="mx-auto w-40 h-40" />
+          ) : (
+            <p>Loading QR...</p>
+          )}
+        </div>
+      </Step>
+    ),
   ];
+
 
   const handleSubmit = async () => {
     let finalPhoto = base64Photo;
@@ -123,31 +223,16 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
     try {
       const res = await API.post("/asset", {
         status: status.trim(),
-        asset_type_id: Number(assetType),
-        current_client: Number(client),
+        asset_type_id: typeId,     
+        current_client: clientId,  
         photo: finalPhoto ?? null,
       });
 
-      alert("Data berhasil dikirim!\nAsset ID: " + res.data?.data?.id);
+      setQrData(res.data?.data?.qr ?? null);
+      setCurrentStep(3); 
 
-      // reset form
-      setStatus("");
-      setClient("");
-      setAssetType("");
-      setPhoto(null);
-      setBase64Photo(null);
-
-      onCreated();
-      onClose();
     } catch (err: any) {
       console.error("add asset error:", err);
-
-      if (err?.response?.status === 401) {
-        signOut();
-        window.location.href = "/auth/sign-in";
-        return;
-      }
-
       alert(
         "Gagal mengirim data: " +
           (err?.response?.data?.meta?.message ??
@@ -164,43 +249,184 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
     }
   };
 
+const handleOpenModal = () => {
+  resetForm(); 
+  setOpened(true);
+};
+
+const resetForm = () => {
+  setStatus("");
+  setTypeId(null);
+  setClientId(null);
+  setPhoto(null);
+  setBase64Photo(null);
+  setQrData(null);
+  setCurrentStep(0);
+  setIsConfirmed(false);
+  setError(null);
+
+  onClose();
+};
+
+
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div className="p-6">
-          <h2 className="text-lg font-bold mb-4">Buat Asset Baru</h2>
-
-          {/* Step content */}
-          <div>{steps[currentStep]()}</div>
-
-          {/* Navigation buttons */}
-          <div className="flex justify-between mt-4">
-            {currentStep > 0 && (
-              <button
-                onClick={() => setCurrentStep((s) => s - 1)}
-                className="px-4 py-2 bg-gray-300 text-sm text-black rounded"
-              >
-                Kembali
-              </button>
-            )}
-
-            {currentStep < steps.length - 1 ? (
-              <button
-                onClick={() => setCurrentStep((s) => s + 1)}
-                className="px-4 py-2 bg-primary text-sm text-white rounded"
-              >
-                Lanjut
-              </button>
-            ) : (
-              <button
-                onClick={handleSubmit}
-                disabled={submitting || !isConfirmed}
-                className="px-4 py-2 bg-primary text-sm text-white rounded disabled:opacity-50"
-              >
-                {submitting ? "Mengirim..." : "Submit"}
-              </button>
-            )}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold">Buat Asset Baru</h2>
+            <button
+              onClick={() => {
+                resetForm(); // reset semua state ke awal
+                onClose();   // panggil parent untuk close modal
+              }}
+              className="text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              ✕
+            </button>
           </div>
+
+            <div className="step-content">
+              {currentStep === 0 && (
+                <div>
+                  {/* Step 1: Status, Type, Client */}
+                  <div className="space-y-6 rounded-2xl px-5 py-4 sm:px-6 sm:py-5">
+                    <div>
+                      <label className="block mb-2 font-medium">Status</label>
+                      <select
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value)}
+                        className="w-full rounded-lg border px-3 py-2"
+                      >
+                        <option value="">Pilih Status</option>
+                        <option value="inbound_at_factory">At Factory</option>
+                        <option value="inbound_at_client">At Client</option>
+                        <option value="outbound_from_factory">In Transit to Factory</option>
+                        <option value="outbound_from_client">In Transit to Client</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block mb-2 font-medium">Asset Type</label>
+                      <select
+                        value={typeId || ""}
+                        onChange={(e) => setTypeId(e.target.value ? Number(e.target.value) : null)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                      >
+                        <option value="">Select Asset Type</option>
+                        {type.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block mb-2 font-medium">Client</label>
+                      <select
+                        value={clientId || ""}
+                        onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                      >
+                        <option value="">Select Client</option>
+                        {client.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {currentStep === 1 && (
+                <div>
+                  {/* Step 2: Upload Foto */}
+                  <label className="block mb-2 font-medium">Upload Foto QR Asset</label>
+                  <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                    <label className="flex-1 cursor-pointer">
+                      <input type="file" accept="image/*" onChange={onPhotoChange} className="hidden" />
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors">
+                        <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mx-auto mb-2" />
+                        <div className="text-xs sm:text-sm text-gray-600">
+                          {base64Photo ? "Change photo" : "Unggah Foto"}
+                        </div>
+                      </div>
+                    </label>
+                    {base64Photo && (
+                      <div className="flex-1">
+                        <img src={base64Photo} alt="Preview" className="w-full h-32 object-cover rounded-lg border" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {currentStep === 2 && (
+                <div>
+                  {/* Step 3: Konfirmasi */}
+                  <div className="space-y-4 text-left">
+                    <h2 className="text-xl font-semibold">Konfirmasi</h2>
+                    <ConfirmationStep onValidityChange={setIsConfirmed} />
+                  </div>
+                </div>
+              )}
+
+              {currentStep === 3 && (
+                <div>
+                  {/* Step 4: Tampilkan QR */}
+                  <div className="space-y-4 text-center">
+                    <h2 className="text-xl font-semibold">QR Asset</h2>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-between mt-4">
+              {currentStep > 0 && currentStep < 3 && (
+                <button
+                  onClick={() => setCurrentStep(s => s - 1)}
+                  className="px-4 py-2 bg-gray-300 text-black rounded hover:bg-gray-400 transition-colors"
+                >
+                  Kembali
+                </button>
+              )}
+
+              {currentStep < 2 && (
+                <button
+                  onClick={() => setCurrentStep(s => s + 1)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                >
+                  Lanjut
+                </button>
+              )}
+
+              {currentStep === 2 && (
+                <button
+                  onClick={handleSubmit}
+                  disabled={!isConfirmed || submitting}
+                  className={`px-4 py-2 rounded text-white transition-colors ${
+                    !isConfirmed || submitting
+                      ? "bg-blue-300 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                >
+                  {submitting ? "Mengirim..." : "Submit"}
+                </button>
+              )}
+
+              {currentStep === 3 && (
+                <button
+                  onClick={() => {
+                    resetForm();
+                    onClose();
+                  }}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                >
+                  Okay
+                </button>
+              )}
+            </div>
+
 
           {error && <p className="text-red-500 text-sm mt-3">{error}</p>}
         </div>

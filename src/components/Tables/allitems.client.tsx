@@ -515,10 +515,13 @@ useEffect(() => {
                     </TableCell>
 
                     <TableCell>
-                      <a href={item.photo} target="_blank" rel="noreferrer" className="text-primary hover:underline inline-flex items-center gap-2">
+                      <button
+                        onClick={() => window.open(item.photo, "_blank")}
+                        className="text-primary hover:underline inline-flex items-center gap-2"
+                      >
                         <PreviewIcon />
                         <span>Preview</span>
-                      </a>
+                      </button>
                     </TableCell>
 
                     <TableCell>

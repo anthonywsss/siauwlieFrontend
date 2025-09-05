@@ -71,12 +71,6 @@ export const NAV_DATA = [
         icon: Icons.UserGroupIcon,
         items: [],
       },
-      {
-        title: "Login/Sign in",
-        url: "/auth/sign-in",
-        icon: Icons.ArrowRightOnRectangleIcon,
-        items: [],
-      },
     ],
   },
   {

@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
-import { showToast } from "../Toast/Toast";
 
 export default function SigninWithPassword() {
   const [username, setUsername] = useState("");
@@ -18,7 +17,7 @@ export default function SigninWithPassword() {
     setLoading(true);
     try {
       await signIn(username, password);
-      showToast("success", "Signed in successfully! Redirecting...");
+      // showToast("success", "Signed in successfully! Redirecting...");
       setTimeout(() => router.push("/"), 500);
     } catch (err: any) {
       console.error(err);
@@ -27,7 +26,7 @@ export default function SigninWithPassword() {
         err?.response?.data?.message ||
         err?.message;
       const msg = serverMsg ?? "Login failed — check your credentials.";
-      showToast("error", msg);
+      // showToast("error", msg);
     } finally {
       setLoading(false);
     }

@@ -1,16 +1,40 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/Auth/auth-context";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function SigninWithPassword() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { signIn } = useAuth();
+  // We don't know exact shape of the auth context beyond signIn.
+  // Use a flexible reference to detect authenticated state without breaking types.
+  const auth: any = useAuth();
+  const { signIn } = auth;
+
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Only allow internal redirects to avoid open-redirect issues.
+  const redirectTo = useMemo(() => {
+    const nextParam = searchParams?.get("next");
+    if (nextParam && nextParam.startsWith("/")) return nextParam;
+    return "/";
+  }, [searchParams]);
+
+  // Derive "authenticated" and "ready" states best-effort based on common patterns.
+  const isAuthed: boolean = Boolean(auth?.isAuthenticated ?? auth?.user ?? auth?.token);
+  const isReady: boolean = Boolean(auth?.initialized ?? auth?.ready ?? true);
+
+  // If the user is already authenticated (e.g., refresh sent them to login),
+  // immediately send them back to the original destination or home.
+  useEffect(() => {
+    if (isReady && isAuthed) {
+      router.replace(redirectTo);
+    }
+  }, [isReady, isAuthed, redirectTo, router]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,9 +42,8 @@ export default function SigninWithPassword() {
     try {
       await signIn(username, password);
       // showToast("success", "Signed in successfully! Redirecting...");
-      setTimeout(() => router.push("/"), 500);
+      router.replace(redirectTo);
     } catch (err: any) {
-      // console.error(err);
       const serverMsg =
         err?.response?.data?.meta?.message ||
         err?.response?.data?.message ||

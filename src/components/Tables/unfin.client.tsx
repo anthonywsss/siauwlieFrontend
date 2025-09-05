@@ -105,9 +105,10 @@ export default function UnfinDelivery() {
       setIsOpen(true);
       return;
     }
-    setPreviewSrc(photo);
+    setPreviewSrc(`data:image/png;base64,${photo}`);
     setIsOpen(true);
   };
+
 
   const goToDetail = (assetId?: string) => {
     if (!assetId) return;

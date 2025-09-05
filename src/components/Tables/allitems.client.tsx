@@ -127,28 +127,60 @@ export default function AllItemsClient() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
-    const fetchUnfinished = async () => {
-      setLoading(true);
-      try {
-        const res = await API.get("/asset");
-        const raw: RawAsset[] = res.data?.data ?? [];
+useEffect(() => {
+  let mounted = true;
+  setLoading(true);
+  setError(null);
 
-        if (!mounted) return;
-        setData(Array.isArray(raw) ? raw : []);
-        const metaTotal = res.data?.meta?.total;
-        setTotal(typeof metaTotal === "number" ? metaTotal : raw.length);
-      } catch (err) {
-        console.error("Error fetching assets:", err);
-      } finally {
-        if (mounted) setLoading(false);
+  const offset = Math.max(0, (page - 1) * perPage);
+
+  (async () => {
+    try {
+      const res = await API.get("/asset", {
+        params: {
+          limit: perPage,
+          offset,
+          status: statusFilter !== "all" ? statusFilter : undefined,
+          asset_type: assetFilter !== "all" ? assetFilter : undefined,
+          q: query?.trim() || undefined,
+        },
+      });
+
+      const rawData: RawItem[] = res?.data?.data ?? res?.data ?? [];
+      const metaTotal: number = Number(res?.data?.meta?.total ?? rawData.length ?? 0);
+
+      if (!mounted) return;
+
+      const mapped: Item[] = rawData.map((r) => ({
+        id: String(r.id ?? Math.random().toString(36).slice(2, 9)),
+        status: normalizeStatus(r.status),
+        assetType: String(r.asset_type_id ?? "-"),
+        currentClient: String(r.current_client ?? "-"),
+        raw: r,
+      }));
+
+      setData(mapped);
+      setTotal(Number.isFinite(metaTotal) ? metaTotal : mapped.length);
+    } catch (err: any) {
+      console.error("fetch assets error:", err);
+      if (err?.response?.status === 401) {
+        signOut();
+        try {
+          router.push("/auth/sign-in");
+        } catch {}
+        return;
       }
-    };
+      setError(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to fetch assets");
+    } finally {
+      if (mounted) setLoading(false);
+    }
+  })();
 
-    fetchUnfinished();
-    return () => { mounted = false; };
-  }, [page, perPage, query, refreshKey]);
+  return () => {
+    mounted = false;
+  };
+}, [perPage, page, statusFilter, assetFilter, query, refreshKey, signOut, router]);
+
 
 
 
@@ -490,9 +522,7 @@ export default function AllItemsClient() {
           </TableHeader>
 
           <TableBody>
-            {visibleItems
-              .slice((page - 1) * perPage, page * perPage)
-              .map((item, index) => {
+            {visibleItems.map((item, index) => {
                return (
                   <TableRow key={index} className="border-t">
                     

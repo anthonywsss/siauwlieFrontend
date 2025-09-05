@@ -5,24 +5,66 @@ import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import { Camera, Upload, MapPin, Check, ArrowLeft, ArrowRight, X, QrCode, Scan, RotateCcw } from "lucide-react";
+import jsQR from "jsqr";
 
 const clamp = (v: number, min: number, max: number) =>
   Math.max(min, Math.min(max, v));
 
 type Client = { id: number; name: string };
 
-const MOVEMENT_TYPES = [
-  { value: "outbound_to_client", label: "Outbound to Client", icon: "📤" },
-  { value: "inbound_at_client", label: "Inbound at Client", icon: "📥" },
-  { value: "outbound_to_factory", label: "Outbound to Factory", icon: "🏭" },
-  { value: "inbound_at_factory", label: "Inbound at Factory", icon: "🏭" },
+type MovementConfig = {
+  value: string;
+  label: string;
+  icon: string;
+  requiresQuantity: boolean;
+  clientPolicy: "required" | "forbidden" | "optional";
+};
+
+const MOVEMENT_TYPES: MovementConfig[] = [
+  { value: "outbound_to_client", label: "Outbound to Client", icon: "📤", requiresQuantity: true, clientPolicy: "required" },
+  { value: "inbound_at_client",  label: "Inbound at Client",  icon: "📥", requiresQuantity: true, clientPolicy: "required" },
+  { value: "outbound_to_factory", label: "Outbound to Factory", icon: "🏭", requiresQuantity: false, clientPolicy: "optional" },
+  { value: "inbound_at_factory", label: "Inbound at Factory", icon: "🏭", requiresQuantity: false, clientPolicy: "optional" },
 ];
+const USE_PLACEHOLDER_FOR_NON_REQUIRED_CLIENT = false;
+const CLIENT_PLACEHOLDER = "-";
 
 const STEPS = [
   { id: 0, title: "Scan Asset", description: "QR Code or Manual Entry" },
   { id: 1, title: "Movement Details", description: "Type, Client & Info" },
   { id: 2, title: "Confirm & Submit", description: "Review & Send" },
 ];
+
+// Success Popup Component
+const SuccessPopup = ({ message, onClose }: { message: string; onClose: () => void }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50 animate-fadeIn">
+      <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 animate-scaleIn">
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+            <Check className="w-8 h-8 text-green-600" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Berhasil!</h3>
+          <p className="text-gray-600 mb-4">{message}</p>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function SubmitMovement() {
   const { user } = useAuth();
@@ -42,6 +84,7 @@ export default function SubmitMovement() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   // QR Scanner state
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -53,6 +96,7 @@ export default function SubmitMovement() {
   const [showScanner, setShowScanner] = useState(false);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const scanIntervalRef = useRef<number | null>(null);
+  const lastScanTimeRef = useRef<number>(0);
 
   // Auto-clear messages
   useEffect(() => {
@@ -71,7 +115,7 @@ export default function SubmitMovement() {
 
   // Authentication check
   useEffect(() => {
-    if (!user) router.push("/sign-in");
+    if (!user) router.push("/auth/sign-in");
   }, [user, router]);
 
   // Load clients
@@ -81,9 +125,6 @@ export default function SubmitMovement() {
         const res = await API.get("/clients");
         const list = res?.data?.data ?? [];
         setClients(Array.isArray(list) ? list : []);
-        if (Array.isArray(list) && list[0]) {
-          setClientId(Number(list[0].id));
-        }
       } catch (err) {
         console.error("Failed to fetch clients", err);
         setError("Failed to load clients");
@@ -92,6 +133,19 @@ export default function SubmitMovement() {
       }
     })();
   }, []);
+
+  // When movement type changes, reconcile client selection based on policy
+  useEffect(() => {
+    const cfg = MOVEMENT_TYPES.find(t => t.value === movementType);
+    if (!cfg) return;
+    if (cfg.clientPolicy === "required") {
+      if (!clientId || !clients.some(c => c.id === clientId)) {
+        if (clients[0]) setClientId(clients[0].id);
+      }
+    } else if (cfg.clientPolicy === "forbidden") {
+      if (clientId !== null) setClientId(null);
+    }
+  }, [movementType, clients]);
 
   // Enhanced file conversion with error handling
   const fileToBase64 = useCallback((file: File): Promise<string> =>
@@ -123,7 +177,7 @@ export default function SubmitMovement() {
     }
   };
 
-  // Enhanced QR image processing
+  // Enhanced QR image processing with better jsQR handling
   const onQrImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     if (!file) return;
@@ -142,25 +196,30 @@ export default function SubmitMovement() {
       });
 
       const canvas = document.createElement("canvas");
-      canvas.width = img.naturalWidth || img.width;
-      canvas.height = img.naturalHeight || img.height;
+      const maxSize = 800; // Limit canvas size for better performance
+      const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+      
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
       
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas not supported");
       
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-      const mod = await import("jsqr");
-      const jsQR = (mod && (mod as any).default) || mod;
-      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      // Load jsQR dynamically
+      const { default: jsQR } = await import("jsqr");
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "dontInvert", // Improve performance
+      });
       
       if (code && code.data) {
         setAssetId(String(code.data).trim());
         setSuccess(`QR Code detected: ${code.data}`);
         setStep(1);
       } else {
-        setScanError("No QR code found in image");
+        setScanError("No QR code found in image. Try with better lighting or positioning.");
       }
     } catch (err: any) {
       setScanError(err.message || "Failed to process QR image");
@@ -169,7 +228,7 @@ export default function SubmitMovement() {
     }
   };
 
-  // Enhanced camera scanner with better error handling
+  // Enhanced camera scanner with throttling
   const startScanner = async () => {
     setScanError(null);
     setShowScanner(true);
@@ -178,8 +237,8 @@ export default function SubmitMovement() {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          width: { ideal: 640, max: 1280 }, // Reduce resolution for better performance
+          height: { ideal: 480, max: 720 },
         },
       });
       
@@ -195,7 +254,7 @@ export default function SubmitMovement() {
     } catch (err: any) {
       console.error("Camera error:", err);
       setCameraPermission('denied');
-      setScanError("Camera access denied or unavailable");
+      setScanError("Camera access denied or unavailable. Please enable camera permissions.");
       setShowScanner(false);
     }
   };
@@ -219,16 +278,23 @@ export default function SubmitMovement() {
   const toggleCamera = async () => {
     stopScanner();
     setFacingMode(facingMode === 'environment' ? 'user' : 'environment');
-    // Wait a moment for the state to update before restarting
     setTimeout(startScanner, 300);
   };
 
-  // Improved scan loop with performance optimization
+  // Optimized scan loop with throttling and better error handling
   const startScanLoop = useCallback(() => {
     const scanFrame = async () => {
       if (!videoRef.current || !canvasRef.current || !overlayRef.current || !scanning) {
         return;
       }
+
+      const now = Date.now();
+      // Throttle scanning to every 250ms for better performance
+      if (now - lastScanTimeRef.current < 250) {
+        scanIntervalRef.current = requestAnimationFrame(scanFrame);
+        return;
+      }
+      lastScanTimeRef.current = now;
 
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -242,8 +308,10 @@ export default function SubmitMovement() {
         return;
       }
 
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // Use smaller canvas for QR detection to improve performance
+      const scale = 0.5;
+      canvas.width = video.videoWidth * scale;
+      canvas.height = video.videoHeight * scale;
       overlay.width = video.videoWidth;
       overlay.height = video.videoHeight;
 
@@ -251,21 +319,25 @@ export default function SubmitMovement() {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
       try {
-        const mod = await import("jsqr");
-        const jsQR = (mod && (mod as any).default) || mod;
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        const { default: jsQR } = await import("jsqr");
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert", // Better performance
+        });
 
         overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
 
         if (code && code.data) {
+          // Scale coordinates back up for overlay
+          const scaleUp = 1 / scale;
+          
           // Draw detection box
           overlayCtx.strokeStyle = "#00ff00";
           overlayCtx.lineWidth = 4;
           overlayCtx.beginPath();
-          overlayCtx.moveTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
-          overlayCtx.lineTo(code.location.topRightCorner.x, code.location.topRightCorner.y);
-          overlayCtx.lineTo(code.location.bottomRightCorner.x, code.location.bottomRightCorner.y);
-          overlayCtx.lineTo(code.location.bottomLeftCorner.x, code.location.bottomLeftCorner.y);
+          overlayCtx.moveTo(code.location.topLeftCorner.x * scaleUp, code.location.topLeftCorner.y * scaleUp);
+          overlayCtx.lineTo(code.location.topRightCorner.x * scaleUp, code.location.topRightCorner.y * scaleUp);
+          overlayCtx.lineTo(code.location.bottomRightCorner.x * scaleUp, code.location.bottomRightCorner.y * scaleUp);
+          overlayCtx.lineTo(code.location.bottomLeftCorner.x * scaleUp, code.location.bottomLeftCorner.y * scaleUp);
           overlayCtx.closePath();
           overlayCtx.stroke();
 
@@ -320,10 +392,15 @@ export default function SubmitMovement() {
         { 
           enableHighAccuracy: true, 
           timeout: 15000,
-          maximumAge: 300000 // 5 minutes
+          maximumAge: 300000
         }
       );
     });
+  };
+
+  // Get current movement type config
+  const getCurrentMovementConfig = () => {
+    return MOVEMENT_TYPES.find(t => t.value === movementType);
   };
 
   // Enhanced form validation
@@ -335,24 +412,37 @@ export default function SubmitMovement() {
           return false;
         }
         break;
-      case 1:
+
+      case 1: {
         if (!movementType) {
           setError("Movement type is required");
           return false;
         }
-        // Only require client for client-related movements
-        if ((movementType === "outbound_to_client" || movementType === "inbound_at_client") && !clientId) {
-          setError("Client selection is required for this movement type");
-          return false;
+
+        const config = getCurrentMovementConfig();
+
+        if (config?.clientPolicy === "required") {
+          if (loadingClients) {
+            setError("Please wait for clients to load");
+            return false;
+          }
+          const valid = clients.some(c => c.id === clientId);
+          if (!valid) {
+            setError("Client selection is required for this movement type");
+            return false;
+          }
         }
-        if (quantity < 1) {
+
+        if (config?.requiresQuantity && quantity < 1) {
           setError("Quantity must be at least 1");
           return false;
         }
         break;
+      }
     }
     return true;
   };
+
 
   // Navigation handlers
   const handleNext = () => {
@@ -365,92 +455,146 @@ export default function SubmitMovement() {
     setStep(Math.max(step - 1, 0));
   };
 
-  // Enhanced submit handler
-  const handleSubmit = async () => {
-    if (!validateStep(1)) return;
+  // Enhanced submit handler with conditional fields
+const handleSubmit = async () => {
+  if (!validateStep(1)) return;
 
-    setBusy(true);
-    setError(null);
+  setBusy(true);
+  setError(null);
 
-    try {
-      let finalPhoto = photoBase64;
-      if (finalPhoto.startsWith("data:image")) {
-        finalPhoto = finalPhoto.split(",")[1];
-      }
-
-      const body: any = {
-        asset_id: assetId.trim(),
-        movement_type: movementType,
-        quantity: clamp(Math.trunc(quantity), 1, 32767),
-        latitude: latitude ? clamp(latitude, -90, 90) : null,
-        longitude: longitude ? clamp(longitude, -180, 180) : null,
-        photo: finalPhoto || "",
-        notes: notes.trim() || "",
-      };
-
-      // Only include client_id for client-related movements
-      if (movementType === "outbound_to_client" || movementType === "inbound_at_client") {
-        body.client_id = clientId;
-      }
-
-      const res = await API.post("/movements", body);
-      setSuccess("Movement submitted successfully!");
-      
-      // Reset form
-      setAssetId("");
-      setMovementType(null);
-      setClientId(clients[0]?.id || null);
-      setQuantity(1);
-      setLatitude(null);
-      setLongitude(null);
-      setPhotoBase64("");
-      setNotes("");
-      setStep(0);
-
-    } catch (err: any) {
-      const msg = err?.response?.data?.meta?.message || 
-                   err?.response?.data?.message || 
-                   err?.message || 
-                   "Submission failed";
-      setError(msg);
-    } finally {
-      setBusy(false);
+  try {
+    let finalPhoto = photoBase64;
+    if (finalPhoto.startsWith("data:image")) {
+      finalPhoto = finalPhoto.split(",")[1];
     }
+
+    const config = getCurrentMovementConfig();
+
+    if (config?.clientPolicy === "required" && !(typeof clientId === 'number' && Number.isFinite(clientId) && clients.some(c => c.id === clientId))) {
+      setError("Client selection is required for this movement type");
+      setBusy(false);
+      return;
+    }
+
+  const body: any = {
+    asset_id: assetId.trim(),
+    movement_type: movementType,
+    // include lat/lng only when they are real numbers
+    ...(Number.isFinite(Number(latitude)) ? { latitude: clamp(Number(latitude), -90, 90) } : {}),
+    ...(Number.isFinite(Number(longitude)) ? { longitude: clamp(Number(longitude), -180, 180) } : {}),
+    photo: finalPhoto || "",
+    notes: notes.trim() || ""
   };
+
+  // quantity when required
+  if (config?.requiresQuantity) {
+    body.quantity = clamp(Math.trunc(Number(quantity) || 0), 1, 32767);
+  }
+
+  // attach client_id ONLY when the current movement expects a client and we actually have one
+  if (config?.clientPolicy === "required") {
+    if (typeof clientId === 'number' && Number.isFinite(clientId)) {
+      body.client_id = clientId;
+      // Defensive mapping: some backends expect factory_id for inbound_at_factory
+      if (movementType === 'inbound_at_factory') {
+        (body as any).factory_id = body.client_id;
+      }
+    } else {
+      throw new Error("Client is required but missing");
+    }
+  } else {
+    if (USE_PLACEHOLDER_FOR_NON_REQUIRED_CLIENT) {
+      body.client_id = CLIENT_PLACEHOLDER;
+    } else {
+      if ('client_id' in body) delete (body as any).client_id;
+    }
+  }
+
+  // final safety: never send null/undefined/empty client_id
+  if (body.client_id == null || body.client_id === "") {
+    delete (body as any).client_id;
+  }
+
+  // Good: log exact JSON that will be sent (not the live object)
+  console.log("Submitting movement (payload):", JSON.stringify(body));
+  const res = await API.post("/movements", body);
+
+    // Show success popup
+    setShowSuccessPopup(true);
+
+    // Reset form
+    setAssetId("");
+    setMovementType(null);
+    setClientId(null);
+    setQuantity(1);
+    setLatitude(null);
+    setLongitude(null);
+    setPhotoBase64("");
+    setNotes("");
+    setStep(0);
+
+  } catch (err: any) {
+    console.error("Submit error details:", {
+      response: err.response?.data,
+      status: err.response?.status,
+      message: err.message
+    });
+
+    const msg = err?.response?.data?.error ||
+                err?.response?.data?.message ||
+                err?.response?.data?.meta?.message ||
+                err?.message ||
+                "Submission failed";
+    setError(msg);
+  } finally {
+    setBusy(false);
+  }
+};
+
 
   if (!user) return null;
 
+  const currentConfig = getCurrentMovementConfig();
+
   return (
-    <div className="min-h-screen bg-gray-50 py-6">
-      <div className="max-w-4xl mx-auto px-4">
+    <div className="min-h-screen bg-gray-50 py-4 sm:py-6">
+      {/* Success Popup */}
+      {showSuccessPopup && (
+        <SuccessPopup 
+          message="Berhasil dirubah" 
+          onClose={() => setShowSuccessPopup(false)} 
+        />
+      )}
+      
+      <div className="max-w-4xl mx-auto px-3 sm:px-4">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Submit Movement</h1>
-          <p className="text-gray-600">Track and record asset movements with QR scanning</p>
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6 animate-fadeIn">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Submit Movement</h1>
+          <p className="text-sm sm:text-base text-gray-600">Track and record asset movements with QR scanning</p>
         </div>
 
         {/* Progress Steps */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between">
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6 overflow-x-auto">
+          <div className="flex items-center justify-between min-w-max">
             {STEPS.map((s, index) => (
               <div key={s.id} className="flex items-center flex-1">
                 <div className="flex items-center">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all duration-300 ${
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-semibold transition-all duration-300 ${
                     step >= s.id 
                       ? 'bg-blue-600 text-white scale-110' 
                       : 'bg-gray-200 text-gray-600'
                   }`}>
-                    {step > s.id ? <Check className="w-5 h-5" /> : s.id + 1}
+                    {step > s.id ? <Check className="w-4 h-4 sm:w-5 sm:h-5" /> : s.id + 1}
                   </div>
-                  <div className="ml-3">
-                    <div className={`font-medium transition-colors duration-300 ${step >= s.id ? 'text-blue-600' : 'text-gray-500'}`}>
+                  <div className="ml-2 sm:ml-3">
+                    <div className={`text-sm sm:text-base font-medium transition-colors duration-300 ${step >= s.id ? 'text-blue-600' : 'text-gray-500'}`}>
                       {s.title}
                     </div>
-                    <div className="text-sm text-gray-500">{s.description}</div>
+                    <div className="text-xs sm:text-sm text-gray-500 hidden sm:block">{s.description}</div>
                   </div>
                 </div>
                 {index < STEPS.length - 1 && (
-                  <div className={`flex-1 h-0.5 mx-4 transition-colors duration-300 ${
+                  <div className={`flex-1 h-0.5 mx-2 sm:mx-4 transition-colors duration-300 ${
                     step > s.id ? 'bg-blue-600' : 'bg-gray-200'
                   }`} />
                 )}
@@ -461,36 +605,36 @@ export default function SubmitMovement() {
 
         {/* Alerts */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 animate-fade-in">
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 sm:mb-6 animate-fadeIn">
             <div className="flex items-start">
-              <X className="w-5 h-5 text-red-600 mt-0.5 mr-3" />
-              <div className="text-red-800">{error}</div>
+              <X className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="text-red-800 text-sm sm:text-base">{error}</div>
             </div>
           </div>
         )}
 
         {success && (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 animate-fade-in">
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4 sm:mb-6 animate-fadeIn">
             <div className="flex items-start">
-              <Check className="w-5 h-5 text-green-600 mt-0.5 mr-3" />
-              <div className="text-green-800">{success}</div>
+              <Check className="w-5 h-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="text-green-800 text-sm sm:text-base">{success}</div>
             </div>
           </div>
         )}
 
         {/* Main Content */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
           {step === 0 && (
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Scan Asset QR Code</h2>
+            <div className="space-y-4 sm:space-y-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Scan Asset QR Code</h2>
               
               {/* QR Scanner */}
               {showScanner ? (
-                <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 relative overflow-hidden">
+                <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 sm:p-6 relative overflow-hidden">
                   <div className="relative">
                     <video
                       ref={videoRef}
-                      className="w-full max-h-96 object-cover rounded-lg"
+                      className="w-full max-h-64 sm:max-h-96 object-cover rounded-lg"
                       playsInline
                       muted
                     />
@@ -502,60 +646,60 @@ export default function SubmitMovement() {
                     
                     {/* Scanner frame overlay */}
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-64 h-64 border-4 border-blue-500 rounded-xl relative">
+                      <div className="w-48 h-48 sm:w-64 sm:h-64 border-4 border-blue-500 rounded-xl relative">
                         {/* Corner indicators */}
-                        <div className="absolute -top-2 -left-2 w-6 h-6 border-t-4 border-l-4 border-blue-500 animate-pulse"></div>
-                        <div className="absolute -top-2 -right-2 w-6 h-6 border-t-4 border-r-4 border-blue-500 animate-pulse"></div>
-                        <div className="absolute -bottom-2 -left-2 w-6 h-6 border-b-4 border-l-4 border-blue-500 animate-pulse"></div>
-                        <div className="absolute -bottom-2 -right-2 w-6 h-6 border-b-4 border-r-4 border-blue-500 animate-pulse"></div>
+                        <div className="absolute -top-2 -left-2 w-4 h-4 sm:w-6 sm:h-6 border-t-4 border-l-4 border-blue-500 animate-pulse"></div>
+                        <div className="absolute -top-2 -right-2 w-4 h-4 sm:w-6 sm:h-6 border-t-4 border-r-4 border-blue-500 animate-pulse"></div>
+                        <div className="absolute -bottom-2 -left-2 w-4 h-4 sm:w-6 sm:h-6 border-b-4 border-l-4 border-blue-500 animate-pulse"></div>
+                        <div className="absolute -bottom-2 -right-2 w-4 h-4 sm:w-6 sm:h-6 border-b-4 border-r-4 border-blue-500 animate-pulse"></div>
                         
                         {/* Scanning line */}
-                        <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500 animate-scan-line rounded-full"></div>
+                        <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500 animate-scan rounded-full"></div>
                       </div>
                     </div>
                     
                     <button
                       onClick={stopScanner}
-                      className="absolute top-4 right-4 p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                      className="absolute top-2 right-2 sm:top-4 sm:right-4 p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                     >
-                      <X className="w-5 h-5" />
+                      <X className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                     
                     <button
                       onClick={toggleCamera}
-                      className="absolute top-16 right-4 p-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors"
+                      className="absolute top-12 right-2 sm:top-16 sm:right-4 p-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors"
                     >
-                      <RotateCcw className="w-5 h-5" />
+                      <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                     
-                    <div className="absolute bottom-4 left-4 right-4 text-center">
-                      <div className="bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg animate-pulse">
+                    <div className="absolute bottom-2 left-2 right-2 text-center">
+                      <div className="bg-black bg-opacity-50 text-white px-3 py-1 text-xs sm:text-sm rounded-lg animate-pulse">
                         Position QR code within the frame
                       </div>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                   {/* QR Scanner Option */}
                   <div 
-                    className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-500 transition-all duration-300 hover:scale-105"
+                    className="border-2 border-dashed border-gray-300 rounded-xl p-4 sm:p-6 text-center cursor-pointer hover:border-blue-500 transition-all duration-300 hover:scale-[1.02]"
                     onClick={startScanner}
                   >
-                    <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                      <Scan className="w-8 h-8 text-blue-600" />
+                    <div className="bg-blue-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 animate-pulse">
+                      <Scan className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
                     </div>
-                    <h3 className="font-medium text-lg mb-2">Scan QR Code</h3>
-                    <p className="text-gray-500">Use your camera to scan a QR code</p>
+                    <h3 className="font-medium text-base sm:text-lg mb-1 sm:mb-2">Scan QR Code</h3>
+                    <p className="text-xs sm:text-sm text-gray-500">Use your camera to scan a QR code</p>
                   </div>
 
                   {/* Upload QR Image Option */}
-                  <label className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-500 transition-all duration-300 hover:scale-105">
-                    <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Upload className="w-8 h-8 text-blue-600" />
+                  <label className="border-2 border-dashed border-gray-300 rounded-xl p-4 sm:p-6 text-center cursor-pointer hover:border-blue-500 transition-all duration-300 hover:scale-[1.02]">
+                    <div className="bg-blue-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                      <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
                     </div>
-                    <h3 className="font-medium text-lg mb-2">Upload QR Image</h3>
-                    <p className="text-gray-500">Upload an image containing a QR code</p>
+                    <h3 className="font-medium text-base sm:text-lg mb-1 sm:mb-2">Upload QR Image</h3>
+                    <p className="text-xs sm:text-sm text-gray-500">Upload an image containing a QR code</p>
                     <input
                       type="file"
                       accept="image/*"
@@ -568,15 +712,15 @@ export default function SubmitMovement() {
               )}
 
               {scanError && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 animate-fade-in">
-                  <div className="text-yellow-800">{scanError}</div>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4 animate-fadeIn">
+                  <div className="text-yellow-800 text-sm sm:text-base">{scanError}</div>
                 </div>
               )}
 
               {/* Manual Entry */}
-              <div className="border-t pt-6 mt-6">
-                <h3 className="font-medium text-lg mb-4 flex items-center">
-                  <QrCode className="w-5 h-5 mr-2" />
+              <div className="border-t pt-4 sm:pt-6 mt-4 sm:mt-6">
+                <h3 className="font-medium text-base sm:text-lg mb-3 sm:mb-4 flex items-center">
+                  <QrCode className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                   Or enter manually
                 </h3>
                 <input
@@ -584,55 +728,55 @@ export default function SubmitMovement() {
                   value={assetId}
                   onChange={(e) => setAssetId(e.target.value)}
                   placeholder="Enter Asset ID"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
                 />
               </div>
 
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-end pt-3 sm:pt-4">
                 <button
                   onClick={handleNext}
                   disabled={!assetId.trim() || busy}
-                  className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium transition-all duration-300 hover:scale-105"
+                  className="inline-flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium transition-all duration-300 hover:scale-[1.02] text-sm sm:text-base"
                 >
                   Next
-                  <ArrowRight className="w-5 h-5 ml-2" />
+                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-1 sm:ml-2" />
                 </button>
               </div>
             </div>
           )}
 
           {step === 1 && (
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Movement Details</h2>
+            <div className="space-y-4 sm:space-y-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Movement Details</h2>
               
               {/* Asset ID Display */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex justify-between items-center animate-fade-in">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 flex justify-between items-center animate-fadeIn">
                 <div>
-                  <div className="text-sm text-blue-700">Asset ID</div>
-                  <div className="font-medium text-blue-900">{assetId}</div>
+                  <div className="text-xs sm:text-sm text-blue-700">Asset ID</div>
+                  <div className="font-medium text-blue-900 text-sm sm:text-base">{assetId}</div>
                 </div>
                 <button 
                   onClick={() => setStep(0)}
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+                  className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm font-medium transition-colors"
                 >
                   Change
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 {/* Movement Type */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <label className="block text-sm sm:text-base font-medium text-gray-700 mb-3">
                     Movement Type *
                   </label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                     {MOVEMENT_TYPES.map((type) => (
                       <label
                         key={type.value}
-                        className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all duration-300 ${
+                        className={`flex items-center p-3 sm:p-4 border-2 rounded-lg cursor-pointer transition-all duration-300 ${
                           movementType === type.value
-                            ? 'border-blue-500 bg-blue-50 scale-105'
-                            : 'border-gray-200 hover:border-gray-300 hover:scale-105'
+                            ? 'border-blue-500 bg-blue-50 scale-[1.02]'
+                            : 'border-gray-200 hover:border-gray-300 hover:scale-[1.02]'
                         }`}
                       >
                         <input
@@ -643,26 +787,31 @@ export default function SubmitMovement() {
                           onChange={(e) => setMovementType(e.target.value)}
                           className="sr-only"
                         />
-                        <span className="text-2xl mr-3">{type.icon}</span>
-                        <span className="font-medium">{type.label}</span>
+                        <span className="text-2xl mr-2 sm:mr-3">{type.icon}</span>
+                        <div>
+                          <div className="font-medium text-sm sm:text-base">{type.label}</div>
+                          <div className="text-xs text-gray-500">
+                            {type.requiresQuantity ? "Requires quantity" : "No quantity needed"}
+                          </div>
+                        </div>
                       </label>
                     ))}
                   </div>
                 </div>
 
                 {/* Client Selection - Only show for client-related movements */}
-                {(movementType === "outbound_to_client" || movementType === "inbound_at_client") && (
-                  <div className="md:col-span-2 animate-fade-in">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                {currentConfig?.clientPolicy === "required" && (
+                  <div className="md:col-span-2 animate-fadeIn">
+                    <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
                       Client *
                     </label>
                     {loadingClients ? (
-                      <div className="text-gray-500">Loading clients...</div>
+                      <div className="text-gray-500 text-sm sm:text-base">Loading clients...</div>
                     ) : (
                       <select
                         value={clientId || ""}
-                        onChange={(e) => setClientId(Number(e.target.value))}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                        onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-sm sm:text-base"
                       >
                         <option value="">Select a client</option>
                         {clients.map((client) => (
@@ -675,179 +824,190 @@ export default function SubmitMovement() {
                   </div>
                 )}
 
-                {/* Quantity */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Quantity *
+                {/* Quantity Input - Only show if required */}
+                {currentConfig?.requiresQuantity && (
+                  <div className="animate-fadeIn">
+                    <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
+                      Quantity *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={quantity}
+                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                    />
+                  </div>
+                )}
+
+                {/* Notes */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
+                    Notes
                   </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={32767}
-                    value={quantity}
-                    onChange={(e) => setQuantity(Number(e.target.value))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                    placeholder="Additional information about this movement..."
                   />
                 </div>
 
-                {/* Photo */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Photo (Optional)
+                {/* Photo Upload */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
+                    Photo Evidence
                   </label>
-                  <div className="flex items-center space-x-4">
-                    <label className="flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
-                      <Camera className="w-8 h-8 text-gray-400 mb-1" />
-                      <span className="text-xs text-gray-500">Add Photo</span>
+                  <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                    <label className="flex-1 cursor-pointer">
                       <input
                         type="file"
                         accept="image/*"
                         onChange={onPhotoChange}
                         className="hidden"
                       />
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors">
+                        <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mx-auto mb-2" />
+                        <div className="text-xs sm:text-sm text-gray-600">
+                          {photoBase64 ? "Change photo" : "Upload photo"}
+                        </div>
+                      </div>
                     </label>
                     {photoBase64 && (
-                      <div className="relative animate-fade-in">
+                      <div className="flex-1">
                         <img
                           src={photoBase64}
                           alt="Preview"
-                          className="w-24 h-24 object-cover rounded-lg"
+                          className="w-full h-32 object-cover rounded-lg border"
                         />
-                        <button
-                          onClick={() => setPhotoBase64("")}
-                          className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Location */}
+                {/* Location Capture */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
                     Location
                   </label>
-                  <div className="flex items-center space-x-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                     <button
                       type="button"
                       onClick={takeLocation}
                       disabled={busy}
-                      className="inline-flex items-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                      className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 text-sm sm:text-base"
                     >
                       <MapPin className="w-4 h-4 mr-2" />
-                      {busy ? "Getting Location..." : "Capture Location"}
+                      {latitude && longitude ? "Update Location" : "Capture Location"}
                     </button>
-                    {(latitude !== null && longitude !== null) && (
-                      <div className="text-sm text-gray-600 animate-fade-in">
-                        📍 {latitude.toFixed(6)}, {longitude.toFixed(6)}
+                    {latitude && longitude && (
+                      <div className="text-xs sm:text-sm text-gray-600">
+                        Captured: {latitude.toFixed(6)}, {longitude.toFixed(6)}
                       </div>
                     )}
                   </div>
                 </div>
-
-                {/* Notes */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Notes (Optional)
-                  </label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={3}
-                    placeholder="Add any additional notes..."
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  />
-                </div>
               </div>
 
-              <div className="flex justify-between pt-6">
+              {/* Navigation Buttons */}
+              <div className="flex justify-between pt-4 sm:pt-6">
                 <button
                   onClick={handlePrev}
-                  className="inline-flex items-center px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium transition-colors"
+                  className="flex items-center px-3 py-2 text-gray-600 hover:text-gray-800 text-sm sm:text-base"
                 >
-                  <ArrowLeft className="w-5 h-5 mr-2" />
-                  Previous
+                  <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" />
+                  Back
                 </button>
                 <button
                   onClick={handleNext}
-                  className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors hover:scale-105"
+                  disabled={busy || (currentConfig?.clientPolicy === "required" && !clients.some(c => c.id === clientId))}
+                  className="flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm sm:text-base"
                 >
-                  Review
-                  <ArrowRight className="w-5 h-5 ml-2" />
+                  Next
+                  <ArrowRight className="w-4 h-4 ml-1 sm:ml-2" />
                 </button>
               </div>
             </div>
           )}
 
           {step === 2 && (
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Confirm & Submit</h2>
+            <div className="space-y-4 sm:space-y-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Confirm Movement</h2>
               
-              {/* Summary */}
-              <div className="bg-gray-50 rounded-lg p-6 space-y-4 animate-fade-in">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-sm text-gray-600">Asset ID</div>
-                    <div className="font-medium">{assetId}</div>
+              {/* Summary Card */}
+              <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
+                <h3 className="font-medium text-lg mb-3 sm:mb-4">Movement Summary</h3>
+                <div className="space-y-2 sm:space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 text-sm sm:text-base">Asset ID:</span>
+                    <span className="font-medium text-sm sm:text-base">{assetId}</span>
                   </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Movement Type</div>
-                    <div className="font-medium">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 text-sm sm:text-base">Movement Type:</span>
+                    <span className="font-medium text-sm sm:text-base">
                       {MOVEMENT_TYPES.find(t => t.value === movementType)?.label}
-                    </div>
+                    </span>
                   </div>
-                  {(movementType === "outbound_to_client" || movementType === "inbound_at_client") && (
-                    <div>
-                      <div className="text-sm text-gray-600">Client</div>
-                      <div className="font-medium">
-                        {clients.find(c => c.id === clientId)?.name || "Not selected"}
-                      </div>
+                  {currentConfig?.clientPolicy === "required" && clientId && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 text-sm sm:text-base">Client:</span>
+                      <span className="font-medium text-sm sm:text-base">
+                        {clients.find(c => c.id === clientId)?.name}
+                      </span>
                     </div>
                   )}
-                  <div>
-                    <div className="text-sm text-gray-600">Quantity</div>
-                    <div className="font-medium">{quantity}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Location</div>
-                    <div className="font-medium">
-                      {(latitude !== null && longitude !== null) 
-                        ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
-                        : "Not captured"}
+                  {currentConfig?.requiresQuantity && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 text-sm sm:text-base">Quantity:</span>
+                      <span className="font-medium text-sm sm:text-base">{quantity}</span>
                     </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Photo</div>
-                    <div className="font-medium">
-                      {photoBase64 ? "Attached" : "Not attached"}
-                    </div>
-                  </div>
+                  )}
                   {notes && (
-                    <div className="md:col-span-2">
-                      <div className="text-sm text-gray-600">Notes</div>
-                      <div className="font-medium">{notes}</div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 text-sm sm:text-base">Notes:</span>
+                      <span className="font-medium text-sm sm:text-base">{notes}</span>
+                    </div>
+                  )}
+                  {latitude && longitude && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 text-sm sm:text-base">Location:</span>
+                      <span className="font-medium text-sm sm:text-base">
+                        {latitude.toFixed(6)}, {longitude.toFixed(6)}
+                      </span>
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="flex justify-between pt-6">
+              {/* Photo Preview */}
+              {photoBase64 && (
+                <div>
+                  <h3 className="font-medium text-lg mb-3 sm:mb-4">Photo Evidence</h3>
+                  <img
+                    src={photoBase64}
+                    alt="Movement evidence"
+                    className="w-full max-w-md rounded-lg border"
+                  />
+                </div>
+              )}
+
+              {/* Navigation Buttons */}
+              <div className="flex justify-between pt-4 sm:pt-6">
                 <button
                   onClick={handlePrev}
-                  className="inline-flex items-center px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium transition-colors"
+                  className="flex items-center px-3 py-2 text-gray-600 hover:text-gray-800 text-sm sm:text-base"
                 >
-                  <ArrowLeft className="w-5 h-5 mr-2" />
+                  <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" />
                   Back
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={busy}
-                  className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium transition-colors hover:scale-105"
+                  disabled={busy || (currentConfig?.clientPolicy === "required" && !clients.some(c => c.id === clientId))}
+                  className="flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm sm:text-base"
                 >
-                  {busy ? "Submitting..." : "Submit Movement"}
-                  <Check className="w-5 h-5 ml-2" />
+                  {busy ? "Submitting..." : "Confirm Movement"}
+                  <Check className="w-4 h-4 ml-1 sm:ml-2" />
                 </button>
               </div>
             </div>
@@ -855,34 +1015,28 @@ export default function SubmitMovement() {
         </div>
       </div>
 
-      <style jsx global>{`
+      {/* Add custom animation styles */}
+      <style jsx>{`
         @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
-        
-        @keyframes scanLine {
-          0% { top: 0; opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
-          100% { top: 100%; opacity: 0; }
+        @keyframes scaleIn {
+          from { transform: scale(0.9); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
         }
-        
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
+        @keyframes scan {
+          0% { transform: translateY(-100%); }
+          100% { transform: translateY(400%); }
         }
-        
-        .animate-fade-in {
-          animation: fadeIn 0.5s ease-out;
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out forwards;
         }
-        
-        .animate-scan-line {
-          animation: scanLine 2s ease-in-out infinite;
+        .animate-scaleIn {
+          animation: scaleIn 0.3s ease-out forwards;
         }
-        
-        .animate-pulse {
-          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        .animate-scan {
+          animation: scan 2s linear infinite;
         }
       `}</style>
     </div>

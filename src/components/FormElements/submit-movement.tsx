@@ -6,6 +6,32 @@ import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import { Camera, Upload, MapPin, Check, ArrowLeft, ArrowRight, X, QrCode, Scan, RotateCcw } from "lucide-react";
 import jsQR from "jsqr";
+import { useModalWatch } from "@/components/ModalContext";
+
+type BerhasilModal = {
+  open: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+  message?: string;
+};
+
+export function BerhasilModal({ open, onClose, onCreated, message = "Berhasil dirubah" }: BerhasilModal) {
+  useModalWatch(open);
+  React.useEffect(() => {
+    if (open) {
+      try {
+        onCreated();
+      } catch (err) {
+        // swallow errors from caller callback to avoid crashing UI
+        console.error("BerhasilModal.onCreated error:", err);
+      }
+    }
+  }, [open, onCreated]);
+
+  if (!open) return null;
+
+  return <SuccessPopup message={message} onClose={onClose} />;
+}
 
 const clamp = (v: number, min: number, max: number) =>
   Math.max(min, Math.min(max, v));
@@ -61,9 +87,11 @@ type MovementConfig = {
 };
 
 const MOVEMENT_TYPES: MovementConfig[] = [
+  { value: "outbound_from_client", label: "Perjalanan ke Pelanggan", icon: "📤", requiresQuantity: true, clientPolicy: "required" },
   { value: "outbound_to_client", label: "Perjalanan ke Pelanggan", icon: "📤", requiresQuantity: true, clientPolicy: "required" },
   { value: "inbound_at_client",  label: "Digunakan Pelanggan",  icon: "📥", requiresQuantity: true, clientPolicy: "required" },
   { value: "outbound_to_factory", label: "Perjalanan Ke Pabrik", icon: "🏭", requiresQuantity: false, clientPolicy: "optional" },
+  { value: "outbound_from_factory", label: "Perjalanan Ke Pabrik", icon: "🏭", requiresQuantity: false, clientPolicy: "optional" },
   { value: "inbound_at_factory", label: "Di Pabrik", icon: "🏭", requiresQuantity: false, clientPolicy: "optional" },
 ];
 const USE_PLACEHOLDER_FOR_NON_REQUIRED_CLIENT = false;
@@ -448,9 +476,13 @@ export default function SubmitMovement() {
         return "outbound_to_client";
       case "outbound_from_client":
         return "inbound_at_client";
+      case "outbound_to_client":
+        return "inbound_at_client";
       case "inbound_at_client":
         return "outbound_to_factory";
       case "outbound_from_factory":
+        return "inbound_at_factory";
+      case "outbound_to_factory":
         return "inbound_at_factory";
       default:
         return "outbound_to_client";
@@ -726,12 +758,16 @@ export default function SubmitMovement() {
   return (
     <div className="min-h-screen bg-gray-50 py-4 sm:py-6">
       {/* Success Popup */}
-      {showSuccessPopup && (
-        <SuccessPopup 
-          message="Berhasil dirubah" 
-          onClose={() => setShowSuccessPopup(false)} 
-        />
-      )}
+      <BerhasilModal
+        open={showSuccessPopup}
+        onClose={() => setShowSuccessPopup(false)}
+        onCreated={() => {
+          // optional: anything you want to run when the modal is first shown
+          // e.g. track analytics, refresh a list, play a sound, etc.
+          console.log("Movement created — show success UI");
+        }}
+      />
+
       
       <div className="max-w-4xl mx-auto px-3 sm:px-4">
         {/* Header */}

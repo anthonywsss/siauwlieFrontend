@@ -8,7 +8,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 const DEFAULT_ROUTE_BY_ROLE: Record<string, string> = {
   driver: "/submit-movement",
   security: "/submit-movement",
-  admin: "/dashboard",
+  admin: "/",
 };
 
 function getDefaultRouteForRole(role?: string): string {

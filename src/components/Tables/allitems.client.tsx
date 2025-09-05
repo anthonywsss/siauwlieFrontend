@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import axios from "axios";
 import DeleteAssetModal from "@/components/DeleteAssetModal";
 import EditAssetModal from "@/components/EditAssetModal";
+import { QRCodeCanvas } from "qrcode.react";
 import {
   Table,
   TableBody,
@@ -491,10 +492,23 @@ useEffect(() => {
                     </TableCell>
 
                     <TableCell>
-                      <a href={item.qr_code} target="_blank" rel="noreferrer" className="text-primary hover:underline inline-flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          if (item.qr_code) {
+                            const win = window.open();
+                            if (win) {
+                              win.document.write(
+                                `<img src="${item.qr_code}" style="display:block;margin:auto;margin-top:50px;" />`
+                              );
+                              win.document.title = "QR Preview";
+                            }
+                          }
+                        }}
+                        className="text-primary hover:underline inline-flex items-center gap-2"
+                      >
                         <PreviewIcon />
                         <span>Preview</span>
-                      </a>
+                      </button>
                     </TableCell>
                     
                     <TableCell>

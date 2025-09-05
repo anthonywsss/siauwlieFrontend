@@ -6,6 +6,7 @@ import ConfirmationStep from "@/components/FormElements/confirmation";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
 import { Camera } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
 
 type CreateNewAssetProps = {
   open: boolean;
@@ -104,110 +105,12 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
         }
       };
 
-  if (!open) return null;
-
-  // steps defined as functions (not JSX directly)
-  const steps = [
-    // Step 1: Status, Asset Type, Client
-    () => (
-      <Step>
-        <div className="space-y-6 rounded-2xl px-5 py-4 sm:px-6 sm:py-5">
-          <div>
-            <label className="block mb-2 font-medium">Status</label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full rounded-lg border px-3 py-2"
-            >
-              <option value="">Pilih Status</option>
-              <option value="inbound_at_factory">At Factory</option>
-              <option value="inbound_at_client">At Client</option>
-              <option value="outbound_from_factory">In Transit to Factory</option>
-              <option value="outbound_from_client">In Transit to Client</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block mb-2 font-medium">Asset Type</label>
-            <select
-              value={typeId || ""}
-              onChange={(e) => setTypeId(e.target.value ? Number(e.target.value) : null)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg"
-            >
-              <option value="">Select Asset Type</option>
-              {type.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block mb-2 font-medium">Client</label>
-            <select
-              value={clientId || ""}
-              onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg"
-            >
-              <option value="">Select Client</option>
-              {client.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </Step>
-    ),
-
-    // Step 2: Photo Upload
-    () => (
-      <Step>
-        <label className="block mb-2 font-medium">Upload Foto QR Asset</label>
-        <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
-          <label className="flex-1 cursor-pointer">
-            <input type="file" accept="image/*" onChange={onPhotoChange} className="hidden" />
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors">
-              <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mx-auto mb-2" />
-              <div className="text-xs sm:text-sm text-gray-600">
-                {base64Photo ? "Change photo" : "Unggah Foto"}
-              </div>
-            </div>
-          </label>
-          {base64Photo && (
-            <div className="flex-1">
-              <img src={base64Photo} alt="Preview" className="w-full h-32 object-cover rounded-lg border" />
-            </div>
-          )}
-        </div>
-      </Step>
-    ),
-
-    // Step 3: Confirmation
-    () => (
-      <Step>
-        <div className="space-y-4 text-left">
-          <h2 className="text-xl font-semibold">Konfirmasi</h2>
-          <ConfirmationStep onValidityChange={setIsConfirmed} />
-        </div>
-      </Step>
-    ),
-
-    // Step 4: Display QR
-    () => (
-      <Step>
-        <div className="space-y-4 text-center">
-          <h2 className="text-xl font-semibold">QR Asset</h2>
-          {qrData ? (
-            <img src={qrData} alt="Asset QR" className="mx-auto w-40 h-40" />
-          ) : (
-            <p>Loading QR...</p>
-          )}
-        </div>
-      </Step>
-    ),
-  ];
+  if (!open) return null
 
 
   const handleSubmit = async () => {
+    
+
     let finalPhoto = base64Photo;
 
     if (photo && !base64Photo) {
@@ -229,7 +132,10 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
       });
 
       setQrData(res.data?.data?.qr ?? null);
-      setCurrentStep(3); 
+      setCurrentStep(3);
+
+      const qr = res.data?.data?.id ?? null;
+      setQrData(qr);
 
     } catch (err: any) {
       console.error("add asset error:", err);
@@ -366,23 +272,37 @@ const resetForm = () => {
                   {/* Step 3: Konfirmasi */}
                   <div className="space-y-4 text-left">
                     <h2 className="text-xl font-semibold">Konfirmasi</h2>
-                    <ConfirmationStep onValidityChange={setIsConfirmed} />
+                    <p className="mb-10">Are you sure you want to create this new asset?</p>
+                    <button
+                      onClick={() => {
+                      resetForm();
+                      onClose();
+                    }}
+                    className="px-4 py-2 bg-gray-300 text-black rounded hover:bg-gray-400 transition-colors mr-5"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                      Ok
+                    </button>
                   </div>
                 </div>
               )}
 
               {currentStep === 3 && (
-                <div>
+                <div className="flex flex-col items-center justify-center space-y-6 p-6">
                   {/* Step 4: Tampilkan QR */}
-                  <div className="space-y-4 text-center">
+                  <div className="text-center space-y-4">
                     <h2 className="text-xl font-semibold">QR Asset</h2>
+                    <QRCodeCanvas value={qrData} size={200} />
                   </div>
                 </div>
               )}
             </div>
 
             <div className="flex justify-between mt-4">
-              {currentStep > 0 && currentStep < 3 && (
+              {currentStep > 0 && currentStep < 2 && (
                 <button
                   onClick={() => setCurrentStep(s => s - 1)}
                   className="px-4 py-2 bg-gray-300 text-black rounded hover:bg-gray-400 transition-colors"
@@ -391,7 +311,7 @@ const resetForm = () => {
                 </button>
               )}
 
-              {currentStep < 2 && (
+              {currentStep < 1 && (
                 <button
                   onClick={() => setCurrentStep(s => s + 1)}
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
@@ -400,12 +320,12 @@ const resetForm = () => {
                 </button>
               )}
 
-              {currentStep === 2 && (
+              {currentStep === 1 && (
                 <button
                   onClick={handleSubmit}
-                  disabled={!isConfirmed || submitting}
+                  disabled={ submitting}
                   className={`px-4 py-2 rounded text-white transition-colors ${
-                    !isConfirmed || submitting
+                     submitting
                       ? "bg-blue-300 cursor-not-allowed"
                       : "bg-blue-600 hover:bg-blue-700"
                   }`}
@@ -415,15 +335,17 @@ const resetForm = () => {
               )}
 
               {currentStep === 3 && (
-                <button
-                  onClick={() => {
-                    resetForm();
-                    onClose();
-                  }}
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                >
-                  Okay
-                </button>
+                <div className="w-full flex justify-end">
+                  <button
+                    onClick={() => {
+                      resetForm();
+                      onClose();
+                    }}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                  >
+                    Okay
+                  </button>
+                </div>
               )}
             </div>
 

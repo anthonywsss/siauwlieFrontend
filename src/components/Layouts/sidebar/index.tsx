@@ -41,6 +41,7 @@ export function Sidebar() {
   const driverAllowedTokens = ["submit", "movement", "unfinished", "delivery", "auth", "sign-in"];
   const driverAllowedTitles = new Set(["submit movement", "unfinished delivery", "auth", "sign-in"]);
 
+  // Only show auth-related links to guests. Logged-in users won't see login/signup menu items.
   const allowedForRole = (r: string, title?: string, url?: string) => {
     const t = (title ?? "").toLowerCase();
     const u = (url ?? "").toLowerCase();
@@ -54,7 +55,12 @@ export function Sidebar() {
       return false;
     }
 
-    return u === AUTH_PATH || t.includes("auth") || t.includes("sign-in");
+    // Only guests should see auth/sign-in links in the sidebar
+    if (r === "guest") {
+      return u === AUTH_PATH || t.includes("auth") || t.includes("sign-in");
+    }
+
+    return false;
   };
 
   const filteredNav = useMemo(() => {
@@ -207,6 +213,12 @@ export function Sidebar() {
       )
     );
   }, [pathname, filteredNav]);
+
+  // ----- IMPORTANT: don't render sidebar UI on auth pages (login/signup), but keep logic/hooks running -----
+  const cleanPathNow = normalize(pathname);
+  if (cleanPathNow.startsWith("/auth")) {
+    return null;
+  }
 
   return (
     <>

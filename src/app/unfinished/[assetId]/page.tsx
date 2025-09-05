@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import API from "@/lib/api";
 import dayjs from "dayjs";
+import { CloseIcon } from "@/components/Tables/icons";
 
 type UnfinishedDetail = {
   asset_id?: string;
@@ -31,6 +32,44 @@ export default function Page() {
   const [users, setUsers] = useState<Record<string, any>>({});
   const [error, setError] = useState<string | null>(null);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Normalize different photo formats (plain base64, data URL, or URL)
+  function buildImageSrc(photo?: string | null): string | null {
+    if (!photo) return null;
+    const trimmed = photo.trim();
+    if (/^data:image\//i.test(trimmed)) return trimmed;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+    // Detect common base64 signatures
+    const startsWith = (s: string) => trimmed.startsWith(s);
+    let mime = "image/jpeg";
+    if (startsWith("iVBORw0KGgo")) mime = "image/png";       // PNG
+    else if (startsWith("/9j/")) mime = "image/jpeg";          // JPEG
+    else if (startsWith("R0lGOD")) mime = "image/gif";         // GIF
+    else if (startsWith("UklGR")) mime = "image/webp";         // WEBP
+
+    return `data:${mime};base64,${trimmed}`;
+  }
+
+  const openPreview = (photo?: string | null) => {
+    const src = buildImageSrc(photo);
+    setPreviewSrc(src);
+    setIsOpen(true);
+  };
+
+  // Close preview on Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsOpen(false);
+        setPreviewSrc(null);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen]);
 
   const mapped = record.map((u, index) => ({
     id: String(u.asset_id ?? u.user_id ?? index),
@@ -184,10 +223,10 @@ export default function Page() {
                             <td className="px-6 py-4 text-dark dark:text-white">
                               {rec.photo ? (
                                 <img
-                                  src={rec.photo}
+                                  src={buildImageSrc(rec.photo) || ""}
                                   alt={`photo-${rec.asset_id}`}
                                   className="w-[140px] h-[96px] object-cover rounded cursor-pointer border"
-                                  onClick={() => setPreviewSrc(rec.photo!)}
+                                  onClick={() => openPreview(rec.photo)}
                                 />
                               ) : (
                                 <div className="text-gray-400">Tidak ada foto</div>
@@ -254,10 +293,12 @@ export default function Page() {
                           Foto
                         </div>
                         {rec.photo ? (
-                          <img src={rec.photo} 
-                          alt={`photo-${rec.asset_id}`}
-                          className="mt-2 w-full h-44 object-cover rounded cursor-pointer border" 
-                          onClick={() => setPreviewSrc(rec.photo!)} />
+                          <img
+                            src={buildImageSrc(rec.photo) || ""}
+                            alt={`photo-${rec.asset_id}`}
+                            className="mt-2 w-full h-44 object-cover rounded cursor-pointer border"
+                            onClick={() => openPreview(rec.photo)}
+                          />
                         ) : ( 
                           <div className="text-gray-400 mt-2">Tidak ada foto</div> )}
                       </div>
@@ -277,7 +318,7 @@ export default function Page() {
                           </div> 
                           <div className="text-sm text-dark dark:text-white">
                             <button 
-                              onClick={ () => window.open(getGoogleMapsLink(rec.lat, rec.lng), "_blank")}
+                              onClick={ () => window.open(getGoogleMapsLink(Number(rec.latitude), Number(rec.longitude)), "_blank")}
                               className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition whitespace-nowrap" >
                                 Buka Google Maps
                             </button>
@@ -309,6 +350,44 @@ export default function Page() {
             </>
           )}
         </div>
+
+        {isOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => {
+              setIsOpen(false);
+              setPreviewSrc(null);
+            }}
+          >
+            <div
+              className="max-w-[98vw] max-h-[96vh] overflow-auto bg-white rounded shadow-lg p-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    setIsOpen(false);
+                    setPreviewSrc(null);
+                  }}
+                  className="px-3 py-1 rounded border text-sm inline-flex items-center gap-2"
+                >
+                  <CloseIcon />
+                  Close
+                </button>
+              </div>
+
+              <div className="mt-3">
+                {previewSrc ? (
+                  <img src={previewSrc} alt="preview" className="max-w-full max-h-[80vh] object-contain mx-auto" />
+                ) : (
+                  <div className="p-8 text-center text-gray-500">Tidak ada gambar tersedia untuk item ini.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
     );

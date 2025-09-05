@@ -443,19 +443,19 @@ export default function SubmitMovement() {
     return MOVEMENT_TYPES.find(t => t.value === movementType);
   };
 
-  // Derive next movement from current asset status
+    // Derive next movement from current asset status
   const deriveMovementFromCurrentStatus = (status: string | null): string => {
     switch (status) {
       case "inbound_at_factory":
-        return "outbound_to_factory";
+        return "outbound_to_client"; // Corrected from outbound_to_factory
+      case "outbound_from_client":
+        return "inbound_at_client"; // This mapping is already correct
       case "inbound_at_client":
-        return "outbound_to_client";
-      case "outbound_to_factory":
-        return "inbound_at_factory";
-      case "outbound_to_client":
-        return "inbound_at_client";
+        return "outbound_to_factory"; // Corrected from outbound_to_client
+      case "outbound_from_factory":
+        return "inbound_at_factory"; // This mapping is already correct
       default:
-        return "outbound_to_client"; // reasonable default
+        return "outbound_tod_client"; // A reasonable default
     }
   };
 

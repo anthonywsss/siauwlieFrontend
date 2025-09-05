@@ -73,6 +73,37 @@ export default function UnfinDelivery() {
 
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+
+  // Normalize different photo formats (plain base64, data URL, or URL)
+  function buildImageSrc(photo?: string | null): string | null {
+    if (!photo) return null;
+    const trimmed = photo.trim();
+    if (/^data:image\//i.test(trimmed)) return trimmed;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+    // Detect common base64 signatures
+    const startsWith = (s: string) => trimmed.startsWith(s);
+    let mime = "image/jpeg";
+    if (startsWith("iVBORw0KGgo")) mime = "image/png";       // PNG
+    else if (startsWith("/9j/")) mime = "image/jpeg";          // JPEG
+    else if (startsWith("R0lGOD")) mime = "image/gif";         // GIF
+    else if (startsWith("UklGR")) mime = "image/webp";         // WEBP
+
+    return `data:${mime};base64,${trimmed}`;
+  }
+
+  // Close preview on Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsOpen(false);
+        setPreviewSrc(null);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen]);
   
 
   useEffect(() => {
@@ -100,19 +131,15 @@ export default function UnfinDelivery() {
   }, [perPage, page, query]);
 
   const openPreview = (photo?: string | null) => {
-    if (!photo) {
-      setPreviewSrc(null);
-      setIsOpen(true);
-      return;
-    }
-    setPreviewSrc(`data:image/png;base64,${photo}`);
+    const src = buildImageSrc(photo);
+    setPreviewSrc(src);
     setIsOpen(true);
   };
 
 
   const goToDetail = (assetId?: string) => {
     if (!assetId) return;
-    router.push(` /unfinished/${encodeURIComponent(String(assetId))}`);
+    router.push(`/unfinished/${encodeURIComponent(String(assetId))}`);
   };
 
   function goToPageNumber(n: number | string) {
@@ -162,7 +189,7 @@ export default function UnfinDelivery() {
                   <div className="w-28 flex-shrink-0">
                     {item.photo ? (
                       <img
-                        src={item.photo}
+                        src={buildImageSrc(item.photo) || ""}
                         alt={`photo-${item.asset_id}`}
                         className="w-24 h-24 object-cover rounded border cursor-pointer"
                         onClick={() => openPreview(item.photo)}
@@ -314,7 +341,7 @@ export default function UnfinDelivery() {
                   <div className="w-28 flex-shrink-0">
                     {item.photo ? (
                       <img
-                        src={item.photo}
+                        src={buildImageSrc(item.photo) || ""}
                         alt={`photo-${item.asset_id}`}
                         className="w-24 h-24 object-cover rounded border cursor-pointer"
                         onClick={() => openPreview(item.photo)}

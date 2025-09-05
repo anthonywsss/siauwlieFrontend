@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
+import { useModalWatch } from "@/components/ModalContext";
 
 type Props = {
   open: boolean;
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export default function EditUserModal({ open, userData, onClose, onUpdated }: Props) {
+  useModalWatch(open); 
   const { signOut } = useAuth();
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");

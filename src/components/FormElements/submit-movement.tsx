@@ -9,8 +9,6 @@ import jsQR from "jsqr";
 
 const clamp = (v: number, min: number, max: number) =>
   Math.max(min, Math.min(max, v));
-
-// Robustly parse asset ID from various QR contents (plain text, URL, or JSON)
 const parseAssetId = (raw: string): string => {
   const s = String(raw || "").trim();
   if (!s) return s;
@@ -22,7 +20,6 @@ const parseAssetId = (raw: string): string => {
     if (candidate && typeof candidate === 'string') return candidate.trim();
   } catch (_) {}
 
-  // Try URL with params or path
   try {
     const url = new URL(s);
     const byParam = url.searchParams.get("asset_id") || url.searchParams.get("id") || url.searchParams.get("code");
@@ -31,9 +28,27 @@ const parseAssetId = (raw: string): string => {
     if (segments.length) return segments[segments.length - 1].trim();
   } catch (_) {}
 
-  // Fallback to raw
   return s;
 };
+
+const STATUS_LABELS: Record<string, string> = {
+  outbound_from_factory: "Perjalanan Ke Pabrik",
+  outbound_from_client:  "Perjalanan ke Pelanggan",
+  outbound_to_client:    "Perjalanan ke Pelanggan",
+  outbound_to_factory:   "Perjalanan Ke Pabrik",
+  inbound_at_client:     "Digunakan Pelanggan",
+  inbound_at_factory:    "Di Pabrik",
+};
+
+const formatStatus = (status: string | null | undefined): string => {
+  if (!status) return "Unknown";
+  if (STATUS_LABELS[status]) return STATUS_LABELS[status];
+  return String(status)
+    .split("_")
+    .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(" ");
+};
+
 
 type Client = { id: number; name: string };
 
@@ -46,13 +61,14 @@ type MovementConfig = {
 };
 
 const MOVEMENT_TYPES: MovementConfig[] = [
-  { value: "outbound_to_client", label: "Outbound to Client", icon: "📤", requiresQuantity: true, clientPolicy: "required" },
-  { value: "inbound_at_client",  label: "Inbound at Client",  icon: "📥", requiresQuantity: true, clientPolicy: "required" },
-  { value: "outbound_to_factory", label: "Outbound to Factory", icon: "🏭", requiresQuantity: false, clientPolicy: "optional" },
-  { value: "inbound_at_factory", label: "Inbound at Factory", icon: "🏭", requiresQuantity: false, clientPolicy: "optional" },
+  { value: "outbound_to_client", label: "Perjalanan ke Pelanggan", icon: "📤", requiresQuantity: true, clientPolicy: "required" },
+  { value: "inbound_at_client",  label: "Digunakan Pelanggan",  icon: "📥", requiresQuantity: true, clientPolicy: "required" },
+  { value: "outbound_to_factory", label: "Perjalanan Ke Pabrik", icon: "🏭", requiresQuantity: false, clientPolicy: "optional" },
+  { value: "inbound_at_factory", label: "Di Pabrik", icon: "🏭", requiresQuantity: false, clientPolicy: "optional" },
 ];
 const USE_PLACEHOLDER_FOR_NON_REQUIRED_CLIENT = false;
 const CLIENT_PLACEHOLDER = "-";
+
 
 const STEPS = [
   { id: 0, title: "Pindai Asset", description: "Kode QR atau Input Manual" },
@@ -113,7 +129,6 @@ export default function SubmitMovement() {
   const [warning, setWarning] = useState<string | null>(null);
   const scanningRef = useRef(false);
 
-  // NEW: track current asset status (from server) so we can derive movementType
   const [assetCurrentStatus, setAssetCurrentStatus] = useState<string | null>(null);
   const [fetchingAssetStatus, setFetchingAssetStatus] = useState(false);
   const [assetValid, setAssetValid] = useState(false);
@@ -130,7 +145,6 @@ export default function SubmitMovement() {
   const scanIntervalRef = useRef<number | null>(null);
   const lastScanTimeRef = useRef<number>(0);
 
-  // Auto-clear messages
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => setError(null), 5000);
@@ -145,7 +159,6 @@ export default function SubmitMovement() {
     }
   }, [success]);
 
-  // Auto-clear warnings
   useEffect(() => {
     if (warning) {
       const timer = setTimeout(() => setWarning(null), 5000);
@@ -158,7 +171,6 @@ export default function SubmitMovement() {
     if (!user) router.push("/auth/sign-in");
   }, [user, router]);
 
-  // Load clients
   useEffect(() => {
     (async () => {
       try {
@@ -172,7 +184,6 @@ export default function SubmitMovement() {
     })();
   }, []);
 
-  // When movement type changes, reconcile client selection based on policy
   useEffect(() => {
     const cfg = MOVEMENT_TYPES.find(t => t.value === movementType);
     if (!cfg) return;
@@ -185,37 +196,35 @@ export default function SubmitMovement() {
     }
   }, [movementType, clients]);
 
-  // Enhanced file conversion with error handling
   const fileToBase64 = useCallback((file: File): Promise<string> =>
     new Promise((resolve, reject) => {
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
-        reject(new Error("File too large (max 10MB)"));
+      if (file.size > 10 * 1024 * 1024) { 
+        reject(new Error("File terlalu besar (max 10MB)"));
         return;
       }
       
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.onerror = () => reject(new Error("gagal baca file"));
       reader.readAsDataURL(file);
     }), []);
 
-  // Enhanced photo upload
+
   const onPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     if (file) {
       try {
         const base64 = await fileToBase64(file);
         setPhotoBase64(base64);
-        setSuccess("Photo uploaded successfully");
+        setSuccess("Foto berhasil diupload!");
       } catch (err: any) {
-        setError(err.message || "Failed to upload photo");
+        setError(err.message || "Foto gagal diupload");
       }
     } else {
       setPhotoBase64("");
     }
   };
 
-  // Enhanced QR image processing with better jsQR handling
   const onQrImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     if (!file) return;
@@ -234,7 +243,7 @@ export default function SubmitMovement() {
       });
 
       const canvas = document.createElement("canvas");
-      const maxSize = 800; // Limit canvas size for better performance
+      const maxSize = 800;
       const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
       
       canvas.width = img.width * scale;
@@ -246,10 +255,9 @@ export default function SubmitMovement() {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-      // Load jsQR dynamically
       const { default: jsQR } = await import("jsqr");
       const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: "dontInvert", // Improve performance
+        inversionAttempts: "dontInvert",
       });
       
       if (code && code.data) {
@@ -266,7 +274,6 @@ export default function SubmitMovement() {
     }
   };
 
-  // Enhanced camera scanner with throttling
   const startScanner = async () => {
     setScanError(null);
     setShowScanner(true);
@@ -275,7 +282,7 @@ export default function SubmitMovement() {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode,
-          width: { ideal: 640, max: 1280 }, // Reduce resolution for better performance
+          width: { ideal: 640, max: 1280 },
           height: { ideal: 480, max: 720 },
         },
       });
@@ -321,7 +328,6 @@ export default function SubmitMovement() {
     setTimeout(startScanner, 300);
   };
 
-  // Optimized scan loop with throttling and better error handling
   const startScanLoop = useCallback(() => {
     const scanFrame = async () => {
       if (!videoRef.current || !canvasRef.current || !overlayRef.current) {
@@ -329,7 +335,6 @@ export default function SubmitMovement() {
       }
 
       const now = Date.now();
-      // Throttle scanning to every 250ms for better performance
       if (now - lastScanTimeRef.current < 250) {
         scanIntervalRef.current = requestAnimationFrame(scanFrame);
         return;
@@ -348,7 +353,6 @@ export default function SubmitMovement() {
         return;
       }
 
-      // Use smaller canvas for QR detection to improve performance
       const scale = 0.5;
       canvas.width = video.videoWidth * scale;
       canvas.height = video.videoHeight * scale;
@@ -361,16 +365,14 @@ export default function SubmitMovement() {
       try {
         const { default: jsQR } = await import("jsqr");
         const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "dontInvert", // Better performance
+          inversionAttempts: "dontInvert",
         });
 
         overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
 
         if (code && code.data) {
-          // Scale coordinates back up for overlay
           const scaleUp = 1 / scale;
           
-          // Draw detection box
           overlayCtx.strokeStyle = "#00ff00";
           overlayCtx.lineWidth = 4;
           overlayCtx.beginPath();
@@ -399,14 +401,12 @@ export default function SubmitMovement() {
     scanFrame();
   }, [stopScanner]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopScanner();
     };
   }, [stopScanner]);
 
-  // Enhanced geolocation
   const takeLocation = () => {
     return new Promise<void>((resolve) => {
       if (!navigator.geolocation) {
@@ -438,12 +438,10 @@ export default function SubmitMovement() {
     });
   };
 
-  // Get current movement type config
   const getCurrentMovementConfig = () => {
     return MOVEMENT_TYPES.find(t => t.value === movementType);
   };
 
-    // Derive next movement from current asset status
   const deriveMovementFromCurrentStatus = (status: string | null): string => {
     switch (status) {
       case "inbound_at_factory":
@@ -459,7 +457,6 @@ export default function SubmitMovement() {
     }
   };
 
-  // Fetch asset current status when assetId changes, and auto-select movementType
   useEffect(() => {
     if (!assetId || assetId.trim() === "") {
       setAssetCurrentStatus(null);
@@ -479,7 +476,6 @@ export default function SubmitMovement() {
         let currentStatus: string | null = null;
         let found = false;
 
-        // Prefer dedicated status endpoint first
         try {
           const resA = await API.get(`/check-status`, { params: { asset_id: rawId } });
           currentStatus = resA?.data?.data?.status ?? resA?.data?.status ?? null;
@@ -538,8 +534,6 @@ export default function SubmitMovement() {
         setAssetValid(true);
         setStep(1);
 
-        // If derived movement requires client and we already have a matching client, keep it;
-        // otherwise, let the client reconcile effect populate a default.
       } catch (err: any) {
         console.error("Failed to fetch asset status:", err);
         // If the API responded with 404/invalid, show a helpful message
@@ -558,7 +552,6 @@ export default function SubmitMovement() {
     return () => { mounted = false; };
   }, [assetId]);
 
-  // Show warning when the derived next movement doesn't match allowed transition
   useEffect(() => {
     if (!assetCurrentStatus) {
       setWarning(null);
@@ -572,7 +565,6 @@ export default function SubmitMovement() {
     }
   }, [assetCurrentStatus, movementType]);
 
-  // Enhanced form validation
   const validateStep = (currentStep: number): boolean => {
     switch (currentStep) {
       case 0:
@@ -613,13 +605,10 @@ export default function SubmitMovement() {
   };
 
 
-  // Navigation handlers
   const handleNext = async () => {
-    // If moving from step 0 to 1, ensure we've fetched asset status and set movementType
     if (step === 0) {
       if (!validateStep(0)) return;
 
-      // If we are still fetching status, wait for it
       if (fetchingAssetStatus) {
         setError("Please wait while we determine the movement type for this asset");
         return;
@@ -641,7 +630,6 @@ export default function SubmitMovement() {
     setStep(Math.max(step - 1, 0));
   };
 
-  // Enhanced submit handler with conditional fields
   const handleSubmit = async () => {
     if (!validateStep(1)) return;
 
@@ -665,23 +653,18 @@ export default function SubmitMovement() {
       const body: any = {
         asset_id: assetId.trim(),
         movement_type: movementType,
-        // include lat/lng only when they are real numbers
         ...(Number.isFinite(Number(latitude)) ? { latitude: clamp(Number(latitude), -90, 90) } : {}),
         ...(Number.isFinite(Number(longitude)) ? { longitude: clamp(Number(longitude), -180, 180) } : {}),
         photo: finalPhoto || "",
         notes: notes.trim() || ""
       };
 
-      // quantity when required
       if (config?.requiresQuantity) {
         body.quantity = clamp(Math.trunc(Number(quantity) || 0), 1, 32767);
       }
-
-      // attach client_id ONLY when the current movement expects a client and we actually have one
       if (config?.clientPolicy === "required") {
         if (typeof clientId === 'number' && Number.isFinite(clientId)) {
           body.client_id = clientId;
-          // Defensive mapping: some backends expect factory_id for inbound_at_factory
           if (movementType === 'inbound_at_factory') {
             (body as any).factory_id = body.client_id;
           }
@@ -696,12 +679,10 @@ export default function SubmitMovement() {
         }
       }
 
-      // final safety: never send null/undefined/empty client_id
       if (body.client_id == null || body.client_id === "") {
         delete (body as any).client_id;
       }
 
-      // Good: log exact JSON that will be sent (not the live object)
       console.log("Submitting movement (payload):", JSON.stringify(body));
       const res = await API.post("/movements", body);
 
@@ -966,19 +947,33 @@ export default function SubmitMovement() {
                   </label>
 
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    {/* Current status card */}
                     <div className="p-3 rounded-lg border border-gray-200 bg-gray-50 min-w-0 flex-1">
                       <div className="text-xs text-gray-500">Status Pergerakan Saat ini</div>
-                      <div className="font-medium text-sm mt-1">{assetCurrentStatus ?? "Unknown"}</div>
+                      <div className="font-medium text-sm mt-1">{formatStatus(assetCurrentStatus)}</div>
                     </div>
 
+                    {/* Arrow between cards (rotates for stacked mobile) */}
+                    <div className="flex items-center justify-center">
+                      <div
+                        className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm transform md:rotate-0 rotate-90"
+                        aria-hidden="true"
+                        title="Next status"
+                      >
+                        <ArrowRight className="w-5 h-5 text-blue-600" />
+                      </div>
+                    </div>
+
+                    {/* Next status card */}
                     <div className="p-3 rounded-lg border border-blue-200 bg-blue-50 min-w-0 flex-1">
                       <div className="text-xs text-blue-700">Status Pergerakan Selanjutnya</div>
                       <div className="font-medium text-sm mt-1">
-                        {MOVEMENT_TYPES.find(t => t.value === movementType)?.label ?? (fetchingAssetStatus ? "Determining..." : "Unknown")}
+                        {movementType ? formatStatus(movementType) : (fetchingAssetStatus ? "Determining..." : "Unknown")}
                       </div>
                       {fetchingAssetStatus && <div className="text-xs text-gray-500 mt-1">Please wait — fetching asset info...</div>}
                     </div>
                   </div>
+
 
                   <div className="text-xs text-gray-500 mt-2">
                     Status pergerakan ini diisi oleh sistem secara otomatis. User tidak bisa mengganti status pergerakan secara manual.
@@ -1063,7 +1058,7 @@ export default function SubmitMovement() {
                       type="button"
                       onClick={takeLocation}
                       disabled={busy}
-                      className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 text-sm sm:text-base"
+                      className="flex items-center px-4 py-2 bg-green-100 text-gray-700 rounded-lg hover:bg-green-200 disabled:opacity-50 text-sm sm:text-base"
                     >
                       <MapPin className="w-4 h-4 mr-2" />
                       {latitude && longitude ? "Perbarui Lokasi" : "Rekam Lokasi"}

@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
+import { useModalWatch } from "@/components/ModalContext";
+
 
 type Props = {
   open: boolean;
@@ -11,6 +13,7 @@ type Props = {
 };
 
 export default function CreateAssetTypeModal({ open, onClose, onCreated }: Props) {
+  useModalWatch(open);
   const { signOut } = useAuth();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -18,6 +21,7 @@ export default function CreateAssetTypeModal({ open, onClose, onCreated }: Props
   const [error, setError] = useState<string | null>(null);
 
   if (!open) return null;
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

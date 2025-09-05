@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
+import { useModalWatch } from "@/components/ModalContext";
 
 type RawClient = {
   id?: number;
@@ -23,6 +24,7 @@ type Props = {
 };
 
 export default function DeleteClientModal({ open, client, onClose, onDeleted }: Props) {
+  useModalWatch(open);
   const { signOut } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

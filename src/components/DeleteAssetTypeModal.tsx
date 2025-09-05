@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
+import { useModalWatch } from "@/components/ModalContext";
+
 
 type RawAssetType = {
   id?: number | string;
@@ -31,6 +33,9 @@ export default function DeleteAssetTypeModal({ open, assetType, onClose, onDelet
       setError(null);
     }
   }, [open]);
+
+  useModalWatch(open);
+
 
   if (!open) return null;
 

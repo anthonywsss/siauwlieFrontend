@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
+import { useModalWatch } from "@/components/ModalContext";
 
 type RawAssetType = {
   id?: number | string;
@@ -20,6 +21,7 @@ type Props = {
 };
 
 export default function EditAssetTypeModal({ open, assetType, onClose, onUpdated }: Props) {
+  useModalWatch(open); 
   const { signOut } = useAuth();
   const [name, setName] = useState(assetType?.name ?? "");
   const [description, setDescription] = useState(assetType?.description ?? "");

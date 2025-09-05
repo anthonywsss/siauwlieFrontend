@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
+import { useModalWatch } from "@/components/ModalContext";
 
 type Props = {
   open: boolean;
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export default function CreateClientModal({ open, onClose, onCreated }: Props) {
+  useModalWatch(open);
   const { signOut } = useAuth();
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");

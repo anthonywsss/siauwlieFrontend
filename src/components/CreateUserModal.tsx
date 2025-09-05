@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
+import { useModalWatch } from "@/components/ModalContext";
+
 
 type Props = {
   open: boolean;
@@ -60,6 +62,9 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
     }
   }, [open]);
 
+  useModalWatch(open);
+
+
   if (!open) return null;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -115,8 +120,8 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 p-4">
-      <div className="w-full md:w-[640px] max-h-[95vh] overflow-auto rounded-t-lg md:rounded-lg bg-white p-5 md:p-6">
+    <div className="fixed inset-0 z-99 flex items-end md:items-center justify-center bg-black/40 p-4">
+      <div className="z-99 w-full md:w-[640px] max-h-[95vh] overflow-auto rounded-t-lg md:rounded-lg bg-white p-5 md:p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-2xl font-semibold">Add New User</h3>
           <button onClick={onClose} aria-label="Close" className="text-gray-600">✕</button>

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
+import { useModalWatch } from "@/components/ModalContext";
 
 type RawAsset = {
   id: string | number;
@@ -22,6 +23,7 @@ type Props = {
 };
 
 export default function DeleteAssetModal({ open, AllAsset, onClose, onDeleted }: Props) {
+  useModalWatch(open);
   const { signOut } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -23,17 +23,23 @@ export const metadata: Metadata = {
   description: "p",
 };
 
+import { ModalProvider } from "@/components/ModalContext";
+
 export default function RootLayout({ children }: PropsWithChildren) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
         <Providers>
-          <AuthProvider>
-            <NextTopLoader color="#5750F1" showSpinner={false} />
-            <LayoutWrapper>{children}</LayoutWrapper>
-          </AuthProvider>
+          <ModalProvider>            {/* <-- wrap here */}
+            <AuthProvider>
+              <NextTopLoader color="#5750F1" showSpinner={false} />
+              <LayoutWrapper>{children}</LayoutWrapper>
+            </AuthProvider>
+          </ModalProvider>
         </Providers>
       </body>
     </html>
   );
 }
+
+

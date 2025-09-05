@@ -490,3 +490,6 @@ input[type="search"]::-webkit-search-cancel-button {
 html body [data-nextjs-toast-wrapper="true"] {
   display: none !important;
 }
+
+.modal-open header { z-index: 0 !important; }
+

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
+import { useModalWatch } from "@/components/ModalContext";
 
 type RawAsset = {
   id: string | number;
@@ -32,6 +33,7 @@ const STATUS_OPTIONS = [
 ];
 
 export default function EditAssetModal({ open, assetType, onClose, onUpdated }: Props) {
+  useModalWatch(open);
   const { signOut } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [showInfo, setShowInfo] = useState(false);

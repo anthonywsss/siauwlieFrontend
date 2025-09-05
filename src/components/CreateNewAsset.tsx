@@ -6,6 +6,7 @@ import ConfirmationStep from "@/components/FormElements/confirmation";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
 import { Camera } from "lucide-react";
+import { useModalWatch } from "@/components/ModalContext";
 
 type CreateNewAssetProps = {
   open: boolean;
@@ -17,6 +18,7 @@ type Client = { id: number; name: string };
 type RawType = { id: number; name: string };
 
 export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAssetProps) {
+  useModalWatch(open);
   const { signOut } = useAuth();
 
   const [status, setStatus] = useState("");

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import QRCode from "qrcode";
 import { Step } from "@/components/FormElements/step";
 import ConfirmationStep from "@/components/FormElements/confirmation";
 import API from "@/lib/api";
@@ -23,7 +22,6 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
   const [status, setStatus] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [base64Photo, setBase64Photo] = useState<string | null>(null);
-  const [qrFromPhoto, setQrFromPhoto] = useState<string | null>(null);
   
   const [client, setClient] =useState<Client[]>([]);
   const [clientId, setClientId] = useState<number | null>(null);
@@ -105,32 +103,6 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
           setBase64Photo(null);
         }
       };
-
-  // Generate QR code from the uploaded image's base64
-  useEffect(() => {
-    let cancelled = false;
-
-    async function gen() {
-      try {
-        if (!base64Photo) {
-          setQrFromPhoto(null);
-          return;
-        }
-        const dataUrl = await QRCode.toDataURL(base64Photo, {
-          errorCorrectionLevel: "M",
-          margin: 2,
-          scale: 4,
-        });
-        if (!cancelled) setQrFromPhoto(dataUrl);
-      } catch (e) {
-        if (!cancelled) setQrFromPhoto(null);
-        console.error("Failed to generate QR from base64", e);
-      }
-    }
-
-    gen();
-    return () => { cancelled = true; };
-  }, [base64Photo]);
 
   if (!open) return null;
 
@@ -235,11 +207,10 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
   ];
 
 
-  const handleSubmit = async () => {
-    
-
+const handleSubmit = async () => {
+  setSubmitting(true);
+  try {
     let finalPhoto = base64Photo;
-
     if (photo && !base64Photo) {
       finalPhoto = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -249,37 +220,37 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
       });
     }
 
-    setSubmitting(true);
-    try {
-      const res = await API.post("/asset", {
-        status: status.trim(),
-        asset_type_id: typeId,     
-        current_client: clientId,  
-        photo: finalPhoto ?? null,
-      });
+    // This is the new line. It strips the prefix from the Base64 string.
+    const rawBase64 = finalPhoto?.split(',')[1] || null;
 
-      const created = res?.data?.data ?? null;
-      const qrUrl = created?.qr_code ?? created?.qr ?? null;
-      setQrData(qrUrl);
-      setCurrentStep(3);
+    const res = await API.post("/asset", {
+      status: status.trim(),
+      asset_type_id: typeId,
+      current_client: clientId,
+      photo: rawBase64, // Send the stripped Base64 string
+    });
 
-    } catch (err: any) {
-      console.error("add asset error:", err);
-      alert(
-        "Gagal mengirim data: " +
-          (err?.response?.data?.meta?.message ??
-            err?.message ??
-            "Create failed")
-      );
-      setError(
-        err?.response?.data?.meta?.message ??
+    const created = res?.data?.data ?? null;
+    const qrUrl = created?.qr_code ?? created?.qr ?? null;
+    setQrData(qrUrl);
+    setCurrentStep(3);
+  } catch (err: any) {
+    console.error("add asset error:", err);
+    alert(
+      "Gagal mengirim data: " +
+        (err?.response?.data?.meta?.message ??
           err?.message ??
-          "Create failed"
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
+          "Create failed")
+    );
+    setError(
+      err?.response?.data?.meta?.message ??
+      err?.message ??
+      "Create failed"
+    );
+  } finally {
+    setSubmitting(false);
+  }
+};
 
 const handleOpenModal = () => {
   resetForm(); 
@@ -389,12 +360,6 @@ const resetForm = () => {
                         <div className="flex-1">
                           <img src={base64Photo} alt="Preview" className="w-full h-32 object-cover rounded-lg border" />
                         </div>
-                        {qrFromPhoto && (
-                          <div className="flex-1">
-                            <img src={qrFromPhoto} alt="QR from uploaded image" className="w-full h-32 object-contain rounded-lg border" />
-                            <div className="text-xs text-gray-500 mt-1">QR code generated from uploaded image</div>
-                          </div>
-                        )}
                       </>
                     )}
                   </div>

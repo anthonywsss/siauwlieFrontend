@@ -490,7 +490,9 @@ export default function AllItemsClient() {
           </TableHeader>
 
           <TableBody>
-            {visibleItems.map((item, index) => {
+            {visibleItems
+              .slice((page - 1) * perPage, page * perPage)
+              .map((item, index) => {
                return (
                   <TableRow key={index} className="border-t">
                     

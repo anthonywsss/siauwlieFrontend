@@ -17,7 +17,7 @@ export default function UnfinDetailClient({ assetId }: { assetId: string }) {
   const [item, setItem] = useState<RawUnfin | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
+  
   useEffect(() => {
     let mounted = true;
     const fetchAndFind = async () => {

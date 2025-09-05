@@ -10,6 +10,31 @@ import jsQR from "jsqr";
 const clamp = (v: number, min: number, max: number) =>
   Math.max(min, Math.min(max, v));
 
+// Robustly parse asset ID from various QR contents (plain text, URL, or JSON)
+const parseAssetId = (raw: string): string => {
+  const s = String(raw || "").trim();
+  if (!s) return s;
+
+  // Try JSON structure
+  try {
+    const obj = JSON.parse(s);
+    const candidate = obj?.asset_id ?? obj?.assetId ?? obj?.id ?? obj?.code ?? obj?.qr ?? null;
+    if (candidate && typeof candidate === 'string') return candidate.trim();
+  } catch (_) {}
+
+  // Try URL with params or path
+  try {
+    const url = new URL(s);
+    const byParam = url.searchParams.get("asset_id") || url.searchParams.get("id") || url.searchParams.get("code");
+    if (byParam) return byParam.trim();
+    const segments = url.pathname.split('/').filter(Boolean);
+    if (segments.length) return segments[segments.length - 1].trim();
+  } catch (_) {}
+
+  // Fallback to raw
+  return s;
+};
+
 type Client = { id: number; name: string };
 
 type MovementConfig = {
@@ -85,6 +110,10 @@ export default function SubmitMovement() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+
+  // NEW: track current asset status (from server) so we can derive movementType
+  const [assetCurrentStatus, setAssetCurrentStatus] = useState<string | null>(null);
+  const [fetchingAssetStatus, setFetchingAssetStatus] = useState(false);
 
   // QR Scanner state
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -215,8 +244,9 @@ export default function SubmitMovement() {
       });
       
       if (code && code.data) {
-        setAssetId(String(code.data).trim());
-        setSuccess(`QR Code detected: ${code.data}`);
+        const parsedId = parseAssetId(String(code.data));
+        setAssetId(parsedId);
+        setSuccess(`QR Code detected: ${parsedId}`);
         setStep(1);
       } else {
         setScanError("No QR code found in image. Try with better lighting or positioning.");
@@ -341,8 +371,9 @@ export default function SubmitMovement() {
           overlayCtx.closePath();
           overlayCtx.stroke();
 
-          setAssetId(String(code.data).trim());
-          setSuccess(`QR Code detected: ${code.data}`);
+          const parsedId = parseAssetId(String(code.data));
+          setAssetId(parsedId);
+          setSuccess(`QR Code detected: ${parsedId}`);
           stopScanner();
           setStep(1);
           return;
@@ -403,6 +434,104 @@ export default function SubmitMovement() {
     return MOVEMENT_TYPES.find(t => t.value === movementType);
   };
 
+  // Derive next movement from current asset status
+  const deriveMovementFromCurrentStatus = (status: string | null): string => {
+    switch (status) {
+      case "inbound_at_factory":
+        return "outbound_to_factory";
+      case "inbound_at_client":
+        return "outbound_to_client";
+      case "outbound_to_factory":
+        return "inbound_at_factory";
+      case "outbound_to_client":
+        return "inbound_at_client";
+      default:
+        return "outbound_to_client"; // reasonable default
+    }
+  };
+
+  // Fetch asset current status when assetId changes, and auto-select movementType
+  useEffect(() => {
+    if (!assetId || assetId.trim() === "") {
+      setAssetCurrentStatus(null);
+      setMovementType(null);
+      return;
+    }
+
+    let mounted = true;
+    (async () => {
+      setFetchingAssetStatus(true);
+      setError(null);
+      try {
+        const rawId = String(assetId).trim();
+        const id = encodeURIComponent(rawId);
+
+        let currentStatus: string | null = null;
+
+        // Prefer dedicated status endpoint first
+        try {
+          const resA = await API.get(`/check-status`, { params: { asset_id: rawId } });
+          currentStatus = resA?.data?.data?.status ?? resA?.data?.status ?? null;
+        } catch (_eA: any) {
+          try {
+            const resB = await API.get(`/check-status`, { params: { id: rawId } });
+            currentStatus = resB?.data?.data?.status ?? resB?.data?.status ?? null;
+          } catch (_eB: any) {
+            try {
+              const resC = await API.post(`/check-status`, { asset_id: rawId });
+              currentStatus = resC?.data?.data?.status ?? resC?.data?.status ?? null;
+            } catch (_eC: any) {
+              // will fallback to asset lookup next
+            }
+          }
+        }
+
+        // Fallback: fetch asset and read status
+        if (currentStatus == null) {
+          let asset: any = null;
+          try {
+            const res1 = await API.get(`/assets/${id}`);
+            asset = res1?.data?.data ?? null;
+          } catch (e1: any) {
+            try {
+              const res2 = await API.get(`/asset/${id}`);
+              asset = res2?.data?.data ?? null;
+            } catch (e2: any) {
+              try {
+                const res3 = await API.get(`/assets`, { params: { id: rawId } });
+                const list = res3?.data?.data;
+                asset = Array.isArray(list) ? list.find((a: any) => a?.id === rawId) ?? list[0] ?? null : null;
+              } catch (e3: any) {
+                // ignore; keep currentStatus null
+              }
+            }
+          }
+          currentStatus = asset?.status ?? null;
+        }
+
+        if (!mounted) return;
+        setAssetCurrentStatus(currentStatus);
+        const derived = deriveMovementFromCurrentStatus(currentStatus ?? null);
+        setMovementType(derived);
+
+        // If derived movement requires client and we already have a matching client, keep it;
+        // otherwise, let the client reconcile effect populate a default.
+      } catch (err: any) {
+        console.error("Failed to fetch asset status:", err);
+        // If the API responded with 404/invalid, show a helpful message
+        const msg = err?.response?.data?.meta?.message ?? err?.response?.data?.message ?? err?.message ?? "Failed to fetch asset status";
+        setError(msg);
+        setAssetCurrentStatus(null);
+        // Fallback to a reasonable default so user can proceed
+        setMovementType(deriveMovementFromCurrentStatus(null));
+      } finally {
+        if (mounted) setFetchingAssetStatus(false);
+      }
+    })();
+
+    return () => { mounted = false; };
+  }, [assetId]);
+
   // Enhanced form validation
   const validateStep = (currentStep: number): boolean => {
     switch (currentStep) {
@@ -445,7 +574,25 @@ export default function SubmitMovement() {
 
 
   // Navigation handlers
-  const handleNext = () => {
+  const handleNext = async () => {
+    // If moving from step 0 to 1, ensure we've fetched asset status and set movementType
+    if (step === 0) {
+      if (!validateStep(0)) return;
+
+      // If we are still fetching status, wait for it
+      if (fetchingAssetStatus) {
+        setError("Please wait while we determine the movement type for this asset");
+        return;
+      }
+      if (!movementType) {
+        // Fallback to a reasonable default so the user can proceed
+        const fallback = deriveMovementFromCurrentStatus(null);
+        setMovementType(fallback);
+      }
+      setStep(1);
+      return;
+    }
+
     if (validateStep(step)) {
       setStep(Math.min(step + 1, 2));
     }
@@ -456,100 +603,100 @@ export default function SubmitMovement() {
   };
 
   // Enhanced submit handler with conditional fields
-const handleSubmit = async () => {
-  if (!validateStep(1)) return;
+  const handleSubmit = async () => {
+    if (!validateStep(1)) return;
 
-  setBusy(true);
-  setError(null);
+    setBusy(true);
+    setError(null);
 
-  try {
-    let finalPhoto = photoBase64;
-    if (finalPhoto.startsWith("data:image")) {
-      finalPhoto = finalPhoto.split(",")[1];
-    }
-
-    const config = getCurrentMovementConfig();
-
-    if (config?.clientPolicy === "required" && !(typeof clientId === 'number' && Number.isFinite(clientId) && clients.some(c => c.id === clientId))) {
-      setError("Client selection is required for this movement type");
-      setBusy(false);
-      return;
-    }
-
-  const body: any = {
-    asset_id: assetId.trim(),
-    movement_type: movementType,
-    // include lat/lng only when they are real numbers
-    ...(Number.isFinite(Number(latitude)) ? { latitude: clamp(Number(latitude), -90, 90) } : {}),
-    ...(Number.isFinite(Number(longitude)) ? { longitude: clamp(Number(longitude), -180, 180) } : {}),
-    photo: finalPhoto || "",
-    notes: notes.trim() || ""
-  };
-
-  // quantity when required
-  if (config?.requiresQuantity) {
-    body.quantity = clamp(Math.trunc(Number(quantity) || 0), 1, 32767);
-  }
-
-  // attach client_id ONLY when the current movement expects a client and we actually have one
-  if (config?.clientPolicy === "required") {
-    if (typeof clientId === 'number' && Number.isFinite(clientId)) {
-      body.client_id = clientId;
-      // Defensive mapping: some backends expect factory_id for inbound_at_factory
-      if (movementType === 'inbound_at_factory') {
-        (body as any).factory_id = body.client_id;
+    try {
+      let finalPhoto = photoBase64;
+      if (finalPhoto.startsWith("data:image")) {
+        finalPhoto = finalPhoto.split(",")[1];
       }
-    } else {
-      throw new Error("Client is required but missing");
+
+      const config = getCurrentMovementConfig();
+
+      if (config?.clientPolicy === "required" && !(typeof clientId === 'number' && Number.isFinite(clientId) && clients.some(c => c.id === clientId))) {
+        setError("Client selection is required for this movement type");
+        setBusy(false);
+        return;
+      }
+
+      const body: any = {
+        asset_id: assetId.trim(),
+        movement_type: movementType,
+        // include lat/lng only when they are real numbers
+        ...(Number.isFinite(Number(latitude)) ? { latitude: clamp(Number(latitude), -90, 90) } : {}),
+        ...(Number.isFinite(Number(longitude)) ? { longitude: clamp(Number(longitude), -180, 180) } : {}),
+        photo: finalPhoto || "",
+        notes: notes.trim() || ""
+      };
+
+      // quantity when required
+      if (config?.requiresQuantity) {
+        body.quantity = clamp(Math.trunc(Number(quantity) || 0), 1, 32767);
+      }
+
+      // attach client_id ONLY when the current movement expects a client and we actually have one
+      if (config?.clientPolicy === "required") {
+        if (typeof clientId === 'number' && Number.isFinite(clientId)) {
+          body.client_id = clientId;
+          // Defensive mapping: some backends expect factory_id for inbound_at_factory
+          if (movementType === 'inbound_at_factory') {
+            (body as any).factory_id = body.client_id;
+          }
+        } else {
+          throw new Error("Client is required but missing");
+        }
+      } else {
+        if (USE_PLACEHOLDER_FOR_NON_REQUIRED_CLIENT) {
+          body.client_id = CLIENT_PLACEHOLDER;
+        } else {
+          if ('client_id' in body) delete (body as any).client_id;
+        }
+      }
+
+      // final safety: never send null/undefined/empty client_id
+      if (body.client_id == null || body.client_id === "") {
+        delete (body as any).client_id;
+      }
+
+      // Good: log exact JSON that will be sent (not the live object)
+      console.log("Submitting movement (payload):", JSON.stringify(body));
+      const res = await API.post("/movements", body);
+
+      // Show success popup
+      setShowSuccessPopup(true);
+
+      // Reset form
+      setAssetId("");
+      setMovementType(null);
+      setClientId(null);
+      setQuantity(1);
+      setLatitude(null);
+      setLongitude(null);
+      setPhotoBase64("");
+      setNotes("");
+      setStep(0);
+
+    } catch (err: any) {
+      console.error("Submit error details:", {
+        response: err.response?.data,
+        status: err.response?.status,
+        message: err.message
+      });
+
+      const msg = err?.response?.data?.error ||
+                  err?.response?.data?.message ||
+                  err?.response?.data?.meta?.message ||
+                  err?.message ||
+                  "Submission failed";
+      setError(msg);
+    } finally {
+      setBusy(false);
     }
-  } else {
-    if (USE_PLACEHOLDER_FOR_NON_REQUIRED_CLIENT) {
-      body.client_id = CLIENT_PLACEHOLDER;
-    } else {
-      if ('client_id' in body) delete (body as any).client_id;
-    }
-  }
-
-  // final safety: never send null/undefined/empty client_id
-  if (body.client_id == null || body.client_id === "") {
-    delete (body as any).client_id;
-  }
-
-  // Good: log exact JSON that will be sent (not the live object)
-  console.log("Submitting movement (payload):", JSON.stringify(body));
-  const res = await API.post("/movements", body);
-
-    // Show success popup
-    setShowSuccessPopup(true);
-
-    // Reset form
-    setAssetId("");
-    setMovementType(null);
-    setClientId(null);
-    setQuantity(1);
-    setLatitude(null);
-    setLongitude(null);
-    setPhotoBase64("");
-    setNotes("");
-    setStep(0);
-
-  } catch (err: any) {
-    console.error("Submit error details:", {
-      response: err.response?.data,
-      status: err.response?.status,
-      message: err.message
-    });
-
-    const msg = err?.response?.data?.error ||
-                err?.response?.data?.message ||
-                err?.response?.data?.meta?.message ||
-                err?.message ||
-                "Submission failed";
-    setError(msg);
-  } finally {
-    setBusy(false);
-  }
-};
+  };
 
 
   if (!user) return null;
@@ -570,7 +717,7 @@ const handleSubmit = async () => {
         {/* Header */}
         <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6 animate-fadeIn">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Submit Movement</h1>
-          <p className="text-sm sm:text-base text-gray-600">Track and record asset movements with QR scanning</p>
+          <p className="text-sm sm:text-base text-gray-600">Track and record asset movements dengan scan QR</p>
         </div>
 
         {/* Progress Steps */}
@@ -674,7 +821,7 @@ const handleSubmit = async () => {
                     
                     <div className="absolute bottom-2 left-2 right-2 text-center">
                       <div className="bg-black bg-opacity-50 text-white px-3 py-1 text-xs sm:text-sm rounded-lg animate-pulse">
-                        Position QR code within the frame
+                        Posisikan QR code di dalam frame
                       </div>
                     </div>
                   </div>
@@ -690,7 +837,7 @@ const handleSubmit = async () => {
                       <Scan className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
                     </div>
                     <h3 className="font-medium text-base sm:text-lg mb-1 sm:mb-2">Scan QR Code</h3>
-                    <p className="text-xs sm:text-sm text-gray-500">Use your camera to scan a QR code</p>
+                    <p className="text-xs sm:text-sm text-gray-500">Pake camera untuk scan QR</p>
                   </div>
 
                   {/* Upload QR Image Option */}
@@ -764,38 +911,29 @@ const handleSubmit = async () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                {/* Movement Type */}
+                {/* MOVEMENT TYPE: read-only (auto-picked) */}
                 <div className="md:col-span-2">
                   <label className="block text-sm sm:text-base font-medium text-gray-700 mb-3">
-                    Movement Type *
+                    Movement Type (automatically selected)
                   </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                    {MOVEMENT_TYPES.map((type) => (
-                      <label
-                        key={type.value}
-                        className={`flex items-center p-3 sm:p-4 border-2 rounded-lg cursor-pointer transition-all duration-300 ${
-                          movementType === type.value
-                            ? 'border-blue-500 bg-blue-50 scale-[1.02]'
-                            : 'border-gray-200 hover:border-gray-300 hover:scale-[1.02]'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="movementType"
-                          value={type.value}
-                          checked={movementType === type.value}
-                          onChange={(e) => setMovementType(e.target.value)}
-                          className="sr-only"
-                        />
-                        <span className="text-2xl mr-2 sm:mr-3">{type.icon}</span>
-                        <div>
-                          <div className="font-medium text-sm sm:text-base">{type.label}</div>
-                          <div className="text-xs text-gray-500">
-                            {type.requiresQuantity ? "Requires quantity" : "No quantity needed"}
-                          </div>
-                        </div>
-                      </label>
-                    ))}
+
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="p-3 rounded-lg border border-gray-200 bg-gray-50 min-w-0 flex-1">
+                      <div className="text-xs text-gray-500">Current Asset Status</div>
+                      <div className="font-medium text-sm mt-1">{assetCurrentStatus ?? "Unknown"}</div>
+                    </div>
+
+                    <div className="p-3 rounded-lg border border-blue-200 bg-blue-50 min-w-0 flex-1">
+                      <div className="text-xs text-blue-700">Selected Movement</div>
+                      <div className="font-medium text-sm mt-1">
+                        {MOVEMENT_TYPES.find(t => t.value === movementType)?.label ?? (fetchingAssetStatus ? "Determining..." : "Unknown")}
+                      </div>
+                      {fetchingAssetStatus && <div className="text-xs text-gray-500 mt-1">Please wait — fetching asset info...</div>}
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-gray-500 mt-2">
+                    The movement type is chosen automatically based on this asset's current status. Users cannot change it manually.
                   </div>
                 </div>
 

@@ -7,7 +7,6 @@ import ConfirmationStep from "@/components/FormElements/confirmation";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
 import { Camera } from "lucide-react";
-import { QRCodeCanvas } from "qrcode.react";
 
 type CreateNewAssetProps = {
   open: boolean;
@@ -107,7 +106,6 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
         }
       };
 
-<<<<<<< HEAD
   // Generate QR code from the uploaded image's base64
   useEffect(() => {
     let cancelled = false;
@@ -235,9 +233,6 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
       </Step>
     ),
   ];
-=======
-  if (!open) return null
->>>>>>> 566935bd5e288739498b7cd78f8e7c160fbf2980
 
 
   const handleSubmit = async () => {

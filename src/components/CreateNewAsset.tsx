@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import QRCode from "qrcode";
 import { Step } from "@/components/FormElements/step";
 import ConfirmationStep from "@/components/FormElements/confirmation";
 import API from "@/lib/api";
@@ -22,6 +23,7 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
   const [status, setStatus] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [base64Photo, setBase64Photo] = useState<string | null>(null);
+  const [qrFromPhoto, setQrFromPhoto] = useState<string | null>(null);
   
   const [client, setClient] =useState<Client[]>([]);
   const [clientId, setClientId] = useState<number | null>(null);
@@ -103,6 +105,32 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
           setBase64Photo(null);
         }
       };
+
+  // Generate QR code from the uploaded image's base64
+  useEffect(() => {
+    let cancelled = false;
+
+    async function gen() {
+      try {
+        if (!base64Photo) {
+          setQrFromPhoto(null);
+          return;
+        }
+        const dataUrl = await QRCode.toDataURL(base64Photo, {
+          errorCorrectionLevel: "M",
+          margin: 2,
+          scale: 4,
+        });
+        if (!cancelled) setQrFromPhoto(dataUrl);
+      } catch (e) {
+        if (!cancelled) setQrFromPhoto(null);
+        console.error("Failed to generate QR from base64", e);
+      }
+    }
+
+    gen();
+    return () => { cancelled = true; };
+  }, [base64Photo]);
 
   if (!open) return null;
 
@@ -353,9 +381,17 @@ const resetForm = () => {
                       </div>
                     </label>
                     {base64Photo && (
-                      <div className="flex-1">
-                        <img src={base64Photo} alt="Preview" className="w-full h-32 object-cover rounded-lg border" />
-                      </div>
+                      <>
+                        <div className="flex-1">
+                          <img src={base64Photo} alt="Preview" className="w-full h-32 object-cover rounded-lg border" />
+                        </div>
+                        {qrFromPhoto && (
+                          <div className="flex-1">
+                            <img src={qrFromPhoto} alt="QR from uploaded image" className="w-full h-32 object-contain rounded-lg border" />
+                            <div className="text-xs text-gray-500 mt-1">QR code generated from uploaded image</div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

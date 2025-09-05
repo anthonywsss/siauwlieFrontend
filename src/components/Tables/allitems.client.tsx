@@ -126,38 +126,29 @@ export default function AllItemsClient() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-useEffect(() => {
+  useEffect(() => {
     let mounted = true;
     const fetchUnfinished = async () => {
       setLoading(true);
       try {
         const res = await API.get("/asset");
         const raw: RawAsset[] = res.data?.data ?? [];
-        const items = raw.map(r => ({
-          id: r.id,
-          qrUrl: r.qr_code,
-          status: r.status,
-          clientId: Number(r.current_client),
-          photoUrl: r.photo,
-          assetType: Number(r.asset_type_id),  
-        }));
-        
+
         if (!mounted) return;
-          setData(raw);
-          const metaTotal = res.data?.meta?.total;
-          setTotal(typeof metaTotal === "number" ? metaTotal : items.length);
+        setData(Array.isArray(raw) ? raw : []);
+        const metaTotal = res.data?.meta?.total;
+        setTotal(typeof metaTotal === "number" ? metaTotal : raw.length);
       } catch (err) {
-          console.error("Error fetching unfinished deliveries:", err);
+        console.error("Error fetching assets:", err);
       } finally {
-          if (mounted) setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
     fetchUnfinished();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [page, perPage, query, refreshKey]);
+
 
 
   useEffect(() => {
@@ -293,13 +284,11 @@ useEffect(() => {
     
   const visibleItems = data.filter((item) => {
     const statusMatches = statusFilter === "all" || item.status === statusFilter;
-    const assetMatches = assetFilter === "all" || item.assetType?.toString() === assetFilter;
-
-    // Search filter
+    const assetMatches = assetFilter === "all" || item.asset_type_id?.toString() === assetFilter;
     const queryMatches =
       !query ||
-      (item.id?.toString().includes(query)) ||
-      (item.clientId?.toString().includes(query));
+      String(item.id ?? "").includes(query) ||
+      String(item.current_client ?? "").includes(query);
 
     return statusMatches && assetMatches && queryMatches;
   });

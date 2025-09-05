@@ -106,27 +106,24 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
     try {
       const id = String(assetType.id);
 
-      // if user picked a photo file, use FormData
-      if (photoFile) {
-        const form = new FormData();
-        form.append("qr_code", qrCode ?? "");
-        form.append("status", status ?? "");
-        if (clientId !== null) form.append("current_client", String(clientId));
-        if (assetTypeId !== null) form.append("asset_type_id", String(assetTypeId));
-        form.append("photo", photoFile);
+      const payload: any = {
+        qr_code: qrCode ?? "",
+        status: status ?? null,
+        current_client: clientId ?? null,
+        asset_type_id: assetTypeId ?? null,
+      };
 
-        await API.put(`/asset/${id}`, form, {
-          headers: { "Content-Type": "multipart/form-data" },
+      if (photoFile) {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsDataURL(photoFile);
         });
-      } else {
-        const payload: any = {
-          qr_code: qrCode ?? "",
-          status: status ?? null,
-          current_client: clientId ?? null,
-          asset_type_id: assetTypeId ?? null,
-        };
-        await API.put(`/asset/${id}`, payload);
+        payload.photo = base64;
       }
+
+      await API.put(`/asset/${id}`, payload);
 
       setShowInfo(true);
       onUpdated?.();

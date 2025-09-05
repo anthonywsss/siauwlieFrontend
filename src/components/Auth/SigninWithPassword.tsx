@@ -20,7 +20,7 @@ export default function SigninWithPassword() {
       // showToast("success", "Signed in successfully! Redirecting...");
       setTimeout(() => router.push("/"), 500);
     } catch (err: any) {
-      console.error(err);
+      // console.error(err);
       const serverMsg =
         err?.response?.data?.meta?.message ||
         err?.response?.data?.message ||

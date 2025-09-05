@@ -1,48 +1,96 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/Auth/auth-context";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
+// Configure your default landing route per role here:
+const DEFAULT_ROUTE_BY_ROLE: Record<string, string> = {
+  driver: "/submit-movement",
+  security: "/submit-movement",
+  admin: "/",
+};
+
+function getDefaultRouteForRole(role?: string): string {
+  if (!role) return "/";
+  return DEFAULT_ROUTE_BY_ROLE[role] ?? "/";
+}
+
+// Basic internal path validation to avoid open-redirects
+function sanitizeInternalPath(p?: string | null): string | null {
+  if (!p) return null;
+  if (p.startsWith("/") && !p.startsWith("//")) return p;
+  return null;
+}
+
+// Optional: place to check authorization of a path for a role.
+// For now it allows everything; wire it to your ACL if needed.
+function isAllowedForRole(_path: string, _role?: string): boolean {
+  return true;
+}
 
 export default function SigninWithPassword() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // We don't know exact shape of the auth context beyond signIn.
-  // Use a flexible reference to detect authenticated state without breaking types.
   const auth: any = useAuth();
   const { signIn } = auth;
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
 
-  // Only allow internal redirects to avoid open-redirect issues.
-  const redirectTo = useMemo(() => {
-    const nextParam = searchParams?.get("next");
-    if (nextParam && nextParam.startsWith("/")) return nextParam;
-    return "/";
-  }, [searchParams]);
+  const hasRedirected = useRef(false);
 
-  // Derive "authenticated" and "ready" states best-effort based on common patterns.
-  const isAuthed: boolean = Boolean(auth?.isAuthenticated ?? auth?.user ?? auth?.token);
-  const isReady: boolean = Boolean(auth?.initialized ?? auth?.ready ?? true);
+  // Compute the preferred destination: ?next (if internal) else role default, else "/"
+  const desiredNext = useMemo(() => {
+    const nextParam = sanitizeInternalPath(searchParams?.get("next"));
+    const role: string | undefined = auth?.user?.role ?? auth?.role;
+    const roleDefault = getDefaultRouteForRole(role);
 
-  // If the user is already authenticated (e.g., refresh sent them to login),
-  // immediately send them back to the original destination or home.
+    if (nextParam && isAllowedForRole(nextParam, role)) return nextParam;
+    return roleDefault || "/";
+  }, [searchParams, auth?.user?.role, auth?.role]);
+
+  const isAuthed: boolean = Boolean(
+    auth?.isAuthenticated ?? auth?.user ?? auth?.token
+  );
+
+  // Prefer explicit ready/initialized flags; default to true if none provided
+  const isReady: boolean = Boolean(
+    auth?.initialized ?? auth?.ready ?? true
+  );
+
+  // Avoid loops: don't redirect if target is the current page
+  const safeReplace = (to: string) => {
+    if (!to || to === pathname) return;
+    // guard multiple calls within the same render/mount
+    if (hasRedirected.current) return;
+    hasRedirected.current = true;
+    router.replace(to);
+  };
+
+  // If already authenticated (e.g., refreshed and landed on login), go to desiredNext
   useEffect(() => {
     if (isReady && isAuthed) {
-      router.replace(redirectTo);
+      safeReplace(desiredNext);
     }
-  }, [isReady, isAuthed, redirectTo, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady, isAuthed, desiredNext, pathname]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       await signIn(username, password);
-      // showToast("success", "Signed in successfully! Redirecting...");
-      router.replace(redirectTo);
+      const role: string | undefined = auth?.user?.role ?? auth?.role;
+      const nextParam = sanitizeInternalPath(searchParams?.get("next"));
+      const target =
+        (nextParam && isAllowedForRole(nextParam, role) && nextParam) ||
+        getDefaultRouteForRole(role) ||
+        "/";
+      safeReplace(target);
     } catch (err: any) {
       const serverMsg =
         err?.response?.data?.meta?.message ||

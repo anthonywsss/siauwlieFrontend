@@ -155,8 +155,6 @@ export default function SubmitMovement() {
         const list = res?.data?.data ?? [];
         setClients(Array.isArray(list) ? list : []);
       } catch (err) {
-        console.error("Failed to fetch clients", err);
-        setError("Failed to load clients");
       } finally {
         setLoadingClients(false);
       }

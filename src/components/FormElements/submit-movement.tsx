@@ -56,7 +56,7 @@ const CLIENT_PLACEHOLDER = "-";
 
 const STEPS = [
   { id: 0, title: "Pindai Asset", description: "Kode QR atau Input Manual" },
-  { id: 1, title: "Pergerakan", description: "Tipe, Klien & Informasi lain" },
+  { id: 1, title: "Pergerakan", description: "Tipe & Informasi lain" },
   { id: 2, title: "Konfirmasi", description: "Kirimkan data" },
 ];
 
@@ -110,10 +110,13 @@ export default function SubmitMovement() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [warning, setWarning] = useState<string | null>(null);
+  const scanningRef = useRef(false);
 
   // NEW: track current asset status (from server) so we can derive movementType
   const [assetCurrentStatus, setAssetCurrentStatus] = useState<string | null>(null);
   const [fetchingAssetStatus, setFetchingAssetStatus] = useState(false);
+  const [assetValid, setAssetValid] = useState(false);
 
   // QR Scanner state
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -141,6 +144,14 @@ export default function SubmitMovement() {
       return () => clearTimeout(timer);
     }
   }, [success]);
+
+  // Auto-clear warnings
+  useEffect(() => {
+    if (warning) {
+      const timer = setTimeout(() => setWarning(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [warning]);
 
   // Authentication check
   useEffect(() => {
@@ -245,7 +256,6 @@ export default function SubmitMovement() {
         const parsedId = parseAssetId(String(code.data));
         setAssetId(parsedId);
         setSuccess(`QR Code detected: ${parsedId}`);
-        setStep(1);
       } else {
         setScanError("No QR code found in image. Try with better lighting or positioning.");
       }
@@ -277,6 +287,7 @@ export default function SubmitMovement() {
         videoRef.current.setAttribute("playsinline", "true");
         await videoRef.current.play();
         setScanning(true);
+        scanningRef.current = true;
         startScanLoop();
       }
     } catch (err: any) {
@@ -300,6 +311,7 @@ export default function SubmitMovement() {
       videoRef.current.srcObject = null;
     }
     setScanning(false);
+    scanningRef.current = false;
     setShowScanner(false);
   }, []);
 
@@ -312,7 +324,7 @@ export default function SubmitMovement() {
   // Optimized scan loop with throttling and better error handling
   const startScanLoop = useCallback(() => {
     const scanFrame = async () => {
-      if (!videoRef.current || !canvasRef.current || !overlayRef.current || !scanning) {
+      if (!videoRef.current || !canvasRef.current || !overlayRef.current) {
         return;
       }
 
@@ -373,20 +385,19 @@ export default function SubmitMovement() {
           setAssetId(parsedId);
           setSuccess(`QR Code detected: ${parsedId}`);
           stopScanner();
-          setStep(1);
           return;
         }
       } catch (err) {
         console.error("QR scan error:", err);
       }
 
-      if (scanning) {
+      if (scanningRef.current) {
         scanIntervalRef.current = requestAnimationFrame(scanFrame);
       }
     };
 
     scanFrame();
-  }, [scanning, stopScanner]);
+  }, [stopScanner]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -453,6 +464,7 @@ export default function SubmitMovement() {
     if (!assetId || assetId.trim() === "") {
       setAssetCurrentStatus(null);
       setMovementType(null);
+      setAssetValid(false);
       return;
     }
 
@@ -465,19 +477,23 @@ export default function SubmitMovement() {
         const id = encodeURIComponent(rawId);
 
         let currentStatus: string | null = null;
+        let found = false;
 
         // Prefer dedicated status endpoint first
         try {
           const resA = await API.get(`/check-status`, { params: { asset_id: rawId } });
           currentStatus = resA?.data?.data?.status ?? resA?.data?.status ?? null;
+          found = true;
         } catch (_eA: any) {
           try {
             const resB = await API.get(`/check-status`, { params: { id: rawId } });
             currentStatus = resB?.data?.data?.status ?? resB?.data?.status ?? null;
+            found = true;
           } catch (_eB: any) {
             try {
               const resC = await API.post(`/check-status`, { asset_id: rawId });
               currentStatus = resC?.data?.data?.status ?? resC?.data?.status ?? null;
+              found = true;
             } catch (_eC: any) {
               // will fallback to asset lookup next
             }
@@ -504,13 +520,23 @@ export default function SubmitMovement() {
               }
             }
           }
+          if (asset) found = true;
           currentStatus = asset?.status ?? null;
         }
 
         if (!mounted) return;
+        if (!found) {
+          setError("QR Tidak Valid");
+          setAssetCurrentStatus(null);
+          setMovementType(null);
+          setAssetValid(false);
+          return;
+        }
         setAssetCurrentStatus(currentStatus);
         const derived = deriveMovementFromCurrentStatus(currentStatus ?? null);
         setMovementType(derived);
+        setAssetValid(true);
+        setStep(1);
 
         // If derived movement requires client and we already have a matching client, keep it;
         // otherwise, let the client reconcile effect populate a default.
@@ -518,10 +544,12 @@ export default function SubmitMovement() {
         console.error("Failed to fetch asset status:", err);
         // If the API responded with 404/invalid, show a helpful message
         const msg = err?.response?.data?.meta?.message ?? err?.response?.data?.message ?? err?.message ?? "Failed to fetch asset status";
-        setError(msg);
+        const statusCode = err?.response?.status;
+        const isInvalid = statusCode === 404 || statusCode === 400 || /not\s*found/i.test(String(msg));
+        setError(isInvalid ? "QR Tidak Valid" : msg);
         setAssetCurrentStatus(null);
-        // Fallback to a reasonable default so user can proceed
-        setMovementType(deriveMovementFromCurrentStatus(null));
+        setMovementType(null);
+        setAssetValid(false);
       } finally {
         if (mounted) setFetchingAssetStatus(false);
       }
@@ -529,6 +557,20 @@ export default function SubmitMovement() {
 
     return () => { mounted = false; };
   }, [assetId]);
+
+  // Show warning when the derived next movement doesn't match allowed transition
+  useEffect(() => {
+    if (!assetCurrentStatus) {
+      setWarning(null);
+      return;
+    }
+    const allowed = deriveMovementFromCurrentStatus(assetCurrentStatus);
+    if (movementType && movementType !== allowed) {
+      setWarning(`Perhatian: Anda hanya dapat mengubah status dari "${assetCurrentStatus}" menjadi "${allowed}".`);
+    } else {
+      setWarning(null);
+    }
+  }, [assetCurrentStatus, movementType]);
 
   // Enhanced form validation
   const validateStep = (currentStep: number): boolean => {
@@ -582,10 +624,9 @@ export default function SubmitMovement() {
         setError("Please wait while we determine the movement type for this asset");
         return;
       }
-      if (!movementType) {
-        // Fallback to a reasonable default so the user can proceed
-        const fallback = deriveMovementFromCurrentStatus(null);
-        setMovementType(fallback);
+      if (!assetValid) {
+        setError("QR Tidak Valid");
+        return;
       }
       setStep(1);
       return;
@@ -767,6 +808,15 @@ export default function SubmitMovement() {
           </div>
         )}
 
+        {warning && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4 sm:mb-6 animate-fadeIn">
+            <div className="flex items-start">
+              <X className="w-5 h-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="text-yellow-800 text-sm sm:text-base">{warning}</div>
+            </div>
+          </div>
+        )}
+
         {/* Main Content */}
         <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
           {step === 0 && (
@@ -938,25 +988,6 @@ export default function SubmitMovement() {
                 {/* Client Selection - Only show for client-related movements */}
                 {currentConfig?.clientPolicy === "required" && (
                   <div className="md:col-span-2 animate-fadeIn">
-                    <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
-                      Klien *
-                    </label>
-                    {loadingClients ? (
-                      <div className="text-gray-500 text-sm sm:text-base">Loading clients...</div>
-                    ) : (
-                      <select
-                        value={clientId || ""}
-                        onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-sm sm:text-base"
-                      >
-                        <option value="">Pilih Klien</option>
-                        {clients.map((client) => (
-                          <option key={client.id} value={client.id}>
-                            {client.name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
                   </div>
                 )}
 
@@ -1162,9 +1193,11 @@ export default function SubmitMovement() {
           to { transform: scale(1); opacity: 1; }
         }
         @keyframes scan {
-          0% { transform: translateY(-100%); }
-          100% { transform: translateY(400%); }
+          0%   { top: 0%; }
+          50%  { top: 80%; }
+          100% { top: 0%; }
         }
+
         .animate-fadeIn {
           animation: fadeIn 0.3s ease-out forwards;
         }
@@ -1172,8 +1205,16 @@ export default function SubmitMovement() {
           animation: scaleIn 0.3s ease-out forwards;
         }
         .animate-scan {
-          animation: scan 2s linear infinite;
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 50px;
+          background: linear-gradient(to top, rgba(59,130,246,0.8) 0%, rgba(59,130,246,0) 100%);
+          animation: scan 2.5s ease-in-out infinite; /* slower, 3s per cycle */
+          border-radius: 0px;
         }
+
       `}</style>
     </div>
   );

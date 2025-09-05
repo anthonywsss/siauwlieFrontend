@@ -190,7 +190,7 @@ export default function AllItemsClient() {
   //status
   const STATUS_OPTIONS = [
     { value: "outbound_to_client", label: "Perjalanan ke pelanggan" },
-    { value: "inbound_at_client", label: "Digunakan pelanggan" },
+    { value: "inbound_at_client", label: "Di pelanggan" },
     { value: "outbound_to_factory", label: "Perjalanan ke pabrik" },
     { value: "inbound_at_factory", label: "Di pabrik" },
   ];
@@ -202,6 +202,24 @@ export default function AllItemsClient() {
     outbound_to_factory: "In Transit to Factory",
     inbound_at_factory: "At Factory",
   };
+
+  // Normalize various backend status variants to canonical keys used in this table
+  function normalizeStatus(s?: string | null): string | null {
+    if (!s) return null;
+    switch (s) {
+      case "outbound_from_factory":
+        return "outbound_to_client"; // leaving factory -> to client
+      case "outbound_from_client":
+        return "outbound_to_factory"; // leaving client -> to factory
+      case "outbound_to_client":
+      case "outbound_to_factory":
+      case "inbound_at_client":
+      case "inbound_at_factory":
+        return s;
+      default:
+        return s; // unknown values pass-through (will show Unknown label)
+    }
+  }
 
   // fetch client
   useEffect(() => {
@@ -284,7 +302,7 @@ export default function AllItemsClient() {
   }, [perPage, query]);
     
   const visibleItems = data.filter((item) => {
-    const statusMatches = statusFilter === "all" || item.status === statusFilter;
+    const statusMatches = statusFilter === "all" || normalizeStatus(item.status) === statusFilter;
     const assetMatches = assetFilter === "all" || item.asset_type_id?.toString() === assetFilter;
     const queryMatches =
       !query ||
@@ -494,7 +512,7 @@ export default function AllItemsClient() {
                     
                     <TableCell>
                       <p className="text-black">
-                        {STATUS_LABELS[item.status ?? ""]}
+                        {STATUS_LABELS[normalizeStatus(item.status) ?? ""] ?? "Unknown"}
                       </p>
 
                     </TableCell>
@@ -582,7 +600,7 @@ export default function AllItemsClient() {
                       <div className="text-sm text-gray-500">Status</div>
                       <div className="mt-1">
                         <p className="text-black">
-                          {STATUS_LABELS[item.status ?? ""]}
+                          {STATUS_LABELS[normalizeStatus(item.status) ?? ""] ?? "Unknown"}
                         </p>
                       </div>
                     </div>

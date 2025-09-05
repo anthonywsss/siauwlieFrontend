@@ -157,7 +157,8 @@ useEffect(() => {
     return () => {
       mounted = false;
     };
-  }, [page, perPage, query]);
+  }, [page, perPage, query, refreshKey]);
+
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -179,7 +180,7 @@ useEffect(() => {
   }
 
   // open edit modal
-  function handleEditOpen(raw?: Item | null) {
+  function handleEditOpen(raw?: RawAsset | null) {
     setEditingRaw(raw ?? null);
   }
 
@@ -306,7 +307,7 @@ useEffect(() => {
   // History Button
    const goToDetail = (assetId?: string) => {
     if (!assetId) return;
-    router.push(` /unfinished copy/${encodeURIComponent(String(assetId))}`);
+    router.push(`/unfinished/${encodeURIComponent(String(assetId))}`);
   };
 
   const visible = data.slice((page - 1) * perPage, page * perPage);
@@ -538,7 +539,7 @@ useEffect(() => {
                         <button
                           className="p-2 hover:text-primary"
                           aria-label="Edit"
-                          onClick={() => handleEditOpen(item.raw)}
+                          onClick={() => handleEditOpen(item)}
                         >
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                             <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -550,7 +551,7 @@ useEffect(() => {
                         <button
                           className="p-2 hover:text-red-600 disabled:opacity-50"
                           aria-label="Delete"
-                          onClick={() => setDeletingRaw(item.raw ?? { id: item.id })}
+                          onClick={() => setDeletingRaw(item)}
                           disabled={actionLoading !== null}
                         >
                           <TrashIcon />
@@ -615,8 +616,8 @@ useEffect(() => {
 
                     <div className="flex gap-2 mt-2">
                       <button className="flex-1 bg-blue-500 text-white px-3 py-2 rounded-md text-sm">History</button>
-                      <button className="p-2 border rounded-md" aria-label="Edit">Edit</button>
-                      <button className="p-2 border rounded-md text-red-600" aria-label="Delete">Delete</button>
+                      <button className="p-2 border rounded-md" aria-label="Edit" onClick={() => handleEditOpen(item)}>Edit</button>
+                      <button className="p-2 border rounded-md text-red-600" aria-label="Delete" onClick={() => setDeletingRaw(item)}>Delete</button>
                     </div>
                   </div>
                 </div>
@@ -707,15 +708,16 @@ useEffect(() => {
             setRefreshKey((k) => k + 1);
           }}
         />
-    </div>
-  );
-}
 
-
-
-        {/* <EditAssetModal
+        <EditAssetModal
           open={!!editingRaw}
           assetType={editingRaw ?? undefined}
           onClose={() => setEditingRaw(null)}
-          onUpdated={handleCreatedOrUpdated}
-        /> */}
+          onUpdated={() => {
+            setEditingRaw(null);
+            setRefreshKey((k) => k + 1);
+          }}
+        />
+    </div>
+  );
+}

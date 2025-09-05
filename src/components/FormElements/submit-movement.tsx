@@ -118,21 +118,37 @@ export default function SubmitMovement() {
     if (!user) router.push("/auth/sign-in");
   }, [user, router]);
 
-  // Load clients
+  // Load clients only when needed and permitted (supervisor). Drivers/Security will fallback to manual client ID.
   useEffect(() => {
+    const cfg = MOVEMENT_TYPES.find(t => t.value === movementType);
+    const role = user?.role ?? "guest";
+    const shouldFetch = cfg?.clientPolicy === "required" && role === "supervisor";
+    if (!shouldFetch) {
+      setClients([]);
+      setLoadingClients(false);
+      return;
+    }
+    setLoadingClients(true);
     (async () => {
       try {
         const res = await API.get("/clients");
         const list = res?.data?.data ?? [];
         setClients(Array.isArray(list) ? list : []);
-      } catch (err) {
-        console.error("Failed to fetch clients", err);
-        setError("Failed to load clients");
+      } catch (err: any) {
+        const status = err?.response?.status;
+        if (status === 401 || status === 403) {
+          console.warn("Unauthorized to fetch clients. Falling back to manual client input.");
+          // Do not set error to avoid blocking the flow
+          setClients([]);
+        } else {
+          console.error("Failed to fetch clients", err);
+          setError("Failed to load clients");
+        }
       } finally {
         setLoadingClients(false);
       }
     })();
-  }, []);
+  }, [movementType, user?.role]);
 
   // When movement type changes, reconcile client selection based on policy
   useEffect(() => {
@@ -403,6 +419,16 @@ export default function SubmitMovement() {
     return MOVEMENT_TYPES.find(t => t.value === movementType);
   };
 
+  // Validate client selection: allow manual ID when list is unavailable
+  const isClientSelectionValid = () => {
+    const cfg = getCurrentMovementConfig();
+    if (cfg?.clientPolicy !== "required") return true;
+    const hasId = typeof clientId === 'number' && Number.isFinite(clientId);
+    if (!hasId) return false;
+    if (clients.length === 0) return true;
+    return clients.some(c => c.id === clientId);
+  };
+
   // Enhanced form validation
   const validateStep = (currentStep: number): boolean => {
     switch (currentStep) {
@@ -422,13 +448,13 @@ export default function SubmitMovement() {
         const config = getCurrentMovementConfig();
 
         if (config?.clientPolicy === "required") {
-          if (loadingClients) {
-            setError("Please wait for clients to load");
+          const hasId = typeof clientId === 'number' && Number.isFinite(clientId);
+          if (!hasId) {
+            setError("Client selection is required for this movement type");
             return false;
           }
-          const valid = clients.some(c => c.id === clientId);
-          if (!valid) {
-            setError("Client selection is required for this movement type");
+          if (clients.length > 0 && !clients.some(c => c.id === clientId)) {
+            setError("Please select a valid client");
             return false;
           }
         }
@@ -807,7 +833,7 @@ const handleSubmit = async () => {
                     </label>
                     {loadingClients ? (
                       <div className="text-gray-500 text-sm sm:text-base">Loading clients...</div>
-                    ) : (
+                    ) : clients.length > 0 ? (
                       <select
                         value={clientId || ""}
                         onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
@@ -820,6 +846,20 @@ const handleSubmit = async () => {
                           </option>
                         ))}
                       </select>
+                    ) : (
+                      <div className="space-y-2">
+                        <input
+                          type="number"
+                          min="1"
+                          value={clientId ?? ""}
+                          onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
+                          placeholder="Enter client ID"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-sm sm:text-base"
+                        />
+                        <p className="text-xs text-gray-500">
+                          Client list is unavailable. Enter the client ID manually.
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}
@@ -921,7 +961,7 @@ const handleSubmit = async () => {
                 </button>
                 <button
                   onClick={handleNext}
-                  disabled={busy || (currentConfig?.clientPolicy === "required" && !clients.some(c => c.id === clientId))}
+                  disabled={busy || !isClientSelectionValid()}
                   className="flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm sm:text-base"
                 >
                   Next
@@ -953,7 +993,7 @@ const handleSubmit = async () => {
                     <div className="flex justify-between">
                       <span className="text-gray-600 text-sm sm:text-base">Client:</span>
                       <span className="font-medium text-sm sm:text-base">
-                        {clients.find(c => c.id === clientId)?.name}
+                        {clients.find(c => c.id === clientId)?.name ?? `ID ${clientId}`}
                       </span>
                     </div>
                   )}
@@ -1003,7 +1043,7 @@ const handleSubmit = async () => {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={busy || (currentConfig?.clientPolicy === "required" && !clients.some(c => c.id === clientId))}
+                  disabled={busy || !isClientSelectionValid()}
                   className="flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm sm:text-base"
                 >
                   {busy ? "Submitting..." : "Confirm Movement"}

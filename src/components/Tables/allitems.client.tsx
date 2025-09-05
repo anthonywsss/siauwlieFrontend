@@ -127,60 +127,49 @@ export default function AllItemsClient() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-useEffect(() => {
-  let mounted = true;
-  setLoading(true);
-  setError(null);
+  useEffect(() => {
+    let mounted = true;
 
-  const offset = Math.max(0, (page - 1) * perPage);
+    setLoading(true);
+    setError(null);
 
-  (async () => {
-    try {
-      const res = await API.get("/asset", {
-        params: {
+    const offset = Math.max(0, (page - 1) * perPage);
+
+    (async () => {
+      try {
+        const params: Record<string, any> = {
           limit: perPage,
           offset,
-          status: statusFilter !== "all" ? statusFilter : undefined,
-          asset_type: assetFilter !== "all" ? assetFilter : undefined,
-          q: query?.trim() || undefined,
-        },
-      });
+        };
 
-      const rawData: RawItem[] = res?.data?.data ?? res?.data ?? [];
-      const metaTotal: number = Number(res?.data?.meta?.total ?? rawData.length ?? 0);
+        if (query && query.trim() !== "") params.q = query.trim();
+        if (statusFilter !== "all") params.status = statusFilter;
+        if (assetFilter !== "all") params.asset_type_id = Number(assetFilter);
 
-      if (!mounted) return;
+        const res = await API.get("/asset", { params });
+        const raw: RawAsset[] = res?.data?.data ?? res?.data ?? [];
+        const metaTotal: number = Number(res?.data?.meta?.total ?? raw.length ?? 0);
 
-      const mapped: Item[] = rawData.map((r) => ({
-        id: String(r.id ?? Math.random().toString(36).slice(2, 9)),
-        status: normalizeStatus(r.status),
-        assetType: String(r.asset_type_id ?? "-"),
-        currentClient: String(r.current_client ?? "-"),
-        raw: r,
-      }));
-
-      setData(mapped);
-      setTotal(Number.isFinite(metaTotal) ? metaTotal : mapped.length);
-    } catch (err: any) {
-      console.error("fetch assets error:", err);
-      if (err?.response?.status === 401) {
-        signOut();
-        try {
-          router.push("/auth/sign-in");
-        } catch {}
-        return;
+        if (!mounted) return;
+        setData(Array.isArray(raw) ? raw : []);
+        setTotal(Number.isFinite(metaTotal) ? metaTotal : (Array.isArray(raw) ? raw.length : 0));
+      } catch (err: any) {
+        console.error("fetch assets error:", err);
+        if (err?.response?.status === 401) {
+          signOut();
+          try {
+            router.push("/auth/sign-in");
+          } catch {}
+          return;
+        }
+        setError(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to fetch assets");
+      } finally {
+        if (mounted) setLoading(false);
       }
-      setError(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to fetch assets");
-    } finally {
-      if (mounted) setLoading(false);
-    }
-  })();
+    })();
 
-  return () => {
-    mounted = false;
-  };
-}, [perPage, page, statusFilter, assetFilter, query, refreshKey, signOut, router]);
-
+    return () => { mounted = false; };
+  }, [perPage, page, query, statusFilter, assetFilter, refreshKey, signOut, router]);
 
 
 
@@ -333,16 +322,7 @@ useEffect(() => {
     setPage(1);
   }, [perPage, query]);
     
-  const visibleItems = data.filter((item) => {
-    const statusMatches = statusFilter === "all" || normalizeStatus(item.status) === statusFilter;
-    const assetMatches = assetFilter === "all" || item.asset_type_id?.toString() === assetFilter;
-    const queryMatches =
-      !query ||
-      String(item.id ?? "").includes(query) ||
-      String(item.current_client ?? "").includes(query);
-
-    return statusMatches && assetMatches && queryMatches;
-  });
+  const visibleItems = data;
 
   // History Button
    const goToDetail = (assetId?: string) => {
@@ -350,7 +330,7 @@ useEffect(() => {
     router.push(`/unfinished/${encodeURIComponent(String(assetId))}`);
   };
 
-  const visible = data.slice((page - 1) * perPage, page * perPage);
+  const visible = data;
 
   return (
     <div className="rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark sm:p-7.5">

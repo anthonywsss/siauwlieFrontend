@@ -226,8 +226,8 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
       <Step>
         <div className="space-y-4 text-center">
           <h2 className="text-xl font-semibold">QR Asset</h2>
-          {(qrData || qrFromPhoto) ? (
-            <img src={qrData || qrFromPhoto || ''} alt="Asset QR" className="mx-auto w-40 h-40" />
+          {qrData ? (
+            <img src={qrData} alt="Asset QR" className="mx-auto w-40 h-40" />
           ) : (
             <p>Loading QR...</p>
           )}
@@ -263,14 +263,7 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
         photo: finalPhoto ?? null,
       });
 
-      const serverQr = res.data?.data?.qr ?? null;
-      const normalizedQr = serverQr
-        ? (String(serverQr).startsWith("data:image/") || /^https?:\\/\\//.test(String(serverQr)) || String(serverQr).startsWith("/")
-            ? String(serverQr)
-            : `data:image/png;base64,${String(serverQr)}`)
-        : null;
-
-      setQrData(normalizedQr ?? null);
+      setQrData(res.data?.data?.qr ?? null);
       setCurrentStep(3);
 
       const qr = res.data?.data?.id ?? null;

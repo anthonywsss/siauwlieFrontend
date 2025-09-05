@@ -430,7 +430,6 @@ const resetForm = () => {
                   {/* Step 4: Tampilkan QR */}
                   <div className="text-center space-y-4">
                     <h2 className="text-xl font-semibold">QR Asset</h2>
-                    <QRCodeCanvas value={qrData} size={200} />
                   </div>
                 </div>
               )}

@@ -7,6 +7,7 @@ import ConfirmationStep from "@/components/FormElements/confirmation";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
 import { Camera } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
 
 type CreateNewAssetProps = {
   open: boolean;
@@ -106,6 +107,7 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
         }
       };
 
+<<<<<<< HEAD
   // Generate QR code from the uploaded image's base64
   useEffect(() => {
     let cancelled = false;
@@ -224,8 +226,8 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
       <Step>
         <div className="space-y-4 text-center">
           <h2 className="text-xl font-semibold">QR Asset</h2>
-          {qrData ? (
-            <img src={qrData} alt="Asset QR" className="mx-auto w-40 h-40" />
+          {(qrData || qrFromPhoto) ? (
+            <img src={qrData || qrFromPhoto || ''} alt="Asset QR" className="mx-auto w-40 h-40" />
           ) : (
             <p>Loading QR...</p>
           )}
@@ -233,9 +235,14 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
       </Step>
     ),
   ];
+=======
+  if (!open) return null
+>>>>>>> 566935bd5e288739498b7cd78f8e7c160fbf2980
 
 
   const handleSubmit = async () => {
+    
+
     let finalPhoto = base64Photo;
 
     if (photo && !base64Photo) {
@@ -256,8 +263,18 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
         photo: finalPhoto ?? null,
       });
 
-      setQrData(res.data?.data?.qr ?? null);
-      setCurrentStep(3); 
+      const serverQr = res.data?.data?.qr ?? null;
+      const normalizedQr = serverQr
+        ? (String(serverQr).startsWith("data:image/") || /^https?:\\/\\//.test(String(serverQr)) || String(serverQr).startsWith("/")
+            ? String(serverQr)
+            : `data:image/png;base64,${String(serverQr)}`)
+        : null;
+
+      setQrData(normalizedQr ?? null);
+      setCurrentStep(3);
+
+      const qr = res.data?.data?.id ?? null;
+      setQrData(qr);
 
     } catch (err: any) {
       console.error("add asset error:", err);
@@ -402,23 +419,37 @@ const resetForm = () => {
                   {/* Step 3: Konfirmasi */}
                   <div className="space-y-4 text-left">
                     <h2 className="text-xl font-semibold">Konfirmasi</h2>
-                    <ConfirmationStep onValidityChange={setIsConfirmed} />
+                    <p className="mb-10">Are you sure you want to create this new asset?</p>
+                    <button
+                      onClick={() => {
+                      resetForm();
+                      onClose();
+                    }}
+                    className="px-4 py-2 bg-gray-300 text-black rounded hover:bg-gray-400 transition-colors mr-5"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                      Ok
+                    </button>
                   </div>
                 </div>
               )}
 
               {currentStep === 3 && (
-                <div>
+                <div className="flex flex-col items-center justify-center space-y-6 p-6">
                   {/* Step 4: Tampilkan QR */}
-                  <div className="space-y-4 text-center">
+                  <div className="text-center space-y-4">
                     <h2 className="text-xl font-semibold">QR Asset</h2>
+                    <QRCodeCanvas value={qrData} size={200} />
                   </div>
                 </div>
               )}
             </div>
 
             <div className="flex justify-between mt-4">
-              {currentStep > 0 && currentStep < 3 && (
+              {currentStep > 0 && currentStep < 2 && (
                 <button
                   onClick={() => setCurrentStep(s => s - 1)}
                   className="px-4 py-2 bg-gray-300 text-black rounded hover:bg-gray-400 transition-colors"
@@ -427,7 +458,7 @@ const resetForm = () => {
                 </button>
               )}
 
-              {currentStep < 2 && (
+              {currentStep < 1 && (
                 <button
                   onClick={() => setCurrentStep(s => s + 1)}
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
@@ -436,12 +467,12 @@ const resetForm = () => {
                 </button>
               )}
 
-              {currentStep === 2 && (
+              {currentStep === 1 && (
                 <button
                   onClick={handleSubmit}
-                  disabled={!isConfirmed || submitting}
+                  disabled={ submitting}
                   className={`px-4 py-2 rounded text-white transition-colors ${
-                    !isConfirmed || submitting
+                     submitting
                       ? "bg-blue-300 cursor-not-allowed"
                       : "bg-blue-600 hover:bg-blue-700"
                   }`}
@@ -451,15 +482,17 @@ const resetForm = () => {
               )}
 
               {currentStep === 3 && (
-                <button
-                  onClick={() => {
-                    resetForm();
-                    onClose();
-                  }}
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                >
-                  Okay
-                </button>
+                <div className="w-full flex justify-end">
+                  <button
+                    onClick={() => {
+                      resetForm();
+                      onClose();
+                    }}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                  >
+                    Okay
+                  </button>
+                </div>
               )}
             </div>
 

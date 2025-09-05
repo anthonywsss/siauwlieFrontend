@@ -258,11 +258,10 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
         photo: finalPhoto ?? null,
       });
 
-      setQrData(res.data?.data?.qr ?? null);
+      const created = res?.data?.data ?? null;
+      const qrUrl = created?.qr_code ?? created?.qr ?? null;
+      setQrData(qrUrl);
       setCurrentStep(3);
-
-      const qr = res.data?.data?.id ?? null;
-      setQrData(qr);
 
     } catch (err: any) {
       console.error("add asset error:", err);
@@ -430,6 +429,21 @@ const resetForm = () => {
                   {/* Step 4: Tampilkan QR */}
                   <div className="text-center space-y-4">
                     <h2 className="text-xl font-semibold">QR Asset</h2>
+                    {qrData ? (
+                      <>
+                        <img src={qrData} alt="Asset QR" className="mx-auto w-40 h-40 object-contain" />
+                        <a
+                          href={qrData}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          Open in new tab
+                        </a>
+                      </>
+                    ) : (
+                      <p className="text-gray-600">QR code not available.</p>
+                    )}
                   </div>
                 </div>
               )}

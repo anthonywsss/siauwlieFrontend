@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import axios from "axios";
 import DeleteAssetModal from "@/components/DeleteAssetModal";
 import EditAssetModal from "@/components/EditAssetModal";
-import { QRCodeCanvas } from "qrcode.react";
+
 import {
   Table,
   TableBody,
@@ -481,23 +481,15 @@ export default function AllItemsClient() {
                     </TableCell>
 
                     <TableCell>
-                      <button
-                        onClick={() => {
-                          if (item.qr_code) {
-                            const win = window.open();
-                            if (win) {
-                              win.document.write(
-                                `<img src="${item.qr_code}" style="display:block;margin:auto;margin-top:50px;" />`
-                              );
-                              win.document.title = "QR Preview";
-                            }
-                          }
-                        }}
+                      <a
+                        href={item.qr_code}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="text-primary hover:underline inline-flex items-center gap-2"
                       >
                         <PreviewIcon />
                         <span>Preview</span>
-                      </button>
+                      </a>
                     </TableCell>
                     
                     <TableCell>
@@ -518,13 +510,15 @@ export default function AllItemsClient() {
                     </TableCell>
 
                     <TableCell>
-                      <button
-                        onClick={() => window.open(item.photo, "_blank")}
+                      <a
+                        href={item.photo}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="text-primary hover:underline inline-flex items-center gap-2"
                       >
                         <PreviewIcon />
                         <span>Preview</span>
-                      </button>
+                      </a>
                     </TableCell>
 
                     <TableCell>
@@ -609,13 +603,13 @@ export default function AllItemsClient() {
 
                   <div className="mt-3 flex flex-col gap-2">
                     <div className="text-sm text-gray-500">QR Code</div>
-                    <a href={item.qr_code} target="_blank" rel="noreferrer" className="text-primary hover:underline inline-flex items-center gap-2">
+                    <a href={item.qr_code} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-2">
                         <PreviewIcon />
                         <span>Preview</span>
                       </a>
 
                     <div className="text-sm text-gray-500">Photo</div>
-                    <a href={item.photo} target="_blank" rel="noreferrer" className="text-primary hover:underline inline-flex items-center gap-2">
+                    <a href={item.photo} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-2">
                       <PreviewIcon />
                       <span>Preview</span>
                      </a>

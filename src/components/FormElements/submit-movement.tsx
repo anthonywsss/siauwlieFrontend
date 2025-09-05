@@ -447,15 +447,15 @@ export default function SubmitMovement() {
   const deriveMovementFromCurrentStatus = (status: string | null): string => {
     switch (status) {
       case "inbound_at_factory":
-        return "outbound_to_client"; // Corrected from outbound_to_factory
+        return "outbound_to_client";
       case "outbound_from_client":
-        return "inbound_at_client"; // This mapping is already correct
+        return "inbound_at_client";
       case "inbound_at_client":
-        return "outbound_to_factory"; // Corrected from outbound_to_client
+        return "outbound_to_factory";
       case "outbound_from_factory":
-        return "inbound_at_factory"; // This mapping is already correct
+        return "inbound_at_factory";
       default:
-        return "outbound_tod_client"; // A reasonable default
+        return "outbound_to_client";
     }
   };
 

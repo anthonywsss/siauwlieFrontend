@@ -28,17 +28,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  // Hydrate user dari localStorage saat pertama kali load
   useEffect(() => {
-    // hydrate from localStorage
     try {
-      if (typeof window !== "undefined") {
-        const rawUser = localStorage.getItem("user");
-        const token = localStorage.getItem("token");
-        if (token) {
-          API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-        }
-        if (rawUser) setUser(JSON.parse(rawUser));
-      }
+      const rawUser = localStorage.getItem("user");
+      if (rawUser) setUser(JSON.parse(rawUser));
     } catch (e) {
       console.warn("Auth hydration failed", e);
     } finally {
@@ -46,26 +40,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  // Persist user + token ke localStorage
   const persist = (token: string | null, userObj: User | null) => {
     if (token) {
       localStorage.setItem("token", token);
-      API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     } else {
       localStorage.removeItem("token");
-      delete API.defaults.headers.common["Authorization"];
     }
 
     if (userObj) {
-      const clone = { ...userObj };
-      if ("token" in clone) delete clone.token;
-      localStorage.setItem("user", JSON.stringify(clone));
+      localStorage.setItem("user", JSON.stringify(userObj));
     } else {
       localStorage.removeItem("user");
     }
 
-    setUser(userObj ? (userObj as User) : null);
+    setUser(userObj);
   };
 
+  // Extract token + user dari API response
   const extractTokenAndUser = (resData: any): { token: string | null; userObj: User | null } => {
     const dataArray = resData?.data;
     const token =
@@ -76,14 +68,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let userObj: any = null;
     if (Array.isArray(dataArray) && dataArray[0]) {
       userObj = { ...dataArray[0] };
-      if (userObj.token) delete userObj.token;
+      delete userObj.token;
     } else if (resData?.data && typeof resData.data === "object") {
       userObj = { ...resData.data };
-      if (userObj.token) delete userObj.token;
+      delete userObj.token;
     }
     return { token, userObj };
   };
 
+  // Login
   const signIn: AuthContextType["signIn"] = async (username, password) => {
     setLoading(true);
     try {
@@ -97,6 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Register
   const signUp: AuthContextType["signUp"] = async (payload) => {
     setLoading(true);
     try {
@@ -110,12 +104,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Manual sign out
   const signOut = () => {
-    persist(null, null);
-    try {
-      router.push("/auth/sign-in");
-    } catch (e) {}
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setUser(null);
+    router.push("/auth/sign-in");
   };
+
 
   return (
     <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, setUser }}>

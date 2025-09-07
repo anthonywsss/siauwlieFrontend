@@ -7,10 +7,10 @@ import CreateNewAsset from "@/components/CreateNewAsset";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
-import axios from "axios";
 import DeleteAssetModal from "@/components/DeleteAssetModal";
 import EditAssetModal from "@/components/EditAssetModal";
 import Link from "next/link";
+import { useModalWatch } from "@/components/ModalContext";
 
 import {
   Table,
@@ -50,6 +50,7 @@ type AssetType = {
   id: number;
   name: string;
 };
+
 function generatePages(current: number, total: number) {
   const delta = 1;
   const range = [] as number[];
@@ -115,41 +116,39 @@ export default function AllItemsClient() {
   const { signOut } = useAuth();
   const router = useRouter();
 
-  // Normalize different photo formats (plain base64, data URL, or URL)
+  // Normalize
   function buildImageSrc(photo?: string | null): string | null {
     if (!photo) return null;
     const trimmed = photo.trim();
     if (/^data:image\//i.test(trimmed)) return trimmed;
     if (/^https?:\/\//i.test(trimmed)) return trimmed;
 
-    // Detect common base64 signatures
     const startsWith = (s: string) => trimmed.startsWith(s);
     let mime = "image/jpeg";
-    if (startsWith("iVBORw0KGgo")) mime = "image/png";       // PNG
-    else if (startsWith("/9j/")) mime = "image/jpeg";          // JPEG
-    else if (startsWith("R0lGOD")) mime = "image/gif";         // GIF
-    else if (startsWith("UklGR")) mime = "image/webp";         // WEBP
-
+    if (startsWith("iVBORw0KGgo")) mime = "image/png";
+    else if (startsWith("/9j/")) mime = "image/jpeg";
+    else if (startsWith("R0lGOD")) mime = "image/gif";
+    else if (startsWith("UklGR")) mime = "image/webp";
     return `data:${mime};base64,${trimmed}`;
   }
 
-  // Handle QR code display - could be URL or base64
+  // Handle QR
   function buildQRSrc(qrCode?: string | null): string | null {
     if (!qrCode) return null;
     const trimmed = qrCode.trim();
     
-    // If it's already a complete URL, return as is
+    // If complete URL return as is
     if (/^https?:\/\//i.test(trimmed)) return trimmed;
     
-    // If it looks like base64 image data, treat it as such
+    // If base64 image data treat it as such
     if (/^data:image\//i.test(trimmed)) return trimmed;
     
-    // If it's plain base64, assume it's a PNG (common for QR codes)
+    // If plain base64 == PNG
     if (/^[A-Za-z0-9+/]+=*$/.test(trimmed) && trimmed.length > 50) {
       return `data:image/png;base64,${trimmed}`;
     }
     
-    // Otherwise, assume it's a URL path and return as is
+    // else, return as is
     return trimmed;
   }
 
@@ -275,21 +274,21 @@ export default function AllItemsClient() {
     inbound_at_factory: "At Factory",
   };
 
-  // Normalize various backend status variants to canonical keys used in this table
+  // Normalize
   function normalizeStatus(s?: string | null): string | null {
     if (!s) return null;
     switch (s) {
       case "outbound_from_factory":
-        return "outbound_to_client"; // leaving factory -> to client
+        return "outbound_to_client";
       case "outbound_from_client":
-        return "outbound_to_factory"; // leaving client -> to factory
+        return "outbound_to_factory";
       case "outbound_to_client":
       case "outbound_to_factory":
       case "inbound_at_client":
       case "inbound_at_factory":
         return s;
       default:
-        return s; // unknown values pass-through (will show Unknown label)
+        return s;
     }
   }
 
@@ -387,6 +386,59 @@ export default function AllItemsClient() {
 
 
   const visible = data;
+
+  function PreviewModal({ open, src, type, onClose }: { open: boolean; src: string | null; type: 'photo' | 'qr'; onClose: () => void }) {
+    useModalWatch(open);
+
+    if (!open || !src) return null;
+
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+        role="dialog"
+        aria-modal="true"
+        onClick={onClose}
+      >
+        <div
+          className="max-w-[98vw] max-h-[96vh] overflow-auto bg-white rounded shadow-lg p-3"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-semibold">
+              {type === 'qr' ? 'QR Code Preview' : 'Photo Preview'}
+            </h3>
+            <button
+              onClick={onClose}
+              className="px-3 py-1 rounded border text-sm inline-flex items-center gap-2 hover:bg-gray-100"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+              Close
+            </button>
+          </div>
+
+          <div className="flex justify-center">
+            <img 
+              src={src} 
+              alt={type === 'qr' ? 'QR Code' : 'Photo'} 
+              className="max-w-full max-h-[80vh] object-contain"
+              onError={(e) => {
+                console.error('Image failed to load:', src);
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+            <div className="hidden p-8 text-center text-gray-500">
+              <p>Failed to load {type === 'qr' ? 'QR code' : 'photo'}.</p>
+              <p className="text-sm mt-2">The image may be corrupted or the URL is invalid.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark sm:p-7.5">
@@ -514,8 +566,6 @@ export default function AllItemsClient() {
               )}
             </div>
 
-
-            
             {/* Search input */}
             <div className="flex items-center gap-3 w-full md:w-auto">
               <input
@@ -826,53 +876,7 @@ export default function AllItemsClient() {
           }}
         />
 
-        {/* Preview Modal */}
-        {isPreviewOpen && previewSrc && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-            role="dialog"
-            aria-modal="true"
-            onClick={closePreview}
-          >
-            <div
-              className="max-w-[98vw] max-h-[96vh] overflow-auto bg-white rounded shadow-lg p-3"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-semibold">
-                  {previewType === 'qr' ? 'QR Code Preview' : 'Photo Preview'}
-                </h3>
-                <button
-                  onClick={closePreview}
-                  className="px-3 py-1 rounded border text-sm inline-flex items-center gap-2 hover:bg-gray-100"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
-                  Close
-                </button>
-              </div>
-
-              <div className="flex justify-center">
-                <img 
-                  src={previewSrc} 
-                  alt={previewType === 'qr' ? 'QR Code' : 'Photo'} 
-                  className="max-w-full max-h-[80vh] object-contain"
-                  onError={(e) => {
-                    console.error('Image failed to load:', previewSrc);
-                    e.currentTarget.style.display = 'none';
-                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                  }}
-                />
-                <div className="hidden p-8 text-center text-gray-500">
-                  <p>Failed to load {previewType === 'qr' ? 'QR code' : 'photo'}.</p>
-                  <p className="text-sm mt-2">The image may be corrupted or the URL is invalid.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        <PreviewModal open={isPreviewOpen} src={previewSrc} type={previewType} onClose={closePreview} />
     </div>
   );
 }

@@ -1,4 +1,3 @@
-// components/unfin.client.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -9,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { Dialog } from "@headlessui/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useModalWatch } from "@/components/ModalContext";
+
 import {
   Table,
   TableBody,
@@ -74,25 +75,22 @@ export default function UnfinDelivery() {
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Normalize different photo formats (plain base64, data URL, or URL)
   function buildImageSrc(photo?: string | null): string | null {
     if (!photo) return null;
     const trimmed = photo.trim();
     if (/^data:image\//i.test(trimmed)) return trimmed;
     if (/^https?:\/\//i.test(trimmed)) return trimmed;
 
-    // Detect common base64 signatures
     const startsWith = (s: string) => trimmed.startsWith(s);
     let mime = "image/jpeg";
-    if (startsWith("iVBORw0KGgo")) mime = "image/png";       // PNG
-    else if (startsWith("/9j/")) mime = "image/jpeg";          // JPEG
-    else if (startsWith("R0lGOD")) mime = "image/gif";         // GIF
-    else if (startsWith("UklGR")) mime = "image/webp";         // WEBP
+    if (startsWith("iVBORw0KGgo")) mime = "image/png";
+    else if (startsWith("/9j/")) mime = "image/jpeg";
+    else if (startsWith("R0lGOD")) mime = "image/gif";
+    else if (startsWith("UklGR")) mime = "image/webp";
 
     return `data:${mime};base64,${trimmed}`;
   }
 
-  // Close preview on Escape
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
@@ -174,6 +172,7 @@ export default function UnfinDelivery() {
             </TableRow>
           </TableHeader>
 
+
           <TableBody>
             {visible.map((item, index) => (
               <TableRow key={index} className="border-[#eee] dark:border-dark-3">
@@ -236,7 +235,6 @@ export default function UnfinDelivery() {
           </TableBody>
         </Table>
 
-        {/* Pagination (exactly same behavior as before) */}
         <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4 flex-wrap">
             <span className="text-sm text-gray-500">Baris per halaman</span>
@@ -303,8 +301,6 @@ export default function UnfinDelivery() {
           </div>
         </div>
       </div>
-
-      {/* Mobile List Cards (responsive improvements only) */}
       <div className="md:hidden space-y-3">
         {loading
           ? Array.from({ length: perPage }).map((_, i) => (
@@ -375,45 +371,52 @@ export default function UnfinDelivery() {
               </div>
             ))}
       </div>
-
-      {/* Responsive Preview Modal / Lightbox (matches detail behavior) */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => {
-            setIsOpen(false);
-            setPreviewSrc(null);
-          }}
-        >
-          <div
-            className="max-w-[98vw] max-h-[96vh] overflow-auto bg-white rounded shadow-lg p-3"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-end">
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  setPreviewSrc(null);
-                }}
-                className="px-3 py-1 rounded border text-sm inline-flex items-center gap-2"
-              >
-                <CloseIcon />
-                Close
-              </button>
-            </div>
-
-            <div className="mt-3">
-              {previewSrc ? (
-                <img src={previewSrc} alt="preview" className="max-w-full max-h-[80vh] object-contain mx-auto" />
-              ) : (
-                <div className="p-8 text-center text-gray-500">Tidak ada gambar tersedia untuk item ini.</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <PreviewModal 
+        open={isOpen} 
+        src={previewSrc} 
+        onClose={() => {
+          setIsOpen(false);
+          setPreviewSrc(null);
+        }} 
+      />
     </>
+  );
+}
+
+function PreviewModal({ open, src, onClose }: { open: boolean; src: string | null; onClose: () => void }) {
+  useModalWatch(open);
+
+  if (!open) return null;
+
+  return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 !mt-0"
+        role="dialog"
+        aria-modal="true"
+        onClick={onClose}
+      >
+      <div
+        className="max-w-[98vw] max-h-[96vh] overflow-auto bg-white rounded shadow-lg p-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-3 py-1 rounded border text-sm inline-flex items-center gap-2"
+          >
+            <CloseIcon />
+            Close
+          </button>
+        </div>
+
+        <div className="mt-3">
+          {src ? (
+            <img src={src} alt="preview" className="max-w-full max-h-[80vh] object-contain mx-auto" />
+          ) : (
+            <div className="p-8 text-center text-gray-500">Tidak ada gambar tersedia untuk item ini.</div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

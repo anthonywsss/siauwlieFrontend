@@ -437,43 +437,55 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
       </div>
 
       {/* Photo Preview Modal */}
-      {showPhotoPreview && previewPhotoSrc && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-          role="dialog"
-          aria-modal="true"
-          onClick={closePhotoPreview}
-        >
-          <div
-            className="max-w-[95vw] max-h-[95vh] overflow-auto bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Photo Preview</h3>
-              <button
-                onClick={closePhotoPreview}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-              >
-                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="flex justify-center">
-              <img 
-                src={previewPhotoSrc} 
-                alt="Asset photo preview" 
-                className="max-w-full max-h-[80vh] object-contain rounded-xl"
-                onError={(e) => {
-                  console.error('Image failed to load:', previewPhotoSrc);
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <PhotoPreviewModal 
+        open={showPhotoPreview && !!previewPhotoSrc} 
+        src={previewPhotoSrc} 
+        onClose={closePhotoPreview} 
+      />
     </>
+  );
+}
+
+function PhotoPreviewModal({ open, src, onClose }: { open: boolean; src: string | null; onClose: () => void }) {
+  useModalWatch(open);
+
+  if (!open || !src) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="max-w-[95vw] max-h-[95vh] overflow-auto bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Photo Preview</h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+          >
+            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex justify-center">
+          <img 
+            src={src} 
+            alt="Asset photo preview" 
+            className="max-w-full max-h-[80vh] object-contain rounded-xl"
+            onError={(e) => {
+              console.error('Image failed to load:', src);
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        </div>
+      </div>
+    </div>
   );
 }

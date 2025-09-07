@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import API from "@/lib/api";
 import dayjs from "dayjs";
 import { CloseIcon } from "@/components/Tables/icons";
+import { useModalWatch } from "@/components/ModalContext";
 
 type UnfinishedDetail = {
   asset_id?: string;
@@ -351,44 +352,53 @@ export default function Page() {
           )}
         </div>
 
-        {isOpen && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-            role="dialog"
-            aria-modal="true"
-            onClick={() => {
-              setIsOpen(false);
-              setPreviewSrc(null);
-            }}
-          >
-            <div
-              className="max-w-[98vw] max-h-[96vh] overflow-auto bg-white rounded shadow-lg p-3"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-end">
-                <button
-                  onClick={() => {
-                    setIsOpen(false);
-                    setPreviewSrc(null);
-                  }}
-                  className="px-3 py-1 rounded border text-sm inline-flex items-center gap-2"
-                >
-                  <CloseIcon />
-                  Close
-                </button>
-              </div>
-
-              <div className="mt-3">
-                {previewSrc ? (
-                  <img src={previewSrc} alt="preview" className="max-w-full max-h-[80vh] object-contain mx-auto" />
-                ) : (
-                  <div className="p-8 text-center text-gray-500">Tidak ada gambar tersedia untuk item ini.</div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        <PreviewModal 
+          open={isOpen} 
+          src={previewSrc} 
+          onClose={() => {
+            setIsOpen(false);
+            setPreviewSrc(null);
+          }} 
+        />
       </div>
 
     );
+}
+
+function PreviewModal({ open, src, onClose }: { open: boolean; src: string | null; onClose: () => void }) {
+  useModalWatch(open);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="max-w-[98vw] max-h-[96vh] overflow-auto bg-white rounded shadow-lg p-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-3 py-1 rounded border text-sm inline-flex items-center gap-2"
+          >
+            <CloseIcon />
+            Close
+          </button>
+        </div>
+
+        <div className="mt-3">
+          {src ? (
+            <img src={src} alt="preview" className="max-w-full max-h-[80vh] object-contain mx-auto" />
+          ) : (
+            <div className="p-8 text-center text-gray-500">Tidak ada gambar tersedia untuk item ini.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }

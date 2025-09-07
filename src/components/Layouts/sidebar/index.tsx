@@ -136,44 +136,55 @@ export function Sidebar() {
     const isAuthPath = cleanPath === normalize(AUTH_PATH) || cleanPath.startsWith("/auth");
     const isRoot = cleanPath === "/" || cleanPath === "";
 
+    console.log("Sidebar redirect check:", {
+      pathname,
+      cleanPath,
+      userRole: user?.role,
+      isAuthPath,
+      isRoot,
+      hasUser: !!user
+    });
+
     // Skip redirect logic for excluded paths (unfinished delivery)
     if (isExcludedFromRedirect(cleanPath)) {
+      console.log("Skipping redirect for excluded path:", cleanPath);
       return;
     }
 
     // 1) Guest -> auth
     if (!user) {
+      console.log("No user, redirecting to auth");
       if (!isAuthPath) {
         router.replace(AUTH_PATH);
       }
       return;
     }
 
-    // 2) role target
+    // 2) role target - only redirect from auth pages or root, not from valid pages
     const roleTarget =
       user.role === "supervisor"
-        ? DASHBOARD_PATH
+        ? "/"  // Use "/" instead of DASHBOARD_PATH for supervisor
         : user.role === "driver" || user.role === "security"
         ? SUBMIT_PATH
         : AUTH_PATH;
 
-    // stable key for session storage <role>:<target>
-    const redirectKey = `${user.role}:${roleTarget}`;
-
+    // Only redirect if user is on auth pages or root - don't redirect from valid pages
     if (isAuthPath || isRoot) {
+      const redirectKey = `${user.role}:${roleTarget}`;
+      
       if (cleanPath !== normalize(roleTarget)) {
         try {
           const already = sessionStorage.getItem("roleRedirectedTo");
           if (already !== redirectKey) {
+            console.log("Redirecting from auth/root to role target:", roleTarget);
             sessionStorage.setItem("roleRedirectedTo", redirectKey);
             router.replace(roleTarget);
             return;
           }
         } catch (e) {
-          if (cleanPath !== normalize(roleTarget)) {
-            router.replace(roleTarget);
-            return;
-          }
+          console.log("Redirecting from auth/root to role target (fallback):", roleTarget);
+          router.replace(roleTarget);
+          return;
         }
       }
     }
@@ -185,11 +196,27 @@ export function Sidebar() {
       return false;
     });
 
-    if (user?.role === "supervisor" && cleanPath === normalize(DASHBOARD_PATH)) {
+    // Special handling for supervisor role - allow access to dashboard and history pages
+    if (user?.role === "supervisor") {
+      if (cleanPath === normalize(DASHBOARD_PATH) || cleanPath.startsWith("/history/")) {
+        matches = true;
+      }
+    }
+
+    // Allow history pages for all authenticated users (since they need to access asset history)
+    if (user && cleanPath.startsWith("/history/")) {
       matches = true;
     }
 
+    console.log("URL access check:", {
+      cleanPath,
+      allowedUrls: Array.from(allowedUrls),
+      matches,
+      userRole: user?.role
+    });
+
     if (!matches) {
+      console.log("Access denied, redirecting to auth");
       try {
         sessionStorage.removeItem("roleRedirectedTo");
       } catch (e) {}

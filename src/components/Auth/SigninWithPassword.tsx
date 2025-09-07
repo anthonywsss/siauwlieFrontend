@@ -4,10 +4,10 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/Auth/auth-context";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-// Configure your default landing route per role here:
 const DEFAULT_ROUTE_BY_ROLE: Record<string, string> = {
   driver: "/submit-movement",
   security: "/submit-movement",
+  supervisor: "/",
   admin: "/",
 };
 
@@ -16,15 +16,12 @@ function getDefaultRouteForRole(role?: string): string {
   return DEFAULT_ROUTE_BY_ROLE[role] ?? "/";
 }
 
-// Basic internal path validation to avoid open-redirects
 function sanitizeInternalPath(p?: string | null): string | null {
   if (!p) return null;
   if (p.startsWith("/") && !p.startsWith("//")) return p;
   return null;
 }
 
-// Optional: place to check authorization of a path for a role.
-// For now it allows everything; wire it to your ACL if needed.
 function isAllowedForRole(_path: string, _role?: string): boolean {
   return true;
 }
@@ -46,12 +43,19 @@ export default function SigninWithPassword() {
   // Compute the preferred destination: ?next (if internal) else role default, else "/"
   const desiredNext = useMemo(() => {
     const nextParam = sanitizeInternalPath(searchParams?.get("next"));
-    const role: string | undefined = auth?.user?.role ?? auth?.role;
+    const role: string | undefined = auth?.user?.role; // Remove auth?.role as it doesn't exist
     const roleDefault = getDefaultRouteForRole(role);
+
+    console.log("SigninWithPassword - desiredNext calculation:", {
+      nextParam,
+      role,
+      roleDefault,
+      hasUser: !!auth?.user
+    });
 
     if (nextParam && isAllowedForRole(nextParam, role)) return nextParam;
     return roleDefault || "/";
-  }, [searchParams, auth?.user?.role, auth?.role]);
+  }, [searchParams, auth?.user?.role]);
 
   const isAuthed: boolean = Boolean(
     auth?.isAuthenticated ?? auth?.user ?? auth?.token
@@ -73,8 +77,23 @@ export default function SigninWithPassword() {
 
   // If already authenticated (e.g., refreshed and landed on login), go to desiredNext
   useEffect(() => {
+    console.log("SigninWithPassword - redirect effect:", {
+      isReady,
+      isAuthed,
+      desiredNext,
+      pathname,
+      hasRedirected: hasRedirected.current
+    });
+
     if (isReady && isAuthed) {
-      safeReplace(desiredNext);
+      // Prevent redirecting back to history pages that might cause loops
+      // Instead, redirect supervisors to dashboard
+      if (desiredNext.startsWith("/history/") && auth?.user?.role === "supervisor") {
+        console.log("Preventing history redirect loop, going to dashboard");
+        safeReplace("/");
+      } else {
+        safeReplace(desiredNext);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady, isAuthed, desiredNext, pathname]);
@@ -97,7 +116,6 @@ export default function SigninWithPassword() {
         err?.response?.data?.message ||
         err?.message;
       const msg = serverMsg ?? "Login failed — check your credentials.";
-      // showToast("error", msg);
     } finally {
       setLoading(false);
     }

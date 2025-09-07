@@ -108,12 +108,62 @@ export default function AllItemsClient() {
   const [error, setError] = useState<string | null>(null);
   
   const [allClients, setAllClients] = useState<RawClient[]>([]);
-  
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewType, setPreviewType] = useState<'photo' | 'qr'>('photo');
 
-  
-  
   const { signOut } = useAuth();
   const router = useRouter();
+
+  // Normalize different photo formats (plain base64, data URL, or URL)
+  function buildImageSrc(photo?: string | null): string | null {
+    if (!photo) return null;
+    const trimmed = photo.trim();
+    if (/^data:image\//i.test(trimmed)) return trimmed;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+    // Detect common base64 signatures
+    const startsWith = (s: string) => trimmed.startsWith(s);
+    let mime = "image/jpeg";
+    if (startsWith("iVBORw0KGgo")) mime = "image/png";       // PNG
+    else if (startsWith("/9j/")) mime = "image/jpeg";          // JPEG
+    else if (startsWith("R0lGOD")) mime = "image/gif";         // GIF
+    else if (startsWith("UklGR")) mime = "image/webp";         // WEBP
+
+    return `data:${mime};base64,${trimmed}`;
+  }
+
+  // Handle QR code display - could be URL or base64
+  function buildQRSrc(qrCode?: string | null): string | null {
+    if (!qrCode) return null;
+    const trimmed = qrCode.trim();
+    
+    // If it's already a complete URL, return as is
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    
+    // If it looks like base64 image data, treat it as such
+    if (/^data:image\//i.test(trimmed)) return trimmed;
+    
+    // If it's plain base64, assume it's a PNG (common for QR codes)
+    if (/^[A-Za-z0-9+/]+=*$/.test(trimmed) && trimmed.length > 50) {
+      return `data:image/png;base64,${trimmed}`;
+    }
+    
+    // Otherwise, assume it's a URL path and return as is
+    return trimmed;
+  }
+
+  const openPreview = (src: string | null, type: 'photo' | 'qr') => {
+    if (!src) return;
+    setPreviewSrc(src);
+    setPreviewType(type);
+    setIsPreviewOpen(true);
+  };
+
+  const closePreview = () => {
+    setIsPreviewOpen(false);
+    setPreviewSrc(null);
+  };
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -517,15 +567,17 @@ export default function AllItemsClient() {
                     </TableCell>
 
                     <TableCell>
-                      <a
-                        href={item.qr_code}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline inline-flex items-center gap-2"
-                      >
-                        <PreviewIcon />
-                        <span>Preview</span>
-                      </a>
+                      {item.qr_code ? (
+                        <button
+                          onClick={() => openPreview(buildQRSrc(item.qr_code), 'qr')}
+                          className="text-primary hover:underline inline-flex items-center gap-2"
+                        >
+                          <PreviewIcon />
+                          <span>Preview QR</span>
+                        </button>
+                      ) : (
+                        <span className="text-gray-400">No QR Code</span>
+                      )}
                     </TableCell>
                     
                     <TableCell>
@@ -546,15 +598,17 @@ export default function AllItemsClient() {
                     </TableCell>
 
                     <TableCell>
-                      <a
-                        href={item.photo}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline inline-flex items-center gap-2"
-                      >
-                        <PreviewIcon />
-                        <span>Preview</span>
-                      </a>
+                      {item.photo ? (
+                        <button
+                          onClick={() => openPreview(buildImageSrc(item.photo), 'photo')}
+                          className="text-primary hover:underline inline-flex items-center gap-2"
+                        >
+                          <PreviewIcon />
+                          <span>Preview Photo</span>
+                        </button>
+                      ) : (
+                        <span className="text-gray-400">No Photo</span>
+                      )}
                     </TableCell>
 
                     <TableCell>
@@ -642,16 +696,30 @@ export default function AllItemsClient() {
 
                   <div className="mt-3 flex flex-col gap-2">
                     <div className="text-sm text-gray-500">QR Code</div>
-                    <a href={item.qr_code} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-2">
+                    {item.qr_code ? (
+                      <button
+                        onClick={() => openPreview(buildQRSrc(item.qr_code), 'qr')}
+                        className="text-primary hover:underline inline-flex items-center gap-2 w-fit"
+                      >
                         <PreviewIcon />
-                        <span>Preview</span>
-                      </a>
+                        <span>Preview QR</span>
+                      </button>
+                    ) : (
+                      <span className="text-gray-400">No QR Code</span>
+                    )}
 
                     <div className="text-sm text-gray-500">Photo</div>
-                    <a href={item.photo} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-2">
-                      <PreviewIcon />
-                      <span>Preview</span>
-                     </a>
+                    {item.photo ? (
+                      <button
+                        onClick={() => openPreview(buildImageSrc(item.photo), 'photo')}
+                        className="text-primary hover:underline inline-flex items-center gap-2 w-fit"
+                      >
+                        <PreviewIcon />
+                        <span>Preview Photo</span>
+                      </button>
+                    ) : (
+                      <span className="text-gray-400">No Photo</span>
+                    )}
 
                     <div className="flex gap-2 mt-2">
                       <button className="flex-1 bg-blue-500 text-white px-3 py-2 rounded-md text-sm">History</button>
@@ -757,6 +825,54 @@ export default function AllItemsClient() {
             setRefreshKey((k) => k + 1);
           }}
         />
+
+        {/* Preview Modal */}
+        {isPreviewOpen && previewSrc && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+            role="dialog"
+            aria-modal="true"
+            onClick={closePreview}
+          >
+            <div
+              className="max-w-[98vw] max-h-[96vh] overflow-auto bg-white rounded shadow-lg p-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-lg font-semibold">
+                  {previewType === 'qr' ? 'QR Code Preview' : 'Photo Preview'}
+                </h3>
+                <button
+                  onClick={closePreview}
+                  className="px-3 py-1 rounded border text-sm inline-flex items-center gap-2 hover:bg-gray-100"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                  Close
+                </button>
+              </div>
+
+              <div className="flex justify-center">
+                <img 
+                  src={previewSrc} 
+                  alt={previewType === 'qr' ? 'QR Code' : 'Photo'} 
+                  className="max-w-full max-h-[80vh] object-contain"
+                  onError={(e) => {
+                    console.error('Image failed to load:', previewSrc);
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+                <div className="hidden p-8 text-center text-gray-500">
+                  <p>Failed to load {previewType === 'qr' ? 'QR code' : 'photo'}.</p>
+                  <p className="text-sm mt-2">The image may be corrupted or the URL is invalid.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

@@ -38,52 +38,95 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
   const [submitting, setSubmitting] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPhotoPreview, setShowPhotoPreview] = useState(false);
+  const [previewPhotoSrc, setPreviewPhotoSrc] = useState<string | null>(null);
 
-  // form state
   const [qrCode, setQrCode] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
-  const [clientId, setClientId] = useState<number | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [assetTypeId, setAssetTypeId] = useState<number | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
-  const [clients, setClients] = useState<Client[]>([]);
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
+
+  function buildImageSrc(photo?: string | null): string | null {
+    if (!photo) return null;
+    const trimmed = photo.trim();
+    if (/^data:image\//i.test(trimmed)) return trimmed;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+    const startsWith = (s: string) => trimmed.startsWith(s);
+    let mime = "image/jpeg";
+    if (startsWith("iVBORw0KGgo")) mime = "image/png";
+    else if (startsWith("/9j/")) mime = "image/jpeg";
+    else if (startsWith("R0lGOD")) mime = "image/gif";
+    else if (startsWith("UklGR")) mime = "image/webp";
+
+    return `data:${mime};base64,${trimmed}`;
+  }
+
+  const openPhotoPreview = (src: string | null) => {
+    if (!src) return;
+    setPreviewPhotoSrc(buildImageSrc(src));
+    setShowPhotoPreview(true);
+  };
+
+  const closePhotoPreview = () => {
+    setShowPhotoPreview(false);
+    setPreviewPhotoSrc(null);
+  };
 
   useEffect(() => {
     if (!open) {
       setError(null);
       setShowInfo(false);
       setSubmitting(false);
+      setPhotoFile(null);
+      setPhotoPreview(null);
     }
 
-    // populate form when modal opens or assetType changes
     if (assetType) {
       setQrCode(assetType.qr_code ?? "");
-      setStatus(assetType.status ?? "");
-      setClientId(typeof assetType.current_client === "number" ? assetType.current_client : null);
       setPhotoUrl(assetType.photo ?? null);
       setAssetTypeId(typeof assetType.asset_type_id === "number" ? assetType.asset_type_id : null);
     } else {
       setQrCode("");
-      setStatus("");
-      setClientId(null);
       setPhotoUrl(null);
       setAssetTypeId(null);
     }
   }, [open, assetType]);
 
-  // fetch clients and types
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhotoFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPhotoPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setPhotoFile(null);
+      setPhotoPreview(null);
+    }
+  };
+
+  // Clear photo selection
+  const clearPhoto = () => {
+    setPhotoFile(null);
+    setPhotoPreview(null);
+  };
+
+  // fetch asset types
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const [cRes, tRes] = await Promise.all([API.get("/clients"), API.get("/asset-type")]);
+        const tRes = await API.get("/asset-type");
         if (!mounted) return;
-        setClients(Array.isArray(cRes?.data?.data) ? cRes.data.data : []);
         setAssetTypes(Array.isArray(tRes?.data?.data) ? tRes.data.data : []);
       } catch (err: any) {
-        console.error("fetching clients/types error:", err);
+        console.error("fetching asset types error:", err);
         if (err?.response?.status === 401) {
           signOut();
           try { window.location.href = "/auth/sign-in" } catch {}
@@ -110,8 +153,6 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
 
       const payload: any = {
         qr_code: qrCode ?? "",
-        status: status ?? null,
-        current_client: clientId ?? null,
         asset_type_id: assetTypeId ?? null,
       };
 
@@ -143,85 +184,296 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 p-4">
-      <div className="w-full md:w-[640px] max-h-[95vh] overflow-auto rounded-t-lg md:rounded-lg bg-white p-5 md:p-6">
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <>
+      {/* Main Modal */}
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="w-full max-w-2xl max-h-[95vh] overflow-hidden rounded-t-2xl sm:rounded-2xl bg-white dark:bg-gray-800 shadow-2xl">
           {showInfo ? (
-            <>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-2xl font-semibold">Asset Updated</h3>
-                <button onClick={onClose} aria-label="Close" className="text-gray-600">✕</button>
+            /* Success State */
+            <div className="p-6 sm:p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="flex-shrink-0 w-10 h-10 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Asset Updated</h3>
+                </div>
+                <button 
+                  onClick={onClose} 
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                  aria-label="Close"
+                >
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-              <p className="text-sm text-gray-700">Asset has been successfully <span className="text-green-600 font-semibold">updated</span>.</p>
+              
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
+                Asset has been successfully updated with the new information.
+              </p>
 
-              <div className="mt-4 flex justify-end">
+              <div className="flex justify-end">
                 <button
                   onClick={() => {
                     setShowInfo(false);
                     onClose();
                   }}
-                  className="px-4 py-2 bg-gray-300 text-sm text-black rounded"
+                  className="px-6 py-2 bg-primary hover:bg-primary/90 text-white font-medium rounded-xl transition-colors"
                 >
-                  Okay
+                  Done
                 </button>
               </div>
-            </>
+            </div>
           ) : (
-            <>
-              <div>
-                <h3 className="mb-3 text-2xl font-semibold">Edit Asset</h3>
-                <p className="text-sm text-gray-700">Update the asset details below. ID: <span className="font-mono">{String(assetType?.id ?? "-")}</span></p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">QR Code URL</label>
-                <input
-                  type="text"
-                  value={qrCode}
-                  onChange={(e) => setQrCode(e.target.value)}
-                  className="w-full border rounded p-2 text-sm"
-                  placeholder="https://... or data:image/..."
+            /* Edit Form */
+            <div className="flex flex-col max-h-[95vh]">
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 sm:p-8 border-b border-gray-200 dark:border-gray-700">
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Edit Asset</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    ID: <span className="font-mono text-primary">{String(assetType?.id ?? "-")}</span>
+                  </p>
+                </div>
+                <button 
+                  onClick={onClose} 
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                  aria-label="Close"
                   disabled={submitting}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">Asset Type</label>
-                <select value={assetTypeId ?? ""}
-                  onChange={(e) => setAssetTypeId(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full border rounded p-2 text-sm" disabled={submitting}>
-                  <option value="">-- Select type --</option>
-                  {assetTypes.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Photo (optional)</label>
-                {photoUrl && (
-                  <div className="mb-2">
-                    <a href={photoUrl} target="_blank" rel="noreferrer" className="underline text-primary">View current photo</a>
-                  </div>
-                )}
-                <input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} disabled={submitting} />
-              </div>
-
-              {error && <div className="text-red-600">{error}</div>}
-
-              <div className="flex items-center gap-3 mt-2">
-                <button type="submit" disabled={submitting} className="px-4 py-2 bg-primary text-white rounded">
-                  {submitting ? "Updating..." : "Update Asset"}
+                >
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
+              </div>
 
-                <button type="button" onClick={onClose} className="px-4 py-2 border rounded" disabled={submitting}>
+              {/* Form Content */}
+              <div className="flex-1 overflow-y-auto p-6 sm:p-8">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* QR Code Field */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      QR Code URL
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                      </div>
+                      <input
+                        type="text"
+                        value={qrCode}
+                        onChange={(e) => setQrCode(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200"
+                        placeholder="https://... or data:image/..."
+                        disabled={submitting}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Asset Type Field */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Asset Type
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                      </div>
+                      <select 
+                        value={assetTypeId ?? ""}
+                        onChange={(e) => setAssetTypeId(e.target.value ? Number(e.target.value) : null)}
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 appearance-none"
+                        disabled={submitting}
+                      >
+                        <option value="">Select asset type</option>
+                        {assetTypes.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Photo Field */}
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Photo
+                    </label>
+                    
+                    {/* Current Photo Thumbnail */}
+                    {photoUrl && !photoPreview && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Current photo:</p>
+                        <div className="relative inline-block">
+                          <img
+                            src={buildImageSrc(photoUrl) || photoUrl}
+                            alt="Current asset photo"
+                            className="w-20 h-20 object-cover rounded-xl border-2 border-gray-200 dark:border-gray-600 cursor-pointer hover:border-primary transition-colors"
+                            onClick={() => openPhotoPreview(photoUrl)}
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => openPhotoPreview(photoUrl)}
+                            className="absolute inset-0 bg-black/0 hover:bg-black/20 rounded-xl transition-colors flex items-center justify-center"
+                          >
+                            <svg className="w-6 h-6 text-white opacity-0 hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/*Photo Preview */}
+                    {photoPreview && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">New photo:</p>
+                        <div className="relative inline-block">
+                          <img
+                            src={photoPreview}
+                            alt="New asset photo"
+                            className="w-20 h-20 object-cover rounded-xl border-2 border-primary"
+                          />
+                          <button
+                            type="button"
+                            onClick={clearPhoto}
+                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* File Input */}
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoChange}
+                        disabled={submitting}
+                        className="hidden"
+                        id="photo-upload"
+                      />
+                      <label
+                        htmlFor="photo-upload"
+                        className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl hover:border-primary dark:hover:border-primary transition-colors cursor-pointer"
+                      >
+                        <div className="text-center">
+                          <svg className="mx-auto h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                            {photoFile ? 'Change photo' : 'Upload new photo'}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Error Message */}
+                  {error && (
+                    <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                      <div className="flex items-center space-x-2">
+                        <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+                      </div>
+                    </div>
+                  )}
+                </form>
+              </div>
+
+              {/* Footer */}
+              <div className="flex flex-col sm:flex-row gap-3 p-6 sm:p-8 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={submitting}
+                  className="flex-1 sm:flex-none px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   Cancel
                 </button>
+                <button
+                  type="submit"
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="flex-1 sm:flex-none px-6 py-3 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white font-medium rounded-xl transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
+                >
+                  {submitting ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Updating...</span>
+                    </div>
+                  ) : (
+                    'Update Asset'
+                  )}
+                </button>
               </div>
-            </>
+            </div>
           )}
-        </form>
+        </div>
       </div>
-    </div>
+
+      {/* Photo Preview Modal */}
+      {showPhotoPreview && previewPhotoSrc && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={closePhotoPreview}
+        >
+          <div
+            className="max-w-[95vw] max-h-[95vh] overflow-auto bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Photo Preview</h3>
+              <button
+                onClick={closePhotoPreview}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex justify-center">
+              <img 
+                src={previewPhotoSrc} 
+                alt="Asset photo preview" 
+                className="max-w-full max-h-[80vh] object-contain rounded-xl"
+                onError={(e) => {
+                  console.error('Image failed to load:', previewPhotoSrc);
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

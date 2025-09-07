@@ -1,34 +1,60 @@
-import React from "react";
-import { cn } from "@/lib/utils";
+import { cva, VariantProps } from "class-variance-authority";
+import type { HTMLAttributes } from "react";
 
-
-type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-variant?: "primary" | "secondary" | "ghost";
-};
-
-
-export default function Button({
-children,
-variant = "primary",
-className = "",
-...props
-}: ButtonProps) {
-const base = "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-shadow focus:outline-none focus:ring-2 focus:ring-offset-2";
-
-
-const variants: Record<string, string> = {
-primary: "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500",
-secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200 focus:ring-gray-400",
-ghost: "bg-transparent text-gray-900 hover:bg-gray-50 focus:ring-gray-300",
-};
-
-
-const classes = cn ? cn(base, variants[variant], className) : [base, variants[variant], className].filter(Boolean).join(" ");
-
-
-return (
-<button className={classes} {...props}>
-{children}
-</button>
+const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2.5 text-center font-medium hover:bg-opacity-90 font-medium transition focus:outline-none",
+  {
+    variants: {
+      variant: {
+        primary: "bg-primary text-white",
+        green: "bg-green text-white",
+        dark: "bg-dark text-white dark:bg-white/10",
+        outlinePrimary:
+          "border border-primary hover:bg-primary/10 text-primary",
+        outlineGreen: "border border-green hover:bg-green/10 text-green",
+        outlineDark:
+          "border border-dark hover:bg-dark/10 text-dark dark:hover:bg-white/10 dark:border-white/25 dark:text-white",
+      },
+      shape: {
+        default: "",
+        rounded: "rounded-[5px]",
+        full: "rounded-full",
+      },
+      size: {
+        default: "py-3.5 px-10 py-3.5 lg:px-8 xl:px-10",
+        small: "py-[11px] px-6",
+      },
+    },
+    defaultVariants: {
+      variant: "primary",
+      shape: "default",
+      size: "default",
+    },
+  },
 );
+
+type ButtonProps = HTMLAttributes<HTMLButtonElement> &
+  VariantProps<typeof buttonVariants> & {
+    label: string;
+    icon?: React.ReactNode;
+  };
+
+export function Button({
+  label,
+  icon,
+  variant,
+  shape,
+  size,
+  className,
+  ...props
+}: ButtonProps) {
+  return (
+    <button
+      className={buttonVariants({ variant, shape, size, className })}
+      {...props}
+    >
+      {icon && <span>{icon}</span>}
+      {label}
+    </button>
+  );
 }

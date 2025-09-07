@@ -1,39 +1,20 @@
-import React from "react";
+import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
 
-
-type ShowcaseSectionProps = {
-title?: React.ReactNode;
-subtitle?: React.ReactNode;
-children?: React.ReactNode;
-className?: string;
+type PropsType = {
+  title: string;
+  children: ReactNode;
+  className?: string;
 };
 
+export function ShowcaseSection({ title, children, className }: PropsType) {
+  return (
+    <div className="rounded-[10px] bg-white shadow-1 dark:bg-gray-dark dark:shadow-card">
+      <h2 className="border-b border-stroke px-4 py-4 font-medium text-dark dark:border-dark-3 dark:text-white sm:px-6 xl:px-7.5">
+        {title}
+      </h2>
 
-export default function ShowcaseSection({
-title,
-subtitle,
-children,
-className = "",
-}: ShowcaseSectionProps) {
-return (
-<section className={`py-8 sm:py-12 ${className}`}>
-<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-{(title || subtitle) && (
-<div className="mb-6 text-center">
-{title && (
-<h2 className="text-2xl font-semibold tracking-tight text-gray-900">{title}</h2>
-)}
-{subtitle && (
-<p className="mt-2 text-sm text-gray-600">{subtitle}</p>
-)}
-</div>
-)}
-
-
-<div className="rounded-lg bg-white/50 p-4 shadow-sm">
-{children}
-</div>
-</div>
-</section>
-);
+      <div className={cn("p-4 sm:p-6 xl:p-10", className)}>{children}</div>
+    </div>
+  );
 }

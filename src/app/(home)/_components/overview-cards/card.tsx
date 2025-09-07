@@ -33,11 +33,6 @@ return (
 <dd className="mt-1 flex items-baseline gap-2">
 <h3 className="text-4xl font-bold leading-none text-gray-900 dark:text-white truncate">{data.value}</h3>
 <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ${positive ? "bg-green-50 text-green-700 ring-green-200" : "bg-red-50 text-red-700 ring-red-200"}`}>
-  {positive ? (
-    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-  ) : (
-    <ArrowDownRight className="h-3.5 w-3.5" aria-hidden="true" />
-  )}
   <span>{Math.abs(growth)}%</span>
 </span>
 </dd>

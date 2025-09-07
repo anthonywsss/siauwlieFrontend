@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import axios from "axios";
 import DeleteAssetModal from "@/components/DeleteAssetModal";
 import EditAssetModal from "@/components/EditAssetModal";
+import Link from "next/link";
 
 import {
   Table,
@@ -313,7 +314,7 @@ export default function AllItemsClient() {
 
   // dropdown asset type
   const ASSET_TYPE_OPTIONS = alltype.map(t => ({
-    value: t.id.toString(),
+    value: t.id,
     label: t.name,
   }));
 
@@ -322,13 +323,18 @@ export default function AllItemsClient() {
     setPage(1);
   }, [perPage, query]);
     
-  const visibleItems = data;
+  const visibleItems = data.filter(item =>
+    (assetFilter === "all" ? true : item.asset_type_id === assetFilter) &&
+    (statusFilter === "all" ? true : normalizeStatus(item.status) === statusFilter) &&
+    (!query ? true : item.id.toString().includes(query))
+  );
 
   // History Button
    const goToDetail = (assetId?: string) => {
     if (!assetId) return;
-    router.push(`/unfinished/${encodeURIComponent(String(assetId))}`);
+    router.push(`/history/${encodeURIComponent(String(assetId))}`);
   };
+
 
   const visible = data;
 
@@ -482,7 +488,7 @@ export default function AllItemsClient() {
             disabled={actionLoading !== null}
           >
             <AddIcon />
-            <span className="ml-2">Add New Categories</span>
+            <span className="ml-2">Add New Asset</span>
           </button>
         </div>
       </div>
@@ -560,11 +566,14 @@ export default function AllItemsClient() {
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-3">
                         {/* HISTORY BUTTON */}
-                        <button 
-                          onClick={() => goToDetail(item.id)}
-                          className="flex items-center justify-center w-fit px-4 py-2 text-md font-bold leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg active:bg-purple-600 hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple">
-                            History
-                        </button>
+                        <Link href={`/history/${item.id}`} passHref>
+                          <button
+                            type="button"
+                            onClick={() => goToDetail(item.id)} 
+                            className="flex items-center justify-center w-fit px-4 py-2 text-md font-bold leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg active:bg-purple-600 hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple">
+                              History
+                            </button>
+                        </Link>
                        {/* EDIT BUTTON */}
                         <button
                           className="p-2 hover:text-primary"

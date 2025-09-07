@@ -83,10 +83,10 @@ export default function DeleteAssetModal({ open, AllAsset, onClose, onDeleted }:
           {showInfo ? (
             <>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-2xl font-semibold">Asset Deleted</h3>
+                <h3 className="text-2xl font-semibold">ID Asset Deleted</h3>
                 <button onClick={onClose} aria-label="Close" className="text-gray-600">✕</button>
               </div>
-              <p className="text-sm text-gray-700"> Asset has been successfully <span className="text-red-500 font-semibold">deleted</span>.</p>
+              <p className="text-sm text-gray-700"> ID Asset has been successfully <span className="text-red-500 font-semibold">deleted</span>.</p>
 
               <div className="mt-4 flex justify-end">
                 <button
@@ -106,8 +106,8 @@ export default function DeleteAssetModal({ open, AllAsset, onClose, onDeleted }:
         ) : (
           <>
           <div>
-            <h3 className="mb-3 text-2xl font-semibold">Delete Asset</h3>
-            <p className="text-sm text-gray-700">Are you sure you want to delete this asset? This action can not be undone.</p>
+            <h3 className="mb-3 text-2xl font-semibold">Delete ID Asset</h3>
+            <p className="text-sm text-gray-700">Are you sure you want to delete this ID asset? This action can not be undone.</p>
           </div>
           <div>
                 <label className="block text-sm font-medium mb-1">Reason for Deletion</label>

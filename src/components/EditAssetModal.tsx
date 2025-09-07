@@ -26,10 +26,10 @@ type Props = {
 };
 
 const STATUS_OPTIONS = [
-  { value: "outbound_to_client", label: "Perjalanan ke pelanggan" },
-  { value: "inbound_at_client", label: "Digunakan pelanggan" },
-  { value: "outbound_to_factory", label: "Perjalanan ke pabrik" },
-  { value: "inbound_at_factory", label: "Di pabrik" },
+  { value: "outbound_to_client", label: "In Transit to Customer" },
+  { value: "inbound_at_client", label: "At Customer" },
+  { value: "outbound_to_factory", label: "In Transit to Factory" },
+  { value: "inbound_at_factory", label: "At Factory" },
 ];
 
 export default function EditAssetModal({ open, assetType, onClose, onUpdated }: Props) {
@@ -184,30 +184,12 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
                   disabled={submitting}
                 />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Status</label>
-                <select value={status ?? ""} onChange={(e) => setStatus(e.target.value)} className="w-full border rounded p-2 text-sm" disabled={submitting}>
-                  <option value="">-- Select status --</option>
-                  {STATUS_OPTIONS.map((s) => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Client</label>
-                <select value={clientId ?? ""} onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)} className="w-full border rounded p-2 text-sm" disabled={submitting}>
-                  <option value="">-- No client --</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-
+              
               <div>
                 <label className="block text-sm font-medium mb-1">Asset Type</label>
-                <select value={assetTypeId ?? ""} onChange={(e) => setAssetTypeId(e.target.value ? Number(e.target.value) : null)} className="w-full border rounded p-2 text-sm" disabled={submitting}>
+                <select value={assetTypeId ?? ""}
+                  onChange={(e) => setAssetTypeId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full border rounded p-2 text-sm" disabled={submitting}>
                   <option value="">-- Select type --</option>
                   {assetTypes.map((t) => (
                     <option key={t.id} value={t.id}>{t.name}</option>

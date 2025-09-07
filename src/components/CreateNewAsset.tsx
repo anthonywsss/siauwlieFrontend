@@ -213,6 +213,7 @@ const handleSubmit = async () => {
   setSubmitting(true);
   try {
     let finalPhoto = base64Photo;
+    
     if (photo && !base64Photo) {
       finalPhoto = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -222,15 +223,24 @@ const handleSubmit = async () => {
       });
     }
 
-    // This is the new line. It strips the prefix from the Base64 string.
-    const rawBase64 = finalPhoto?.split(',')[1] || null;
+    if (!finalPhoto) {
+      alert("Photo is required");
+      setSubmitting(false);
+      return;
+    }
+    finalPhoto = finalPhoto.replace(/\s/g, "");
 
-    const res = await API.post("/asset", {
+    // Build payload conditionally
+    const payload: any = {
       status: status.trim(),
       asset_type_id: typeId,
-      current_client: clientId,
-      photo: rawBase64, // Send the stripped Base64 string
-    });
+      photo: finalPhoto,
+      ...(clientId !== null && clientId !== undefined ? { current_client: clientId } : {})
+    };
+
+    console.log("Submitting payload:", JSON.stringify(payload, null, 2));
+    
+    const res = await API.post("/asset", payload)
 
     const created = res?.data?.data ?? null;
     const qrUrl = created?.qr_code ?? created?.qr ?? null;
@@ -253,6 +263,7 @@ const handleSubmit = async () => {
     setSubmitting(false);
   }
 };
+
 
 const handleOpenModal = () => {
   resetForm(); 
@@ -326,19 +337,23 @@ const resetForm = () => {
                       </select>
                     </div>
 
-                    <div>
-                      <label className="block mb-2 font-medium">Client</label>
-                      <select
-                        value={clientId || ""}
-                        onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg"
-                      >
-                        <option value="">Select Client</option>
-                        {client.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                    </div>
+                    {(status === "inbound_at_client" || status === "outbound_from_client") && (
+                      <div>
+                        <label className="block mb-2 font-medium">Client</label>
+                        <select
+                          value={clientId || ""}
+                          onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                        >
+                          <option value="">Select Client</option>
+                          {client.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -438,7 +453,7 @@ const resetForm = () => {
               {currentStep === 1 && (
                 <button
                   onClick={handleSubmit}
-                  disabled={ submitting}
+                  disabled={submitting}
                   className={`px-4 py-2 rounded text-white transition-colors ${
                      submitting
                       ? "bg-blue-300 cursor-not-allowed"

@@ -4,8 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
-import { Camera, Upload, MapPin, Check, ArrowLeft, ArrowRight, X, QrCode, Scan, RotateCcw } from "lucide-react";
-import jsQR from "jsqr";
+import { Camera, MapPin, Check, ArrowLeft, ArrowRight, X, Scan, RotateCcw, AlertTriangle } from "lucide-react";
 import { useModalWatch } from "@/components/ModalContext";
 
 type BerhasilModal = {
@@ -22,7 +21,7 @@ export function BerhasilModal({ open, onClose, onCreated, message = "Berhasil di
       try {
         onCreated();
       } catch (err) {
-        // swallow errors from caller callback to avoid crashing UI
+
         console.error("BerhasilModal.onCreated error:", err);
       }
     }
@@ -32,6 +31,42 @@ export function BerhasilModal({ open, onClose, onCreated, message = "Berhasil di
 
   return <SuccessPopup message={message} onClose={onClose} />;
 }
+
+const AccessDeniedModal = ({ open, onClose, message }: { open: boolean; onClose: () => void; message: string }) => {
+  useModalWatch(open);
+  
+  useEffect(() => {
+    if (open) {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50 animate-fadeIn">
+      <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 animate-scaleIn">
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <AlertTriangle className="w-8 h-8 text-red-600" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Akses Ditolak</h3>
+          <p className="text-gray-600 mb-4 text-sm leading-relaxed">{message}</p>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const clamp = (v: number, min: number, max: number) =>
   Math.max(min, Math.min(max, v));
@@ -99,12 +134,11 @@ const CLIENT_PLACEHOLDER = "-";
 
 
 const STEPS = [
-  { id: 0, title: "Pindai Asset", description: "Kode QR atau Input Manual" },
+  { id: 0, title: "Pindai Asset", description: "Scan Kode QR" },
   { id: 1, title: "Pergerakan", description: "Tipe & Informasi lain" },
   { id: 2, title: "Konfirmasi", description: "Kirimkan data" },
 ];
 
-// Success Popup Component
 const SuccessPopup = ({ message, onClose }: { message: string; onClose: () => void }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -161,13 +195,15 @@ export default function SubmitMovement() {
   const [fetchingAssetStatus, setFetchingAssetStatus] = useState(false);
   const [assetValid, setAssetValid] = useState(false);
 
+  // Access control state
+  const [showAccessDeniedModal, setShowAccessDeniedModal] = useState(false);
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState("");
+
   // QR Scanner state
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
-  const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
-  const [cameraPermission, setCameraPermission] = useState<'pending' | 'granted' | 'denied'>('pending');
   const [showScanner, setShowScanner] = useState(false);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const scanIntervalRef = useRef<number | null>(null);
@@ -253,55 +289,6 @@ export default function SubmitMovement() {
     }
   };
 
-  const onQrImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    if (!file) return;
-
-    setBusy(true);
-    setScanError(null);
-
-    try {
-      const dataUrl = await fileToBase64(file);
-      const img = new Image();
-      
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error("Invalid image file"));
-        img.src = dataUrl;
-      });
-
-      const canvas = document.createElement("canvas");
-      const maxSize = 800;
-      const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
-      
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Canvas not supported");
-      
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-      const { default: jsQR } = await import("jsqr");
-      const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: "dontInvert",
-      });
-      
-      if (code && code.data) {
-        const parsedId = parseAssetId(String(code.data));
-        setAssetId(parsedId);
-        setSuccess(`QR Code detected: ${parsedId}`);
-      } else {
-        setScanError("No QR code found in image. Try with better lighting or positioning.");
-      }
-    } catch (err: any) {
-      setScanError(err.message || "Failed to process QR image");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const startScanner = async () => {
     setScanError(null);
     setShowScanner(true);
@@ -315,19 +302,15 @@ export default function SubmitMovement() {
         },
       });
       
-      setCameraPermission('granted');
-      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.setAttribute("playsinline", "true");
         await videoRef.current.play();
-        setScanning(true);
         scanningRef.current = true;
         startScanLoop();
       }
     } catch (err: any) {
       console.error("Camera error:", err);
-      setCameraPermission('denied');
       setScanError("Camera access denied or unavailable. Please enable camera permissions.");
       setShowScanner(false);
     }
@@ -345,7 +328,6 @@ export default function SubmitMovement() {
         .forEach((track) => track.stop());
       videoRef.current.srcObject = null;
     }
-    setScanning(false);
     scanningRef.current = false;
     setShowScanner(false);
   }, []);
@@ -489,6 +471,45 @@ export default function SubmitMovement() {
     }
   };
 
+  // Role-based access control function
+  const checkRoleAccess = (userRole: string | undefined, nextMovementType: string): { allowed: boolean; message?: string } => {
+    if (!userRole) {
+      return { allowed: false, message: "Role pengguna tidak ditemukan. Silakan login ulang." };
+    }
+
+    switch (userRole.toLowerCase()) {
+      case "driver":
+        if (nextMovementType !== "inbound_at_client" && nextMovementType !== "outbound_to_factory") {
+          return { 
+            allowed: false, 
+            message: "Aset ini belum dapat Anda scan. Silakan minta bantuan Security untuk melakukan scan terlebih dahulu." 
+          };
+        }
+        break;
+      
+      case "security":
+        if (nextMovementType !== "outbound_to_client" && nextMovementType !== "inbound_at_factory") {
+          return { 
+            allowed: false, 
+            message: "Aset ini belum dapat Anda scan. Silakan minta bantuan Driver untuk melakukan scan terlebih dahulu." 
+          };
+        }
+        break;
+      
+      case "supervisor":
+        // Supervisor can submit all movement types
+        break;
+      
+      default:
+        return { 
+          allowed: false, 
+          message: "Role pengguna tidak dikenali. Silakan hubungi administrator." 
+        };
+    }
+
+    return { allowed: true };
+  };
+
   useEffect(() => {
     if (!assetId || assetId.trim() === "") {
       setAssetCurrentStatus(null);
@@ -562,6 +583,19 @@ export default function SubmitMovement() {
         }
         setAssetCurrentStatus(currentStatus);
         const derived = deriveMovementFromCurrentStatus(currentStatus ?? null);
+        
+        // Check role-based access control
+        const accessCheck = checkRoleAccess(user?.role, derived);
+        if (!accessCheck.allowed) {
+          setAccessDeniedMessage(accessCheck.message || "Akses ditolak");
+          setShowAccessDeniedModal(true);
+          setAssetCurrentStatus(null);
+          setMovementType(null);
+          setAssetValid(false);
+          setAssetId(""); // Clear the scanned asset ID
+          return;
+        }
+        
         setMovementType(derived);
         setAssetValid(true);
         setStep(1);
@@ -630,6 +664,22 @@ export default function SubmitMovement() {
           setError("Quantity must be at least 1");
           return false;
         }
+
+        // Validate photo
+        if (!photoBase64.trim()) {
+          setError("Foto bukti wajib diupload sebelum melanjutkan");
+          return false;
+        }
+
+        // Validate location
+        if (!latitude || !longitude) {
+          setError("Lokasi wajib direkam sebelum melanjutkan");
+          return false;
+        }
+        break;
+      }
+
+      case 2: {
         break;
       }
     }
@@ -762,10 +812,15 @@ export default function SubmitMovement() {
         open={showSuccessPopup}
         onClose={() => setShowSuccessPopup(false)}
         onCreated={() => {
-          // optional: anything you want to run when the modal is first shown
-          // e.g. track analytics, refresh a list, play a sound, etc.
           console.log("Movement created — show success UI");
         }}
+      />
+
+      {/* Access Denied Modal */}
+      <AccessDeniedModal
+        open={showAccessDeniedModal}
+        onClose={() => setShowAccessDeniedModal(false)}
+        message={accessDeniedMessage}
       />
 
       
@@ -777,32 +832,33 @@ export default function SubmitMovement() {
         </div>
 
         {/* Progress Steps */}
-        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6 overflow-x-auto">
-          <div className="flex items-center justify-between min-w-max">
-            {STEPS.map((s, index) => (
-              <div key={s.id} className="flex items-center flex-1">
-                <div className="flex items-center">
-                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-semibold transition-all duration-300 ${
-                    step >= s.id 
-                      ? 'bg-blue-600 text-white scale-110' 
-                      : 'bg-gray-200 text-gray-600'
-                  }`}>
-                    {step > s.id ? <Check className="w-4 h-4 sm:w-5 sm:h-5" /> : s.id + 1}
-                  </div>
-                  <div className="ml-2 sm:ml-3">
-                    <div className={`text-sm sm:text-base font-medium transition-colors duration-300 ${step >= s.id ? 'text-blue-600' : 'text-gray-500'}`}>
-                      {s.title}
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="flex justify-center w-full">
+            <div className="flex items-center justify-between max-w-xl sm:max-w-2xl mx-auto w-full sm:mr-0 sm:pr-8">
+              {STEPS.map((s, index) => (
+                <div key={s.id} className="flex items-center flex-1">
+                  <div className="flex flex-col items-center text-center min-w-0">
+                    <div className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-sm sm:text-base md:text-lg transition-all duration-300 ${
+                      step >= s.id 
+                        ? 'bg-blue-600 text-white scale-110' 
+                        : 'bg-gray-200 text-gray-600'
+                    }`}>
+                      {step > s.id ? <Check className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" /> : s.id + 1}
                     </div>
-                    <div className="text-xs sm:text-sm text-gray-500 hidden sm:block">{s.description}</div>
+                    <div className="mt-1 sm:mt-2 md:mt-3">
+                      <div className={`text-xs sm:text-sm md:text-base lg:text-lg font-semibold transition-colors duration-300 whitespace-nowrap ${step >= s.id ? 'text-blue-600' : 'text-gray-500'}`}>
+                        {s.title}
+                      </div>
+                    </div>
                   </div>
+                  {index < STEPS.length - 1 && (
+                    <div className={`flex-1 h-0.5 mx-2 sm:mx-3 md:mx-4 lg:mx-6 transition-colors duration-300 ${
+                      step > s.id ? 'bg-blue-600' : 'bg-gray-200'
+                    }`} />
+                  )}
                 </div>
-                {index < STEPS.length - 1 && (
-                  <div className={`flex-1 h-0.5 mx-2 sm:mx-4 transition-colors duration-300 ${
-                    step > s.id ? 'bg-blue-600' : 'bg-gray-200'
-                  }`} />
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
@@ -841,108 +897,88 @@ export default function SubmitMovement() {
               <h2 className="text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Pindai kode QR</h2>
               
               {/* QR Scanner */}
-              {showScanner ? (
-                <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 sm:p-6 relative overflow-hidden">
-                  <div className="relative">
-                    <video
-                      ref={videoRef}
-                      className="w-full max-h-64 sm:max-h-96 object-cover rounded-lg"
-                      playsInline
-                      muted
-                    />
-                    <canvas ref={canvasRef} className="hidden" />
-                    <canvas
-                      ref={overlayRef}
-                      className="absolute top-0 left-0 w-full h-full pointer-events-none"
-                    />
-                    
-                    {/* Scanner frame overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-48 h-48 sm:w-64 sm:h-64 border-4 border-blue-500 rounded-xl relative">
-                        {/* Corner indicators */}
-                        <div className="absolute -top-2 -left-2 w-4 h-4 sm:w-6 sm:h-6 border-t-4 border-l-4 border-blue-500 animate-pulse"></div>
-                        <div className="absolute -top-2 -right-2 w-4 h-4 sm:w-6 sm:h-6 border-t-4 border-r-4 border-blue-500 animate-pulse"></div>
-                        <div className="absolute -bottom-2 -left-2 w-4 h-4 sm:w-6 sm:h-6 border-b-4 border-l-4 border-blue-500 animate-pulse"></div>
-                        <div className="absolute -bottom-2 -right-2 w-4 h-4 sm:w-6 sm:h-6 border-b-4 border-r-4 border-blue-500 animate-pulse"></div>
+              <div className="flex justify-center">
+                <div className={`transition-all duration-1000 ease-out transform ${
+                  showScanner 
+                    ? 'w-full max-w-none scale-100 opacity-100' 
+                    : 'w-full max-w-md scale-95 opacity-100'
+                }`}>
+                  {showScanner ? (
+                    <div className="border-2 border-dashed border-blue-300 rounded-xl p-3 sm:p-4 md:p-6 relative overflow-hidden animate-expandScanner bg-gradient-to-br from-blue-50 to-indigo-50">
+                      <div className="relative">
+                        <video
+                          ref={videoRef}
+                          className="w-full h-48 sm:h-64 md:h-80 lg:h-96 object-cover rounded-lg shadow-lg"
+                          playsInline
+                          muted
+                        />
+                        <canvas ref={canvasRef} className="hidden" />
+                        <canvas
+                          ref={overlayRef}
+                          className="absolute top-0 left-0 w-full h-full pointer-events-none rounded-lg"
+                        />
                         
-                        {/* Scanning line */}
-                        <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500 animate-scan rounded-full"></div>
+                        {/* Scanner frame overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 lg:w-64 lg:h-64 border-4 border-blue-500 rounded-2xl relative animate-scannerFrame shadow-lg">
+                            {/* Corner */}
+                            <div className="absolute -top-1 -left-1 sm:-top-2 sm:-left-2 w-3 h-3 sm:w-4 sm:h-4 md:w-6 md:h-6 border-t-4 border-l-4 border-blue-400 animate-cornerPulse rounded-tl-lg"></div>
+                            <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-3 h-3 sm:w-4 sm:h-4 md:w-6 md:h-6 border-t-4 border-r-4 border-blue-400 animate-cornerPulse rounded-tr-lg"></div>
+                            <div className="absolute -bottom-1 -left-1 sm:-bottom-2 sm:-left-2 w-3 h-3 sm:w-4 sm:h-4 md:w-6 md:h-6 border-b-4 border-l-4 border-blue-400 animate-cornerPulse rounded-bl-lg"></div>
+                            <div className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 w-3 h-3 sm:w-4 sm:h-4 md:w-6 md:h-6 border-b-4 border-r-4 border-blue-400 animate-cornerPulse rounded-br-lg"></div>
+                            
+                            {/*  line */}
+                            <div className="absolute top-0 left-0 right-0 h-0.5 sm:h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent animate-scanMobile rounded-full shadow-lg"></div>
+                            
+                            {/* Scanning grid overlay */}
+                            <div className="absolute inset-2 border border-blue-300 rounded-xl opacity-30 animate-gridPulse"></div>
+                            <div className="absolute inset-4 border border-blue-200 rounded-lg opacity-20 animate-gridPulse" style={{animationDelay: '0.5s'}}></div>
+                          </div>
+                        </div>
+                        
+                        <button
+                          onClick={stopScanner}
+                          className="absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 p-1.5 sm:p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-300 animate-fadeInDelay shadow-lg hover:shadow-xl transform hover:scale-105"
+                        >
+                          <X className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                        </button>
+                        
+                        <button
+                          onClick={toggleCamera}
+                          className="absolute top-8 right-2 sm:top-12 sm:right-3 md:top-16 md:right-4 p-1.5 sm:p-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-all duration-300 animate-fadeInDelay shadow-lg hover:shadow-xl transform hover:scale-105"
+                        >
+                          <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                        </button>
+                        
+                        <div className="absolute bottom-2 left-2 right-2 text-center animate-fadeInDelay">
+                          <div className="bg-black bg-opacity-70 text-white px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm rounded-lg animate-textPulse backdrop-blur-sm shadow-lg">
+                            Posisikan QR dalam frame
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    
-                    <button
-                      onClick={stopScanner}
-                      className="absolute top-2 right-2 sm:top-4 sm:right-4 p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  ) : (
+                    <div 
+                      className="border-2 border-dashed border-gray-300 rounded-xl p-4 sm:p-6 md:p-8 text-center cursor-pointer hover:border-blue-500 transition-all duration-700 hover:scale-[1.03] hover:shadow-lg w-full animate-contractScanner bg-gradient-to-br from-gray-50 to-blue-50 hover:from-blue-50 hover:to-indigo-50"
+                      onClick={startScanner}
                     >
-                      <X className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
-                    
-                    <button
-                      onClick={toggleCamera}
-                      className="absolute top-12 right-2 sm:top-16 sm:right-4 p-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors"
-                    >
-                      <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
-                    
-                    <div className="absolute bottom-2 left-2 right-2 text-center">
-                      <div className="bg-black bg-opacity-50 text-white px-3 py-1 text-xs sm:text-sm rounded-lg animate-pulse">
-                        Posisikan QR dalam frame
+                      <div className="bg-gradient-to-br from-blue-100 to-indigo-200 w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 md:mb-6 animate-iconPulse shadow-lg">
+                        <Scan className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 text-blue-600" />
+                      </div>
+                      <h3 className="font-semibold text-base sm:text-lg md:text-xl mb-2 sm:mb-3 text-gray-800">Pindai kode QR</h3>
+                      <p className="text-xs sm:text-sm md:text-base text-gray-600 mb-3 sm:mb-4 leading-relaxed">Gunakan kamera untuk memindai kode QR asset</p>
+                      <div className="text-xs text-gray-500 flex items-center justify-center">
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                  {/* QR Scanner Option */}
-                  <div 
-                    className="border-2 border-dashed border-gray-300 rounded-xl p-4 sm:p-6 text-center cursor-pointer hover:border-blue-500 transition-all duration-300 hover:scale-[1.02]"
-                    onClick={startScanner}
-                  >
-                    <div className="bg-blue-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 animate-pulse">
-                      <Scan className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
-                    </div>
-                    <h3 className="font-medium text-base sm:text-lg mb-1 sm:mb-2">Pindai kode QR</h3>
-                    <p className="text-xs sm:text-sm text-gray-500"> Gunakan kamera untuk memindai kode QR</p>
-                  </div>
-
-                  {/* Upload QR Image Option */}
-                  <label className="border-2 border-dashed border-gray-300 rounded-xl p-4 sm:p-6 text-center cursor-pointer hover:border-blue-500 transition-all duration-300 hover:scale-[1.02]">
-                    <div className="bg-blue-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                      <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
-                    </div>
-                    <h3 className="font-medium text-base sm:text-lg mb-1 sm:mb-2">Unggah QR Image</h3>
-                    <p className="text-xs sm:text-sm text-gray-500">Unggah kode QR</p>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={onQrImage}
-                      disabled={busy}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-              )}
+              </div>
 
               {scanError && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4 animate-fadeIn">
                   <div className="text-yellow-800 text-sm sm:text-base">{scanError}</div>
                 </div>
               )}
-
-              {/* Manual Entry */}
-              <div className="border-t pt-4 sm:pt-6 mt-4 sm:mt-6">
-                <h3 className="font-medium text-base sm:text-lg mb-3 sm:mb-4 flex items-center">
-                  <QrCode className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                  Atau isi ID Asset secara manual
-                </h3>
-                <input
-                  type="text"
-                  value={assetId}
-                  onChange={(e) => setAssetId(e.target.value)}
-                  placeholder="Masukan ID Asset"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
-                />
-              </div>
 
               <div className="flex justify-end pt-3 sm:pt-4">
                 <button
@@ -959,37 +995,37 @@ export default function SubmitMovement() {
 
           {step === 1 && (
             <div className="space-y-4 sm:space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Pergerakan</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-3 sm:mb-4">Pergerakan</h2>
               
               {/* Asset ID Display */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 flex justify-between items-center animate-fadeIn">
                 <div>
-                  <div className="text-xs sm:text-sm text-blue-700">ID Asset</div>
-                  <div className="font-medium text-blue-900 text-sm sm:text-base">{assetId}</div>
+                  <div className="text-sm sm:text-base text-blue-700">ID Asset</div>
+                  <div className="font-medium text-blue-900 text-base sm:text-lg">{assetId}</div>
                 </div>
                 <button 
                   onClick={() => setStep(0)}
-                  className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm font-medium transition-colors"
+                  className="text-blue-600 hover:text-blue-800 text-sm sm:text-base font-medium transition-colors"
                 >
                   Ubah
                 </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                {/* MOVEMENT TYPE: read-only (auto-picked) */}
+                {/* MOVEMENT TYPE */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm sm:text-base font-medium text-gray-700 mb-3">
+                  <label className="block text-base sm:text-lg font-medium text-gray-700 mb-3">
                     Pergerakan (Sistem Otomatis)
                   </label>
 
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     {/* Current status card */}
                     <div className="p-3 rounded-lg border border-gray-200 bg-gray-50 min-w-0 flex-1">
-                      <div className="text-xs text-gray-500">Status Pergerakan Saat ini</div>
-                      <div className="font-medium text-sm mt-1">{formatStatus(assetCurrentStatus)}</div>
+                      <div className="text-sm text-gray-500">Status Pergerakan Saat ini</div>
+                      <div className="font-medium text-base mt-1">{formatStatus(assetCurrentStatus)}</div>
                     </div>
 
-                    {/* Arrow between cards (rotates for stacked mobile) */}
+                    {/* Arrow between cards */}
                     <div className="flex items-center justify-center">
                       <div
                         className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm transform md:rotate-0 rotate-90"
@@ -1002,30 +1038,30 @@ export default function SubmitMovement() {
 
                     {/* Next status card */}
                     <div className="p-3 rounded-lg border border-blue-200 bg-blue-50 min-w-0 flex-1">
-                      <div className="text-xs text-blue-700">Status Pergerakan Selanjutnya</div>
-                      <div className="font-medium text-sm mt-1">
+                      <div className="text-sm text-blue-700">Status Pergerakan Selanjutnya</div>
+                      <div className="font-medium text-base mt-1">
                         {movementType ? formatStatus(movementType) : (fetchingAssetStatus ? "Determining..." : "Unknown")}
                       </div>
-                      {fetchingAssetStatus && <div className="text-xs text-gray-500 mt-1">Please wait — fetching asset info...</div>}
+                      {fetchingAssetStatus && <div className="text-sm text-gray-500 mt-1">Please wait — fetching asset info...</div>}
                     </div>
                   </div>
 
 
-                  <div className="text-xs text-gray-500 mt-2">
-                    Status pergerakan ini diisi oleh sistem secara otomatis. User tidak bisa mengganti status pergerakan secara manual.
+                  <div className="text-sm text-gray-500 mt-2">
+                    Status pergerakan ini diisi oleh sistem secara otomatis.
                   </div>
                 </div>
 
-                {/* Client Selection - Only show for client-related movements */}
+                {/* Client*/}
                 {currentConfig?.clientPolicy === "required" && (
                   <div className="md:col-span-2 animate-fadeIn">
                   </div>
                 )}
 
-                {/* Quantity Input - Only show if required */}
+                {/* Quantity*/}
                 {currentConfig?.requiresQuantity && (
                   <div className="animate-fadeIn">
-                    <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
+                    <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
                       Kuantitas *
                     </label>
                     <input
@@ -1033,29 +1069,29 @@ export default function SubmitMovement() {
                       min="1"
                       value={quantity}
                       onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
                     />
                   </div>
                 )}
 
                 {/* Notes */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
+                  <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
                     Catatan
                   </label>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={3}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
                     placeholder="Tambahkan catatan mengenai pergerakan ini ..."
                   />
                 </div>
 
                 {/* Photo Upload */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
-                    Bukti Foto
+                  <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                    Bukti Foto <span className="text-red-500">*</span>
                   </label>
                   <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
                     <label className="flex-1 cursor-pointer">
@@ -1065,10 +1101,18 @@ export default function SubmitMovement() {
                         onChange={onPhotoChange}
                         className="hidden"
                       />
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors">
-                        <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mx-auto mb-2" />
-                        <div className="text-xs sm:text-sm text-gray-600">
-                          {photoBase64 ? "Change photo" : "Unggah Foto"}
+                      <div className={`border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${
+                        photoBase64 
+                          ? 'border-green-300 bg-green-50 hover:border-green-400' 
+                          : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
+                      }`}>
+                        <Camera className={`w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 transition-colors ${
+                          photoBase64 ? 'text-green-500' : 'text-gray-400'
+                        }`} />
+                        <div className={`text-sm sm:text-base transition-colors ${
+                          photoBase64 ? 'text-green-700' : 'text-gray-600'
+                        }`}>
+                          {photoBase64 ? "Ubah Foto" : "Unggah Foto *"}
                         </div>
                       </div>
                     </label>
@@ -1077,7 +1121,7 @@ export default function SubmitMovement() {
                         <img
                           src={photoBase64}
                           alt="Preview"
-                          className="w-full h-32 object-cover rounded-lg border"
+                          className="w-full h-32 object-cover rounded-lg border shadow-sm"
                         />
                       </div>
                     )}
@@ -1086,22 +1130,60 @@ export default function SubmitMovement() {
 
                 {/* Location Capture */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
-                    Lokasi
+                  <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                    Lokasi <span className="text-red-500">*</span>
                   </label>
                   <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                     <button
                       type="button"
                       onClick={takeLocation}
                       disabled={busy}
-                      className="flex items-center px-4 py-2 bg-green-100 text-gray-700 rounded-lg hover:bg-green-200 disabled:opacity-50 text-sm sm:text-base"
+                      className={`group relative overflow-hidden flex items-center justify-center px-6 py-3 rounded-xl font-medium text-base sm:text-lg transition-all duration-500 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
+                        latitude && longitude
+                          ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:from-emerald-600 hover:to-green-700'
+                          : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700'
+                      }`}
                     >
-                      <MapPin className="w-4 h-4 mr-2" />
-                      {latitude && longitude ? "Perbarui Lokasi" : "Rekam Lokasi"}
+                      {/* Animated background */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      
+                      <div className="absolute inset-0 rounded-xl overflow-hidden">
+                        <div className="absolute inset-0 bg-white/30 rounded-full scale-0 group-active:scale-100 transition-transform duration-300 origin-center"></div>
+                      </div>
+                      
+                      <div className="relative flex items-center">
+                        <div className={`mr-3 transition-all duration-300 ${busy ? 'animate-spin' : 'group-hover:scale-110'}`}>
+                          <MapPin className={`w-5 h-5 transition-all duration-300 ${
+                            latitude && longitude 
+                              ? 'text-white drop-shadow-sm' 
+                              : 'text-white drop-shadow-sm'
+                          }`} />
+                        </div>
+                        
+                        <span className="relative transition-all duration-300 group-hover:tracking-wide">
+                          {busy 
+                            ? "Mengambil Lokasi..." 
+                            : latitude && longitude 
+                              ? "Perbarui Lokasi" 
+                              : "Rekam Lokasi *"
+                          }
+                        </span>
+                      </div>
+                      
+                      {/* Success indicator */}
+                      {latitude && longitude && (
+                        <div>
+                          <div className="w-full h-full bg-emerald-400 rounded-full animate-ping"></div>
+                        </div>
+                      )}
                     </button>
+                    
                     {latitude && longitude && (
-                      <div className="text-xs sm:text-sm text-gray-600">
-                        Rekaman: {latitude.toFixed(6)}, {longitude.toFixed(6)}
+                      <div className="flex items-center space-x-2 animate-fadeIn">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <div className="text-sm sm:text-base text-green-700 font-medium bg-green-50 px-3 py-1 rounded-full border border-green-200">
+                          📍 {latitude.toFixed(6)}, {longitude.toFixed(6)}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1112,7 +1194,7 @@ export default function SubmitMovement() {
               <div className="flex justify-between pt-4 sm:pt-6">
                 <button
                   onClick={handlePrev}
-                  className="flex items-center px-3 py-2 text-gray-600 hover:text-gray-800 text-sm sm:text-base"
+                  className="flex items-center px-3 py-2 text-gray-600 hover:text-gray-800 text-base sm:text-lg"
                 >
                   <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" />
                   Kembali
@@ -1120,7 +1202,7 @@ export default function SubmitMovement() {
                 <button
                   onClick={handleNext}
                   disabled={busy || (currentConfig?.clientPolicy === "required" && !clients.some(c => c.id === clientId))}
-                  className="flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm sm:text-base"
+                  className="flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-base sm:text-lg"
                 >
                   Selanjutnya
                   <ArrowRight className="w-4 h-4 ml-1 sm:ml-2" />
@@ -1131,46 +1213,46 @@ export default function SubmitMovement() {
 
           {step === 2 && (
             <div className="space-y-4 sm:space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Konfirmasi Laporan</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-3 sm:mb-4">Konfirmasi Laporan</h2>
               
               {/* Summary Card */}
               <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
-                <h3 className="font-medium text-lg mb-3 sm:mb-4">Rangkuman Pergerakan</h3>
+                <h3 className="font-medium text-xl mb-3 sm:mb-4">Rangkuman Pergerakan</h3>
                 <div className="space-y-2 sm:space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-gray-600 text-sm sm:text-base">ID Asset:</span>
-                    <span className="font-medium text-sm sm:text-base">{assetId}</span>
+                    <span className="text-gray-600 text-base sm:text-lg">ID Asset:</span>
+                    <span className="font-medium text-base sm:text-lg">{assetId}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600 text-sm sm:text-base">Status Pergerakan:</span>
-                    <span className="font-medium text-sm sm:text-base">
+                    <span className="text-gray-600 text-base sm:text-lg">Status Pergerakan:</span>
+                    <span className="font-medium text-base sm:text-lg">
                       {MOVEMENT_TYPES.find(t => t.value === movementType)?.label}
                     </span>
                   </div>
                   {currentConfig?.clientPolicy === "required" && clientId && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600 text-sm sm:text-base">Klien:</span>
-                      <span className="font-medium text-sm sm:text-base">
+                      <span className="text-gray-600 text-base sm:text-lg">Klien:</span>
+                      <span className="font-medium text-base sm:text-lg">
                         {clients.find(c => c.id === clientId)?.name}
                       </span>
                     </div>
                   )}
                   {currentConfig?.requiresQuantity && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600 text-sm sm:text-base">Kuantitas:</span>
-                      <span className="font-medium text-sm sm:text-base">{quantity}</span>
+                      <span className="text-gray-600 text-base sm:text-lg">Kuantitas:</span>
+                      <span className="font-medium text-base sm:text-lg">{quantity}</span>
                     </div>
                   )}
                   {notes && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600 text-sm sm:text-base">Catatan:</span>
-                      <span className="font-medium text-sm sm:text-base">{notes}</span>
+                      <span className="text-gray-600 text-base sm:text-lg">Catatan:</span>
+                      <span className="font-medium text-base sm:text-lg">{notes}</span>
                     </div>
                   )}
                   {latitude && longitude && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600 text-sm sm:text-base">Lokasi:</span>
-                      <span className="font-medium text-sm sm:text-base">
+                      <span className="text-gray-600 text-base sm:text-lg">Lokasi:</span>
+                      <span className="font-medium text-base sm:text-lg">
                         {latitude.toFixed(6)}, {longitude.toFixed(6)}
                       </span>
                     </div>
@@ -1181,7 +1263,7 @@ export default function SubmitMovement() {
               {/* Photo Preview */}
               {photoBase64 && (
                 <div>
-                  <h3 className="font-medium text-lg mb-3 sm:mb-4">Bukti Foto</h3>
+                  <h3 className="font-medium text-xl mb-3 sm:mb-4">Bukti Foto</h3>
                   <img
                     src={photoBase64}
                     alt="Movement evidence"
@@ -1194,7 +1276,7 @@ export default function SubmitMovement() {
               <div className="flex justify-between pt-4 sm:pt-6">
                 <button
                   onClick={handlePrev}
-                  className="flex items-center px-3 py-2 text-gray-600 hover:text-gray-800 text-sm sm:text-base"
+                  className="flex items-center px-3 py-2 text-gray-600 hover:text-gray-800 text-base sm:text-lg"
                 >
                   <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" />
                   Kembali
@@ -1202,7 +1284,7 @@ export default function SubmitMovement() {
                 <button
                   onClick={handleSubmit}
                   disabled={busy || (currentConfig?.clientPolicy === "required" && !clients.some(c => c.id === clientId))}
-                  className="flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm sm:text-base"
+                  className="flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-base sm:text-lg"
                 >
                   {busy ? "Mengirim ..." : "Konfirmasi Laporan"}
                   <Check className="w-4 h-4 ml-1 sm:ml-2" />
@@ -1213,7 +1295,6 @@ export default function SubmitMovement() {
         </div>
       </div>
 
-      {/* Add custom animation styles */}
       <style jsx>{`
         @keyframes fadeIn {
           from { opacity: 0; }
@@ -1223,27 +1304,194 @@ export default function SubmitMovement() {
           from { transform: scale(0.9); opacity: 0; }
           to { transform: scale(1); opacity: 1; }
         }
-        @keyframes scan {
-          0%   { top: 0%; }
-          50%  { top: 80%; }
-          100% { top: 0%; }
+        @keyframes expandScanner {
+          0% { 
+            transform: scale(0.85) rotateY(-5deg);
+            opacity: 0;
+            filter: blur(2px);
+          }
+          50% {
+            transform: scale(0.95) rotateY(0deg);
+            opacity: 0.7;
+            filter: blur(1px);
+          }
+          100% { 
+            transform: scale(1) rotateY(0deg);
+            opacity: 1;
+            filter: blur(0px);
+          }
+        }
+        @keyframes contractScanner {
+          0% { 
+            transform: scale(1.05) rotateX(2deg);
+            opacity: 0.9;
+          }
+          100% { 
+            transform: scale(1) rotateX(0deg);
+            opacity: 1;
+          }
+        }
+        @keyframes scannerFrame {
+          0% { 
+            transform: scale(0.8) rotate(-2deg);
+            opacity: 0;
+            filter: brightness(0.8);
+          }
+          50% {
+            transform: scale(0.95) rotate(-1deg);
+            opacity: 0.5;
+            filter: brightness(0.9);
+          }
+          100% { 
+            transform: scale(1) rotate(0deg);
+            opacity: 1;
+            filter: brightness(1);
+          }
+        }
+        @keyframes fadeInDelay {
+          0% { 
+            opacity: 0;
+            transform: translateY(15px) scale(0.9);
+          }
+          60% { 
+            opacity: 0;
+            transform: translateY(10px) scale(0.95);
+          }
+          100% { 
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        @keyframes scanMobile {
+          0% { 
+            top: 0%; 
+            opacity: 0;
+            transform: scaleX(0.5);
+          }
+          10% {
+            opacity: 1;
+            transform: scaleX(1);
+          }
+          50% { 
+            top: 100%; 
+            opacity: 1;
+            transform: scaleX(1);
+          }
+          90% {
+            opacity: 1;
+            transform: scaleX(0.8);
+          }
+          100% { 
+            top: 0%; 
+            opacity: 0;
+            transform: scaleX(0.3);
+          }
+        }
+        @keyframes cornerPulse {
+          0%, 100% { 
+            opacity: 0.6;
+            transform: scale(1);
+            filter: brightness(1);
+          }
+          50% { 
+            opacity: 1;
+            transform: scale(1.1);
+            filter: brightness(1.2);
+          }
+        }
+        @keyframes gridPulse {
+          0%, 100% { 
+            opacity: 0.2;
+            transform: scale(1);
+          }
+          50% { 
+            opacity: 0.4;
+            transform: scale(1.02);
+          }
+        }
+        @keyframes iconPulse {
+          0%, 100% { 
+            transform: scale(1) rotate(0deg);
+            filter: brightness(1);
+          }
+          50% { 
+            transform: scale(1.05) rotate(2deg);
+            filter: brightness(1.1);
+          }
+        }
+        @keyframes textPulse {
+          0%, 100% { 
+            opacity: 0.9;
+            transform: scale(1);
+          }
+          50% { 
+            opacity: 1;
+            transform: scale(1.02);
+          }
         }
 
         .animate-fadeIn {
-          animation: fadeIn 0.3s ease-out forwards;
+          animation: fadeIn 0.4s ease-out forwards;
         }
         .animate-scaleIn {
-          animation: scaleIn 0.3s ease-out forwards;
+          animation: scaleIn 0.4s ease-out forwards;
         }
-        .animate-scan {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 50px;
-          background: linear-gradient(to top, rgba(59,130,246,0.8) 0%, rgba(59,130,246,0) 100%);
-          animation: scan 2.5s ease-in-out infinite; /* slower, 3s per cycle */
-          border-radius: 0px;
+        .animate-expandScanner {
+          animation: expandScanner 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        .animate-contractScanner {
+          animation: contractScanner 0.5s ease-out forwards;
+        }
+        .animate-scannerFrame {
+          animation: scannerFrame 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s forwards;
+          opacity: 0;
+        }
+        .animate-fadeInDelay {
+          animation: fadeInDelay 1.2s ease-out forwards;
+          opacity: 0;
+        }
+        .animate-scanMobile {
+          animation: scanMobile 3s ease-in-out infinite;
+        }
+        .animate-cornerPulse {
+          animation: cornerPulse 2s ease-in-out infinite;
+        }
+        .animate-gridPulse {
+          animation: gridPulse 3s ease-in-out infinite;
+        }
+        .animate-iconPulse {
+          animation: iconPulse 2.5s ease-in-out infinite;
+        }
+        .animate-textPulse {
+          animation: textPulse 2s ease-in-out infinite;
+        }
+
+        @media (max-width: 640px) {
+          .animate-expandScanner {
+            animation-duration: 0.6s;
+          }
+          .animate-scannerFrame {
+            animation-duration: 0.8s;
+            animation-delay: 0.3s;
+          }
+          .animate-fadeInDelay {
+            animation-duration: 1s;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .animate-expandScanner,
+          .animate-contractScanner,
+          .animate-scannerFrame,
+          .animate-fadeInDelay,
+          .animate-scanMobile,
+          .animate-cornerPulse,
+          .animate-gridPulse,
+          .animate-iconPulse,
+          .animate-textPulse {
+            animation-duration: 0.3s;
+            animation-iteration-count: 1;
+          }
         }
 
       `}</style>

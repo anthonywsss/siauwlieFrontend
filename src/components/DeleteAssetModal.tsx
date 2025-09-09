@@ -82,11 +82,8 @@ export default function DeleteAssetModal({ open, AllAsset, onClose, onDeleted }:
         <form onSubmit={handleDelete} className="space-y-4">
           {showInfo ? (
             <>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-2xl font-semibold">ID Asset Deleted</h3>
-                <button onClick={onClose} aria-label="Close" className="text-gray-600">✕</button>
-              </div>
-              <p className="text-sm text-gray-700"> ID Asset has been successfully <span className="text-red-500 font-semibold">deleted</span>.</p>
+              <p className="text-2xl font-semibold"> Successfully Delete {AllAsset?.id ?? "—"}</p>
+            <p className="text-sm text-gray-700  mt-2"> All associated data <span className="text-red-600">were removed</span> </p>
 
               <div className="mt-4 flex justify-end">
                 <button
@@ -106,8 +103,11 @@ export default function DeleteAssetModal({ open, AllAsset, onClose, onDeleted }:
         ) : (
           <>
           <div>
-            <h3 className="mb-3 text-2xl font-semibold">Delete ID Asset</h3>
-            <p className="text-sm text-gray-700">Are you sure you want to delete this ID asset? This action can not be undone.</p>
+            <h3 className="mb-3 text-2xl font-semibold">Deleting Asset</h3>
+            <p className="text-sm text-gray-700">
+              Are you sure you want to permanently delete <span className="text-red-600">{AllAsset?.id ?? "—"}</span> ? 
+            </p>
+            <p className="text-sm text-gray-700">This action cannot be undone.</p>
           </div>
           <div>
                 <label className="block text-sm font-medium mb-1">Reason for Deletion</label>
@@ -123,13 +123,13 @@ export default function DeleteAssetModal({ open, AllAsset, onClose, onDeleted }:
 
           {error && <div className="text-red-600">{error}</div>}
 
-          <div className="flex items-center gap-3 mt-2">
+          <div className="flex justify-end items-center gap-3 mt-2">
             <button
               type="submit"
               disabled={submitting}
               className="px-4 py-2 bg-red-600 text-white rounded"
             >
-              {submitting ? "Menghapus..." : "Delete Type"}
+              {submitting ? "Menghapus..." : "Delete"}
             </button>
 
             <button

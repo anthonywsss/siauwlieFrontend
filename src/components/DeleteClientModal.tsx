@@ -76,17 +76,8 @@ export default function DeleteClientModal({ open, client, onClose, onDeleted }: 
      
           {showInfo ? (
             <>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-2xl font-semibold">Client Deleted</h3>
-                <button
-                 onClick={() => {
-                    onDeleted?.();
-                    setShowInfo(false);
-                    onClose();
-                }}
-                >✕</button>
-              </div>
-              <p className="text-sm text-gray-700"> Client {client?.name ?? "—"} has been successfully <span className="text-red-500 font-semibold">deleted</span>.</p>
+              <p className="text-2xl font-semibold"> Successfully Delete {client?.name ?? "—"}</p>
+              <p className="text-sm text-gray-700  mt-2"> All associated data <span className="text-red-600">were removed</span> </p>
 
               <div className="mt-4 flex justify-end">
                 <button
@@ -105,17 +96,20 @@ export default function DeleteClientModal({ open, client, onClose, onDeleted }: 
         ) : (
                 <form onSubmit={handleDelete} className="space-y-4">
                     <div>
-                        <h3 className="mb-3 text-2xl font-semibold">Delete Client</h3>
-                        <p className="text-sm text-gray-700">Are you sure you want to delete <span className="text-red-400">{client?.name ?? "—"}</span>? This action can not be undone.</p>
+                      <h3 className="mb-3 text-2xl font-semibold">Deleting Client</h3>
+                      <p className="text-sm text-gray-700">
+                        Are you sure you want to permanently delete <span className="text-red-600">{client?.name ?? "—"}</span> ? 
+                      </p>
+                      <p className="text-sm text-gray-700">This action cannot be undone.</p>
                     </div>
                     {error && <div className="text-red-600">{error}</div>}
-                    <div className="flex items-center gap-3 mt-2">
+                    <div className="flex justify-end items-center gap-3 mt-2">
                         <button
                         type="submit"
                         disabled={submitting}
                         className="px-4 py-2 bg-red-600 text-white rounded"
                         >
-                        {submitting ? "Menghapus..." : "Delete Client"}
+                        {submitting ? "Menghapus..." : "Delete"}
                         </button>
                         <button
                         type="button"

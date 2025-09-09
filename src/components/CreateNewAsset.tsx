@@ -209,11 +209,11 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
   ];
 
 
-const handleSubmit = async () => {
+async function handleSubmit() {
   setSubmitting(true);
   try {
     let finalPhoto = base64Photo;
-    
+
     if (photo && !base64Photo) {
       finalPhoto = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -235,12 +235,13 @@ const handleSubmit = async () => {
       status: status.trim(),
       asset_type_id: typeId,
       photo: finalPhoto,
-      ...(clientId !== null && clientId !== undefined ? { current_client: clientId } : {})
+      ...(clientId !== null && clientId !== undefined ? { current_client: clientId } : {}),
     };
 
-    console.log("Submitting payload:", JSON.stringify(payload, null, 2));
-    
-    const res = await API.post("/asset", payload)
+    console.log("The payload submitted:", payload)
+
+
+    const res = await API.post("/asset", payload);
 
     const created = res?.data?.data ?? null;
     const qrUrl = created?.qr_code ?? created?.qr ?? null;
@@ -256,13 +257,13 @@ const handleSubmit = async () => {
     );
     setError(
       err?.response?.data?.meta?.message ??
-      err?.message ??
-      "Create failed"
+        err?.message ??
+        "Create failed"
     );
   } finally {
     setSubmitting(false);
   }
-};
+}
 
 
 const handleOpenModal = () => {

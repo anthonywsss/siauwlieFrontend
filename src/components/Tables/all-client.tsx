@@ -224,7 +224,7 @@ export default function AllClientsPage() {
       <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         <div className="flex items-center gap-3 w-full md:w-auto">
           <input
-            placeholder="Cari ID/ Nama/ Telepon/ Alamat"
+            placeholder="Search ID/ Name/ Address"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -234,7 +234,7 @@ export default function AllClientsPage() {
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} klien`}</div>
+          <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} clients`}</div>
           <button
             className="inline-flex items-center h-10 px-4 py-2 text-sm font-bold leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple w-full md:w-auto justify-center"
             type="button"
@@ -242,7 +242,7 @@ export default function AllClientsPage() {
             disabled={actionLoading !== null}
           >
             <AddIcon />
-            <span className="ml-2">Daftarkan Klien Baru</span>
+            <span className="ml-2">Add New Client</span>
           </button>
         </div>
       </div>
@@ -253,12 +253,12 @@ export default function AllClientsPage() {
           <TableHeader>
             <TableRow className="border-none bg-[#F7F9FC] [&>th]:py-4 [&>th]:text-base">
               <TableHead className="min-w-[140px]">ID</TableHead>
-              <TableHead className="min-w-[220px]">Nama</TableHead>
-              <TableHead className="min-w-[240px]">Alamat</TableHead>
+              <TableHead className="min-w-[220px]">Name</TableHead>
+              <TableHead className="min-w-[240px]">Address</TableHead>
               <TableHead className="min-w-[160px]">PIC</TableHead>
-              <TableHead className="min-w-[140px]">No. Telp</TableHead>
-              <TableHead className="min-w-[240px]">Deskripsi</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
+              <TableHead className="min-w-[140px]">Phone</TableHead>
+              <TableHead className="min-w-[240px]">Description</TableHead>
+              <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -278,7 +278,7 @@ export default function AllClientsPage() {
             ) : items.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="px-4 py-6 text-center text-slate-500">
-                  Klien tidak ditemukan.
+                  Clients not available.
                 </TableCell>
               </TableRow>
             ) : (
@@ -353,22 +353,22 @@ export default function AllClientsPage() {
               <div key={item.id} className="border rounded-lg p-3 mb-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-sm text-gray-500">Nama</div>
+                    <div className="text-sm text-gray-500">Name</div>
                     <div className="text-lg font-medium">{item.name}</div>
-                    <div className="text-sm text-gray-500 mt-1">Alamat</div>
+                    <div className="text-sm text-gray-500 mt-1">Address</div>
                     <div className="font-medium">{item.address}</div>
                   </div>
 
                   <div className="text-right">
                     <div className="text-sm text-gray-500">PIC</div>
                     <div className="mt-1 font-medium">{item.personInCharge}</div>
-                    <div className="text-sm text-gray-500 mt-2">No. Telp</div>
+                    <div className="text-sm text-gray-500 mt-2">Phone</div>
                     <div className="font-medium">{item.phone}</div>
                   </div>
                 </div>
 
                 <div className="mt-3">
-                  <div className="text-sm text-gray-500">Deskripsi</div>
+                  <div className="text-sm text-gray-500">Description</div>
                   <div className="truncate">{item.description}</div>
 
                   <div className="flex gap-2 mt-3">
@@ -380,7 +380,7 @@ export default function AllClientsPage() {
                       aria-label="Hapus"
                       onClick={() => handleDelete(item.raw?.id ?? item.id)}
                     >
-                      Hapus
+                      Delete
                     </button>
                   </div>
                 </div>
@@ -391,7 +391,7 @@ export default function AllClientsPage() {
       {/* Pagination */}
       <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4 flex-wrap">
-          <span className="text-sm text-gray-500">Baris per halaman</span>
+          <span className="text-sm text-gray-500">Row per page</span>
           <select
             value={perPage}
             onChange={(e) => {
@@ -407,7 +407,7 @@ export default function AllClientsPage() {
           </select>
 
           <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Pindah ke halaman</span>
+            <span className="text-sm text-gray-500">Go to page</span>
             <input
               type="number"
               min={1}
@@ -417,7 +417,7 @@ export default function AllClientsPage() {
               className="w-16 rounded border px-2 py-1"
             />
             <button type="submit" className="rounded border px-3 py-1">
-              Kirim
+              Go
             </button>
           </form>
         </div>
@@ -449,7 +449,7 @@ export default function AllClientsPage() {
           </button>
 
           <div className="ml-3 text-sm text-gray-500">
-            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} dari {total}
+            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} of {total}
           </div>
         </div>
       </div>

@@ -63,11 +63,8 @@ export default function DeleteUserModal({ open, userData, onClose, onDeleted }: 
       <div className="w-full md:w-[520px] max-h-[95vh] overflow-auto rounded-t-lg md:rounded-lg bg-white p-5 md:p-6">
         {showInfo ? (
           <>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-2xl font-semibold">User Deleted</h3>
-              <button onClick={onClose} aria-label="Close" className="text-gray-600">✕</button>
-            </div>
-            <p className="text-sm text-gray-700"> {userData?.username ?? "—"} has been successfully <span className="text-red-500 font-semibold">deleted</span>.</p>
+            <p className="text-2xl font-semibold"> Successfully Delete {userData?.username ?? "—"}</p>
+            <p className="text-sm text-gray-700  mt-2"> All associated data <span className="text-red-600">were removed</span> </p>
 
             <div className="mt-4 flex justify-end">
               <button
@@ -86,25 +83,22 @@ export default function DeleteUserModal({ open, userData, onClose, onDeleted }: 
         ) : (
           <form onSubmit={handleDelete} className="space-y-4">
               <div>
+                <h3 className="mb-3 text-2xl font-semibold">Deleting User</h3>
                 <p className="text-sm text-gray-700">
-                  Are you sure you want to delete this User?
+                  Are you sure you want to permanently delete <span className="text-red-600">{userData?.username ?? "—"}</span> ? 
                 </p>
-
-                <div className="mt-3 text-sm text-gray-800">
-                  <div><strong>Username:</strong> {userData?.username ?? "—"}</div>
-                  <div className="mt-1"><strong>Full name:</strong> {userData?.full_name ?? "—"}</div>
-                </div>
+                <p className="text-sm text-gray-700">This action cannot be undone.</p>
               </div>
 
               {error && <div className="text-red-600">{error}</div>}
 
-              <div className="flex items-center gap-3 mt-2">
+              <div className="flex justify-end items-center gap-3 mt-2">
                 <button
                   type="submit"
                   disabled={submitting}
                   className="px-4 py-2 bg-red-600 text-white rounded"
                 >
-                  {submitting ? "Menghapus..." : "Yes, Delete"}
+                  {submitting ? "Menghapus..." : "Delete"}
                 </button>
 
                 <button
@@ -113,7 +107,7 @@ export default function DeleteUserModal({ open, userData, onClose, onDeleted }: 
                   className="px-4 py-2 border rounded"
                   disabled={submitting}
                 >
-                  No
+                  Cancel
                 </button>
               </div>
             </form>

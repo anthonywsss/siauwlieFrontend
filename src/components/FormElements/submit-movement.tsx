@@ -208,6 +208,7 @@ export default function SubmitMovement() {
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const scanIntervalRef = useRef<number | null>(null);
   const lastScanTimeRef = useRef<number>(0);
+  const scanStartTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (error) {
@@ -363,6 +364,12 @@ export default function SubmitMovement() {
         return;
       }
 
+      // Record scan start time when we first start actively scanning
+      if (!scanStartTimeRef.current) {
+        scanStartTimeRef.current = Date.now();
+        console.log("QR Scan detection started at:", new Date(scanStartTimeRef.current).toISOString());
+      }
+
       const scale = 0.5;
       canvas.width = video.videoWidth * scale;
       canvas.height = video.videoHeight * scale;
@@ -381,6 +388,18 @@ export default function SubmitMovement() {
         overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
 
         if (code && code.data) {
+          if (scanStartTimeRef.current) {
+            const scanEndTime = Date.now();
+            const scanDuration = scanEndTime - scanStartTimeRef.current;
+            const scanDurationSeconds = (scanDuration / 1000).toFixed(3);
+            
+            console.log("QR Code Successfully Detected!");
+            console.log(`Detection Speed: ${scanDuration}ms (${scanDurationSeconds} seconds)`);
+            console.log(`QR Code Data: ${code.data}`);
+
+            scanStartTimeRef.current = null;
+          }
+
           const scaleUp = 1 / scale;
           
           overlayCtx.strokeStyle = "#00ff00";

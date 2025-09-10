@@ -222,7 +222,7 @@ export default function AuditLog() {
       <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         <div className="flex items-center gap-3 w-full md:w-auto">
           <input
-            placeholder="Car ID / tabel / ID Rekaman / User"
+            placeholder="Search"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -232,7 +232,7 @@ export default function AuditLog() {
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} rekaman`}</div>
+          <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} records`}</div>
         </div>
       </div>
 
@@ -241,11 +241,11 @@ export default function AuditLog() {
           <TableHeader>
             <TableRow className="border-none bg-[#F7F9FC] [&>th]:py-4 [&>th]:text-base">
               <TableHead className="min-w-[120px]">ID</TableHead>
-              <TableHead className="min-w-[160px]">Tabel</TableHead>
-              <TableHead className="min-w-[140px]">ID Rekaman</TableHead>
-              <TableHead className="min-w-[140px]">Aksi</TableHead>
+              <TableHead className="min-w-[160px]">Table</TableHead>
+              <TableHead className="min-w-[140px]">Records ID</TableHead>
+              <TableHead className="min-w-[140px]">Action</TableHead>
               <TableHead className="min-w-[140px]">User</TableHead>
-              <TableHead className="min-w-[220px]">Waktu Daftar</TableHead>
+              <TableHead className="min-w-[220px]">Timestamp</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -264,7 +264,7 @@ export default function AuditLog() {
             ) : items.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="px-4 py-6 text-center text-slate-500">
-                  Rekaman audit tidak ditemukan.
+                  Audit Logs not available.
                 </TableCell>
               </TableRow>
             ) : (
@@ -310,14 +310,14 @@ export default function AuditLog() {
               <div key={it.id} className="border rounded-lg p-3 mb-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-sm text-gray-500">Tabel</div>
+                    <div className="text-sm text-gray-500">Table</div>
                     <div className="text-lg font-medium">{it.tableName}</div>
-                    <div className="text-sm text-gray-500 mt-1">ID Rekaman</div>
+                    <div className="text-sm text-gray-500 mt-1">Records ID</div>
                     <div className="font-medium">{it.recordId}</div>
                   </div>
 
                   <div className="text-right">
-                    <div className="text-sm text-gray-500">Aksi</div>
+                    <div className="text-sm text-gray-500">Action</div>
                     <div className="mt-1 font-medium">{it.action}</div>
                     <div className="text-sm text-gray-500 mt-2">User</div>
                     <div className="font-medium">{it.userId}</div>
@@ -325,7 +325,7 @@ export default function AuditLog() {
                 </div>
 
                 <div className="mt-3">
-                  <div className="text-sm text-gray-500">Waktu Daftar</div>
+                  <div className="text-sm text-gray-500">Timestamp</div>
                   <div className="font-medium truncate">
                     {it.timestamp ? dayjs(it.timestamp).format("MMM DD, YYYY - hh:mm") : "-"}
                   </div>
@@ -337,7 +337,7 @@ export default function AuditLog() {
       {/* Pagination */}
       <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4 flex-wrap">
-          <span className="text-sm text-gray-500">Baris per halaman</span>
+          <span className="text-sm text-gray-500">Row per page</span>
           <select
             value={perPage}
             onChange={(e) => {
@@ -354,7 +354,7 @@ export default function AuditLog() {
           </select>
 
           <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Pindah ke halaman</span>
+            <span className="text-sm text-gray-500">Go to page</span>
             <input
               type="number"
               min={1}
@@ -364,7 +364,7 @@ export default function AuditLog() {
               className="w-16 rounded border px-2 py-1"
             />
             <button type="submit" className="rounded border px-3 py-1">
-              kirim
+              Go
             </button>
           </form>
         </div>
@@ -396,7 +396,7 @@ export default function AuditLog() {
           </button>
 
           <div className="ml-3 text-sm text-gray-500">
-            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} dari {total}
+            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} of {total}
           </div>
         </div>
       </div>

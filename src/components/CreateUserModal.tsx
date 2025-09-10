@@ -148,7 +148,7 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full rounded border px-3 py-2"
+              className="w-full rounded border px-3 py-2 appearance-none"
             >
               {roles.map((r) => (
                 <option key={r} value={r}>

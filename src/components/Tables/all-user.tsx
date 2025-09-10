@@ -239,7 +239,7 @@ export default function AllItemsClient() {
             disabled={actionLoading !== null}
           >
             <AddIcon />
-            <span className="ml-2">Daftarkan User Baru</span>
+            <span className="ml-2">Add New User</span>
           </button>
         </div>
       </div>
@@ -250,11 +250,11 @@ export default function AllItemsClient() {
           <TableHeader>
             <TableRow className="border-none bg-[#F7F9FC] [&>th]:py-4 [&>th]:text-base">
               <TableHead className="min-w-[180px]">Username</TableHead>
-              <TableHead className="min-w-[240px]">Nama Lengkap</TableHead>
-              <TableHead className="min-w-[160px]">ID Karyawan</TableHead>
-              <TableHead className="min-w-[140px]">Peran</TableHead>
-              <TableHead className="min-w-[240px]">Tanggal Daftar</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
+              <TableHead className="min-w-[240px]">Full Name</TableHead>
+              <TableHead className="min-w-[160px]">Employee ID</TableHead>
+              <TableHead className="min-w-[140px]">Roles</TableHead>
+              <TableHead className="min-w-[240px]">Register Date</TableHead>
+              <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -347,20 +347,20 @@ export default function AllItemsClient() {
                   <div>
                     <div className="text-sm text-gray-500">Username</div>
                     <div className="text-lg font-medium">{item.username}</div>
-                    <div className="text-sm text-gray-500 mt-1">Nama Lengkap</div>
+                    <div className="text-sm text-gray-500 mt-1">Full Name</div>
                     <div className="font-medium">{item.fullName}</div>
                   </div>
 
                   <div className="text-right">
-                    <div className="text-sm text-gray-500">Peran</div>
+                    <div className="text-sm text-gray-500">Roles</div>
                     <div className="mt-1 font-medium">{item.role}</div>
-                    <div className="text-sm text-gray-500 mt-2">ID Karyawan</div>
+                    <div className="text-sm text-gray-500 mt-2">Employee ID</div>
                     <div className="font-medium">{item.employeeId}</div>
                   </div>
                 </div>
 
                 <div className="mt-3">
-                  <div className="text-sm text-gray-500">Tanggal Daftar</div>
+                  <div className="text-sm text-gray-500">Register Date</div>
                   <div className="">
                     {item.createdAt ? dayjs(item.createdAt).format("MMM DD, YYYY - hh:mm") : "-"}
                   </div>
@@ -374,7 +374,7 @@ export default function AllItemsClient() {
                       aria-label="Delete"
                       onClick={() => setDeletingUserRaw((item.raw ?? { user_id: item.id }) as RawUser)}
                     >
-                      Hapus
+                      Delete
                     </button>
                   </div>
                 </div>
@@ -385,7 +385,7 @@ export default function AllItemsClient() {
       {/* Pagination */}
       <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4 flex-wrap">
-          <span className="text-sm text-gray-500">Baris per halaman</span>
+          <span className="text-sm text-gray-500">Row per page</span>
           <select
             value={perPage}
             onChange={(e) => {
@@ -401,7 +401,7 @@ export default function AllItemsClient() {
           </select>
 
           <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Pindah ke halaman</span>
+            <span className="text-sm text-gray-500">Go to page</span>
             <input
               type="number"
               min={1}
@@ -411,7 +411,7 @@ export default function AllItemsClient() {
               className="w-16 rounded border px-2 py-1"
             />
             <button type="submit" className="rounded border px-3 py-1">
-              kirim
+              Go
             </button>
           </form>
         </div>
@@ -443,7 +443,7 @@ export default function AllItemsClient() {
           </button>
 
           <div className="ml-3 text-sm text-gray-500">
-            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} dari {total}
+            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} of {total}
           </div>
         </div>
       </div>

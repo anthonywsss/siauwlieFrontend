@@ -178,16 +178,16 @@ export default function Page() {
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
               <h1 className="text-[26px] font-bold leading-[30px] text-dark dark:text-white">
-                Asset History <span className="text-gray-600">[{assetId ?? "—"}]</span>
+                Movement History <span className="text-gray-600">[{assetId ?? "—"}]</span>
               </h1>
-              <p className="mt-1 text-sm text-gray-500">Rincian perubahan asset</p>
+              <p className="mt-1 text-sm text-gray-500"> Detailed movement log of the current asset</p>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => router.back()}
                 className="flex items-center justify-center w-fit px-4 py-2 text-md font-medium leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg hover:bg-purple-700"
               >
-                Kembali
+                Back
               </button>
             </div>
           </div>
@@ -201,7 +201,7 @@ export default function Page() {
           ) : error ? (
             <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded">{error}</div>
           ) : record.length === 0 ? (
-            <div className="p-4 bg-yellow-50 border border-yellow-100 text-yellow-700 rounded">Tidak ada data.</div>
+            <div className="p-4 bg-yellow-50 border border-yellow-100 text-yellow-700 rounded">No data available</div>
           ) : (
             <>
               {/* Desktop Table */}
@@ -210,7 +210,7 @@ export default function Page() {
                   <table className="min-w-full table-fixed">
                     <thead>
                       <tr className="bg-[#F7F9FC] dark:bg-dark-2">
-                        {["User", "Status", "Klien", "Waktu Pencatatan", "Foto", "Catatan", "Location", "Quantity"].map((h) => (
+                        {["User", "Status", "Client", "Timestamp", "Photo", "Notes", "Location", "Quantity"].map((h) => (
                           <th
                             key={h}
                             className="px-6 py-4 text-left text-base font-medium text-dark dark:text-white border-r"
@@ -241,7 +241,7 @@ export default function Page() {
                                   onClick={() => openPreview(rec.photo)}
                                 />
                               ) : (
-                                <div className="text-gray-400">Tidak ada foto</div>
+                                <div className="text-gray-400">No pictures available</div>
                               )}
                             </td>
                             <td className="px-6 py-4 text-dark dark:text-white">{rec.notes ?? "-"}</td>
@@ -253,7 +253,7 @@ export default function Page() {
                                 )}
                                 className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition whitespace-nowrap"
                               >
-                                Buka Google Maps
+                                Open with Google Maps
                               </button>
                             </td>
                             <td className="px-6 py-4 text-dark dark:text-white">{rec.quantity ?? "-"}</td>
@@ -293,7 +293,7 @@ export default function Page() {
                         </div>
                         <div>
                           <div className="text-xs text-gray-500">
-                            Waktu
+                            Timestamp
                           </div>
                           <div className="text-sm text-dark dark:text-white">
                             {rec.timestamp ? dayjs(rec.timestamp).format("MMM DD, YYYY - HH:mm") : "-"}
@@ -302,7 +302,7 @@ export default function Page() {
                       </div>
                       <div className="mt-3">
                         <div className="text-xs text-gray-500">
-                          Foto
+                          Photo
                         </div>
                         {rec.photo ? (
                           <img
@@ -312,11 +312,11 @@ export default function Page() {
                             onClick={() => openPreview(rec.photo)}
                           />
                         ) : ( 
-                          <div className="text-gray-400 mt-2">Tidak ada foto</div> )}
+                          <div className="text-gray-400 mt-2">No pictures available</div> )}
                       </div>
                       <div className="mt-3"> 
                         <div className="text-xs text-gray-500">
-                          Catatan 
+                          Notes 
                         </div>
                         <div className="text-sm text-dark dark:text-white">
                           {rec.notes ?? "-"}
@@ -332,7 +332,7 @@ export default function Page() {
                             <button 
                               onClick={ () => window.open(getGoogleMapsLink(Number(rec.latitude), Number(rec.longitude)), "_blank")}
                               className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition whitespace-nowrap" >
-                                Buka Google Maps
+                                Open with Google Maps
                             </button>
                           </div>
                         </div>

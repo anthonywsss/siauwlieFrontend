@@ -79,7 +79,7 @@ export default function CreateAssetTypeModal({ open, onClose, onCreated }: Props
 
           {error && <div className="text-red-600">{error}</div>}
 
-          <div className="flex items-center gap-3 mt-2">
+          <div className="flex justify-end items-center gap-3 mt-2">
             <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-600 text-white rounded">
               {submitting ? "Creating..." : "Submit"}
             </button>

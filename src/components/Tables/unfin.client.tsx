@@ -226,7 +226,7 @@ export default function UnfinDelivery() {
                       className="px-3 py-1 rounded border text-sm"
                       aria-label={`Preview photo for ${item.asset_id}`}
                     >
-                      Preview
+                      Pratinjau
                     </button>
                   </div>
                 </TableCell>

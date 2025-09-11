@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/Auth/auth-context";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import LoginFailModal from "@/components/LoginModal"
 
 const DEFAULT_ROUTE_BY_ROLE: Record<string, string> = {
   driver: "/submit-movement",
@@ -41,6 +42,8 @@ export default function SigninWithPassword() {
   const pathname = usePathname();
 
   const hasRedirected = useRef(false);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const desiredNext = useMemo(() => {
     const nextParam = sanitizeInternalPath(searchParams?.get("next"));
@@ -113,6 +116,7 @@ export default function SigninWithPassword() {
         err?.message;
       const msg = serverMsg ?? "Login failed — check your credentials.";
       setError(msg);
+       setIsModalOpen(true);
     } finally {
       setLoading(false);
     }
@@ -246,6 +250,9 @@ export default function SigninWithPassword() {
           </button>
         </form>
       </div>
+        {isModalOpen && (
+          <LoginFailModal open={isModalOpen} onClose={() => setIsModalOpen(false)} />
+        )}
     </div>
   );
 }

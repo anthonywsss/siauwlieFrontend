@@ -159,7 +159,16 @@ export default function UnfinDelivery() {
     <>
       {/* Desktop Table*/}
       <div className="hidden md:block rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:p-7.5">
-        <h1 className="text-[26px] font-bold leading-[30px] text-dark mb-5"> Pengiriman Belum Tuntas </h1>
+        <div className="flex items-center justify-between w-full md:w-auto mb-5">
+          <h1 className="text-[26px] font-bold leading-[30px] text-dark">
+            Pengiriman Belum Tuntas
+          </h1>
+          <div className="text-sm text-gray-500">
+            {loading ? "Loading..." : `${total} unfinished deliveries`}
+          </div>
+        </div>
+
+        
         <Table>
           <TableHeader>
             <TableRow className="border-none bg-[#F7F9FC] dark:bg-dark-2 [&>th]:py-4 [&>th]:text-base [&>th]:text-dark [&>th]:dark:text-white">

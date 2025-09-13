@@ -120,7 +120,7 @@ export default function MultiStepFormPage() {
         <Select
           items={[
               { label: "Pilih Klien", value: "" },
-              ...allClients.map((c) => ({ label: c.name, value: c.id })),
+              ...(allClients ?? []).map((c) => ({ label: c.name, value: c.id })),
               ]}
           label="Klien"
           value={client}
@@ -132,7 +132,7 @@ export default function MultiStepFormPage() {
         <Select
           items={[
               { label: "Pilih Tipe Aset", value: "" },
-              ...alltype.map((c) => ({ label: c.name, value: c.id })),
+              ...(alltype ?? []).map((c) => ({ label: c.name, value: c.id })),
               ]}
           label="Tipe Asset"
           value={assetType}

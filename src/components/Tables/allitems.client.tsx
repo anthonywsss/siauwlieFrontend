@@ -379,7 +379,7 @@ export default function AllItemsClient() {
     setPage(1);
   }, [perPage, query]);
     
-  const visibleItems = data.filter(item =>
+  const visibleItems = (data ?? []).filter(item =>
     (assetFilter === "all" ? true : item.asset_type_id === assetFilter) &&
     (statusFilter === "all" ? true : normalizeStatus(item.status) === statusFilter) &&
     (!query ? true : item.id.toString().includes(query))

@@ -127,7 +127,7 @@ export default function AllClientsPage() {
   useEffect(() => {
     // filter
     const q = query.trim().toLowerCase();
-    const filtered = allClients.filter((c) => {
+    const filtered = (allClients ?? []).filter((c) => {
       if (!q) return true;
       const fields = [
         String(c.id ?? ""),

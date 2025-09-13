@@ -127,7 +127,7 @@ export default function AllItemsClient() {
   useEffect(() => {
     // filter
     const q = query.trim().toLowerCase();
-    const filtered = allUsers.filter((u) => {
+    const filtered = (allUsers ?? []).filter((u) => {
       if (!q) return true;
       const fields = [
         String(u.username ?? ""),

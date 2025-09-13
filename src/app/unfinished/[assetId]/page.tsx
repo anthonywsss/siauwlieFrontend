@@ -98,14 +98,32 @@ export default function Page() {
     async function load() {
       try {
         if (!assetId) return;
-        const detailRes = await API.get(`/movements/unfinished/detail/${encodeURIComponent(assetId)}`);
-        const payload = detailRes?.data?.data; 
-        if (Array.isArray(payload)) {
-          setRecord(payload); 
-        } else {
-          setRecord([]);
-      }
-        
+        // Try detail endpoint first; if 403, fall back to list and filter by assetId
+        try {
+          const detailRes = await API.get(`/movements/unfinished/detail/${encodeURIComponent(assetId)}`);
+          const payload = detailRes?.data?.data;
+          if (Array.isArray(payload)) {
+            setRecord(payload);
+          } else if (payload) {
+            setRecord([payload]);
+          } else {
+            setRecord([]);
+          }
+        } catch (e: any) {
+          if (e?.response?.status === 403) {
+            try {
+              const fb = await API.get("/movements/unfinished");
+              const list: any[] = fb?.data?.data ?? [];
+              const filtered = list.filter((x: any) => String(x?.asset_id ?? "") === String(assetId));
+              setRecord(filtered);
+            } catch (e2) {
+              throw e; // bubble up the original 403 if fallback fails
+            }
+          } else {
+            throw e;
+          }
+        }
+
         if (!mounted) return;
 
         const [clientsRes, usersRes] = await Promise.allSettled([API.get("/clients"), API.get("/users")]);

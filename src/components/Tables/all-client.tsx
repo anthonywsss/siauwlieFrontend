@@ -104,7 +104,6 @@ export default function AllClientsPage() {
         if (!mounted) return;
         setAllClients(Array.isArray(clients) ? clients : []);
       } catch (err: any) {
-        console.error("fetch clients error:", err);
         if (err?.response?.status === 401) {
           signOut();
           try {
@@ -112,7 +111,6 @@ export default function AllClientsPage() {
           } catch {}
           return;
         }
-        setError(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to fetch clients");
       } finally {
         if (mounted) setLoading(false);
       }

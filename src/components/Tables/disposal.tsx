@@ -82,7 +82,6 @@ export default function DisposalHistory() {
         const types: RawDisposal[] = res?.data?.data ?? res?.data ?? [];
         setData(types);
       } catch (err) {
-        console.error("Error fetching disposals:", err);
       } finally {
         setLoading(false);
       }

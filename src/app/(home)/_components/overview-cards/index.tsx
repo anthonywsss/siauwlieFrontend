@@ -41,9 +41,7 @@ export default function OverviewCardsGroup() {
 
         setData(summary);
       } catch (err: any) {
-        console.error("Failed to fetch overview:", err);
         if (!mounted) return;
-        setError(err?.message ?? "Failed to fetch overview");
       } finally {
         if (mounted) setLoading(false);
       }

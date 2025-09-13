@@ -204,7 +204,6 @@ export default function AllItemsClient() {
         setData(Array.isArray(raw) ? raw : []);
         setTotal(Number.isFinite(metaTotal) ? metaTotal : (Array.isArray(raw) ? raw.length : 0));
       } catch (err: any) {
-        console.error("fetch assets error:", err);
         if (err?.response?.status === 401) {
           signOut();
           try {
@@ -212,7 +211,6 @@ export default function AllItemsClient() {
           } catch {}
           return;
         }
-        setError(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to fetch assets");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -303,7 +301,6 @@ export default function AllItemsClient() {
         if (!mounted) return;
         setAllClients(Array.isArray(clients) ? clients : []);
       } catch (err: any) {
-        console.error("fetch clients error:", err);
         if (err?.response?.status === 401) {
           signOut();
           try {
@@ -311,7 +308,6 @@ export default function AllItemsClient() {
           } catch {}
           return;
         }
-        setError(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to fetch clients");
       } finally {
         if (mounted) setLoading(false);
       }

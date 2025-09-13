@@ -103,7 +103,6 @@ export default function AllItemsClient() {
         if (!mounted) return;
         setAllUsers(Array.isArray(users) ? users : []);
       } catch (err: any) {
-        console.error("fetch users error:", err);
         if (err?.response?.status === 401) {
           signOut();
           try {
@@ -111,7 +110,6 @@ export default function AllItemsClient() {
           } catch {}
           return;
         }
-        setError(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to fetch users");
       } finally {
         if (mounted) setLoading(false);
       }

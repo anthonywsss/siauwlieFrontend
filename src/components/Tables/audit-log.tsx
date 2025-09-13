@@ -181,7 +181,6 @@ export default function AuditLog() {
         setItems(mapped);
         setTotal(Number.isFinite(metaTotal) ? metaTotal : mapped.length);
       } catch (err: any) {
-        console.error("fetch audit-trail error:", err);
         if (err?.response?.status === 401) {
           signOut();
           try {
@@ -189,7 +188,6 @@ export default function AuditLog() {
           } catch {}
           return;
         }
-        setError(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to fetch audit trail");
       } finally {
         if (mounted) setLoading(false);
       }

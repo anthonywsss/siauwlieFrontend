@@ -99,7 +99,6 @@ export default function AssetTypeList() {
         if (!mounted) return;
         setAllTypes(Array.isArray(types) ? types : []);
       } catch (err: any) {
-        console.error("fetch asset types error:", err);
         if (err?.response?.status === 401) {
           signOut();
           try {
@@ -107,7 +106,6 @@ export default function AssetTypeList() {
           } catch {}
           return;
         }
-        setError(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to fetch asset types");
       } finally {
         if (mounted) setLoading(false);
       }

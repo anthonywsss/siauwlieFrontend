@@ -1131,7 +1131,7 @@ export default function SubmitMovement() {
                         <div className={`text-sm sm:text-base transition-colors ${
                           photoBase64 ? 'text-green-700' : 'text-gray-600'
                         }`}>
-                          {photoBase64 ? "Ubah Foto" : "Unggah Foto *"}
+                          {photoBase64 ? "Ubah Foto" : "Unggah/Ambil Foto *"}
                         </div>
                       </div>
                     </label>

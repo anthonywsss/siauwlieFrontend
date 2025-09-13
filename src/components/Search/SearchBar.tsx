@@ -1,11 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import { safeGet, safePost } from "@/lib/fetcher";
 
-const API_BASE =
-  typeof window !== "undefined"
-    ? process.env.NEXT_PUBLIC_API_BASE ?? "http://103.197.190.167:8080"
-    : "http://103.197.190.167:8080";
 
 type Resource = "containers" | "clients" | "movements";
 
@@ -31,23 +28,18 @@ export default function SearchBar() {
     setError(null);
     setResult(null);
 
-    const url = `${API_BASE}/${resource}/${encodeURIComponent(query.trim())}`;
+    const path = `/${resource}/${encodeURIComponent(query.trim())}`;
 
     try {
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      const res = await fetch(url, { headers });
-      const json = await res.json();
-
-      if (!res.ok) {
-        setError(json?.meta?.message ?? json?.error ?? `${res.status} ${res.statusText}`);
+      const json = await safeGet<any>(path);
+      if (!json) {
+        setError("Unauthorized");
         setResult(null);
       } else {
         setResult(json);
       }
     } catch (err: any) {
-      setError(err.message ?? "Network error");
+      setError(err?.response?.data?.meta?.message ?? err?.message ?? "Network error");
     } finally {
       setLoading(false);
     }
@@ -60,27 +52,25 @@ export default function SearchBar() {
 
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        alert(json?.meta?.message ?? json?.error ?? "Login failed");
+      const json = await safePost<any>("/login", { username, password });
+
+      if (!json) {
+        alert("Unauthorized");
+        return;
+      }
+
+      const tokenFromResp =
+        json?.data?.[0]?.token ?? json?.data?.token ?? json?.data?.token;
+      if (tokenFromResp) {
+        localStorage.setItem("authToken", tokenFromResp);
+        localStorage.setItem("token", tokenFromResp);
+        setToken(tokenFromResp);
+        alert("Token saved.");
       } else {
-        const tokenFromResp =
-          json?.data?.[0]?.token ?? (json?.data?.token ?? json?.data?.token);
-        if (tokenFromResp) {
-          localStorage.setItem("authToken", tokenFromResp);
-          setToken(tokenFromResp);
-          alert("Token saved to localStorage (authToken).");
-        } else {
-          alert("Login success but no token found in response.");
-        }
+        alert("Login success but no token found in response.");
       }
     } catch (err: any) {
-      alert(err.message ?? "Login error");
+      alert(err?.response?.data?.meta?.message ?? err?.message ?? "Login error");
     } finally {
       setLoading(false);
     }
@@ -263,6 +253,7 @@ export default function SearchBar() {
               type="button"
               onClick={() => {
                 localStorage.removeItem("authToken");
+                localStorage.removeItem("token");
                 setToken("");
                 alert("Saved token cleared.");
               }}

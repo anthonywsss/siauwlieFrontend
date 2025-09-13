@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { TrashIcon, AddIcon } from "@/assets/icons"; // swap to your icon path
 import { cn } from "@/lib/utils";
+import { safeGet } from "@/lib/fetcher";
 import {
   Table,
   TableBody,
@@ -83,31 +84,27 @@ export default function AllClient() {
     let mounted = true;
     setLoading(true);
 
-    const controller = new AbortController();
     const statusParam = statusFilter && statusFilter !== "all" ? `&status=${encodeURIComponent(statusFilter)}` : "";
     const assetParam = assetFilter && assetFilter !== "all" ? `&assetType=${encodeURIComponent(assetFilter)}` : "";
 
-    {/* metode fetch diganti axios */}
-    fetch(`/api/items?page=${page}&perPage=${perPage}&q=${encodeURIComponent(query)}${statusParam}${assetParam}`, {
-      signal: controller.signal,
-    })
-      .then((res) => res.json())
-      .then((data) => {
+    (async () => {
+      try {
+        const absoluteUrl = `${window.location.origin}/api/items?page=${page}&perPage=${perPage}&q=${encodeURIComponent(query)}${statusParam}${assetParam}`;
+        const data = await safeGet<{ items: Item[]; total: number }>(absoluteUrl);
         if (!mounted) return;
-        setItems(data.items ?? []);
-        setTotal(data.total ?? 0);
-      })
-      .catch((err) => {
-        if (err.name === "AbortError") return;
+        if (data) {
+          setItems(data.items ?? []);
+          setTotal(data.total ?? 0);
+        }
+      } catch (err) {
         console.error("fetch items error:", err);
-      })
-      .finally(() => {
+      } finally {
         if (mounted) setLoading(false);
-      });
+      }
+    })();
 
     return () => {
       mounted = false;
-      controller.abort();
     };
   }, [page, perPage, query, statusFilter, assetFilter]);
 

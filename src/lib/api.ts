@@ -19,4 +19,21 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
+API.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err?.response?.status === 401) {
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          window.location.href = "/auth/sign-in?expired=1";
+        } catch {}
+      }
+      return Promise.reject(null);
+    }
+    return Promise.reject(err);
+  }
+);
+
 export default API;

@@ -7,6 +7,7 @@ import ConfirmationStep from "@/components/FormElements/confirmation";
 import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
+import { safePost } from "@/lib/fetcher";
 
 // Simple MultiStepForm & Step implementation
 type StepProps = { children: ReactNode };
@@ -175,13 +176,8 @@ export default function MultiStepFormPage() {
   const handleSubmit = async () => {
     const formData = { status, client, assetType, photo };
     try {
-      const response = await fetch("https://your-api.com/endpoint", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-      if (!response.ok) throw new Error("Failed to submit");
-      const result = await response.json();
+      const result = await safePost<any>("/assets", formData);
+      if (!result) throw new Error("Unauthorized");
       console.log("✅ Submitted successfully:", result);
     } catch (error) {
       console.error("❌ Error submitting form:", error);

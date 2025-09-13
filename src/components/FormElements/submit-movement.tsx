@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import API from "@/lib/api";
+import { safeGet, safePost } from "@/lib/fetcher";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import { Camera, MapPin, Check, ArrowLeft, ArrowRight, X, Scan, RotateCcw, AlertTriangle } from "lucide-react";
@@ -239,8 +239,8 @@ export default function SubmitMovement() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await API.get("/clients");
-        const list = res?.data?.data ?? [];
+        const res = await safeGet<{ data: Client[] }>("/clients");
+        const list = res?.data ?? [];
         setClients(Array.isArray(list) ? list : []);
       } catch (err) {
       } finally {
@@ -549,18 +549,18 @@ export default function SubmitMovement() {
         let found = false;
 
         try {
-          const resA = await API.get(`/check-status`, { params: { asset_id: rawId } });
-          currentStatus = resA?.data?.data?.status ?? resA?.data?.status ?? null;
+          const resA = await safeGet<{ data: { status: string } }>(`/check-status?asset_id=${encodeURIComponent(rawId)}`);
+          currentStatus = resA?.data?.status ?? null;
           found = true;
         } catch (_eA: any) {
           try {
-            const resB = await API.get(`/check-status`, { params: { id: rawId } });
-            currentStatus = resB?.data?.data?.status ?? resB?.data?.status ?? null;
+            const resB = await safeGet<{ data: { status: string } }>(`/check-status?id=${encodeURIComponent(rawId)}`);
+            currentStatus = resB?.data?.status ?? null;
             found = true;
           } catch (_eB: any) {
             try {
-              const resC = await API.post(`/check-status`, { asset_id: rawId });
-              currentStatus = resC?.data?.data?.status ?? resC?.data?.status ?? null;
+              const resC = await safePost<{ data: { status: string } }>(`/check-status`, { asset_id: rawId });
+              currentStatus = resC?.data?.status ?? null;
               found = true;
             } catch (_eC: any) {
               // will fallback to asset lookup next
@@ -572,16 +572,16 @@ export default function SubmitMovement() {
         if (currentStatus == null) {
           let asset: any = null;
           try {
-            const res1 = await API.get(`/assets/${id}`);
-            asset = res1?.data?.data ?? null;
+            const res1 = await safeGet<{ data: any }>(`/assets/${id}`);
+            asset = res1?.data ?? null;
           } catch (e1: any) {
             try {
-              const res2 = await API.get(`/asset/${id}`);
-              asset = res2?.data?.data ?? null;
+              const res2 = await safeGet<{ data: any }>(`/asset/${id}`);
+              asset = res2?.data ?? null;
             } catch (e2: any) {
               try {
-                const res3 = await API.get(`/assets`, { params: { id: rawId } });
-                const list = res3?.data?.data;
+                const res3 = await safeGet<{ data: any[] }>(`/assets?id=${encodeURIComponent(rawId)}`);
+                const list = res3?.data;
                 asset = Array.isArray(list) ? list.find((a: any) => a?.id === rawId) ?? list[0] ?? null : null;
               } catch (e3: any) {
                 // ignore; keep currentStatus null
@@ -785,7 +785,7 @@ export default function SubmitMovement() {
       }
 
       console.log("Submitting movement (payload):", JSON.stringify(body));
-      const res = await API.post("/movements", body);
+      const res = await safePost<{ data: any }>("/movements", body);
 
       // Show success popup
       setShowSuccessPopup(true);

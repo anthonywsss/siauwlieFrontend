@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import CreateClientModal from "@/components/CreateClientModal";
 import EditClientModal from "@/components/EditClientModal";
 import DeleteClientModal from "@/components/DeleteClientModal";
+import { safeGet } from "@/lib/fetcher";
 import {
   Table,
   TableBody,
@@ -99,18 +100,21 @@ export default function AllClientsPage() {
 
     (async () => {
       try {
-        const res = await API.get("/clients");
-        const clients: RawClient[] = res?.data?.data ?? res?.data ?? [];
+        const res = await safeGet<{ data: RawClient[] }>("/clients");
         if (!mounted) return;
-        setAllClients(Array.isArray(clients) ? clients : []);
-      } catch (err: any) {
-        if (err?.response?.status === 401) {
-          signOut();
-          try {
-            router.push("/auth/sign-in");
-          } catch {}
-          return;
+        
+        if (res === null) {
+          // Handle error case
+          setError("Failed to fetch clients");
+          setAllClients([]);
+        } else {
+          const clients: RawClient[] = res?.data ?? [];
+          setAllClients(Array.isArray(clients) ? clients : []);
         }
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message ?? "Failed to fetch clients");
+        setAllClients([]);
       } finally {
         if (mounted) setLoading(false);
       }

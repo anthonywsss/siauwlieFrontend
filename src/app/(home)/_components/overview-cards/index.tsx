@@ -33,6 +33,7 @@ export default function OverviewCardsGroup() {
           setData(res.data);
         }
       } catch (err: any) {
+        console.error("Overview fetch error:", err);
         if (!mounted) return;
       } finally {
         if (mounted) setLoading(false);

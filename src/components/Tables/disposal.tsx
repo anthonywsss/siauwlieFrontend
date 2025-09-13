@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import API from "@/lib/api";
+import { safeGet } from "@/lib/fetcher";
 import { cn } from "@/lib/utils";
 import {
   Table,
@@ -76,18 +77,25 @@ export default function DisposalHistory() {
   const pages = useMemo(() => generatePages(page, totalPages), [page, totalPages]);
 
   useEffect(() => {
+    let mounted = true;
     const fetchDisposals = async () => {
       try {
-        const res = await API.get("/disposal-history?limit=20&offset=0");
-        const types: RawDisposal[] = res?.data?.data ?? res?.data ?? [];
+        setLoading(true);
+        setError(null);
+        const res = await safeGet<{ data: RawDisposal[] }>("/disposal-history?limit=20&offset=0");
+        if (!mounted) return;
+        const types: RawDisposal[] = res?.data ?? [];
         setData(types);
-      } catch (err) {
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message || "Failed to fetch disposal history");
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
     fetchDisposals();
+    return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
@@ -152,6 +160,8 @@ export default function DisposalHistory() {
             <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} disposed assets`}</div>
           </div>
         </div>
+
+        {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">{error}</div>}
 
         {/* Desktop Table */}
         <div className="hidden md:block rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:p-7.5">

@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import CreateUserModal from "@/components/CreateUserModal";
 import EditUserModal from "@/components/EditUserModal";
 import DeleteUserModal from "@/components/DeleteUserModal";
+import { safeGet } from "@/lib/fetcher";
 
 import dayjs from "dayjs";
 import {
@@ -98,18 +99,21 @@ export default function AllItemsClient() {
 
     (async () => {
       try {
-        const res = await API.get("/users");
-        const users: RawUser[] = res?.data?.data ?? res?.data ?? [];
+        const res = await safeGet<{ data: RawUser[] }>("/users");
         if (!mounted) return;
-        setAllUsers(Array.isArray(users) ? users : []);
-      } catch (err: any) {
-        if (err?.response?.status === 401) {
-          signOut();
-          try {
-            router.push("/auth/sign-in");
-          } catch {}
-          return;
+        
+        if (res === null) {
+          // Handle error case
+          setError("Failed to fetch users");
+          setAllUsers([]);
+        } else {
+          const users: RawUser[] = res?.data ?? [];
+          setAllUsers(Array.isArray(users) ? users : []);
         }
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message ?? "Failed to fetch users");
+        setAllUsers([]);
       } finally {
         if (mounted) setLoading(false);
       }

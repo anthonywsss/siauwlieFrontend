@@ -11,6 +11,8 @@ import DeleteAssetModal from "@/components/DeleteAssetModal";
 import EditAssetModal from "@/components/EditAssetModal";
 import Link from "next/link";
 import { useModalWatch } from "@/components/ModalContext";
+import { safeGet } from "@/lib/fetcher";
+
 
 import {
   Table,
@@ -196,21 +198,26 @@ export default function AllItemsClient() {
         if (statusFilter !== "all") params.status = statusFilter;
         if (assetFilter !== "all") params.asset_type_id = Number(assetFilter);
 
-        const res = await API.get("/asset", { params });
-        const raw: RawAsset[] = res?.data?.data ?? res?.data ?? [];
-        const metaTotal: number = Number(res?.data?.meta?.total ?? raw.length ?? 0);
-
+        const res = await safeGet<{ data: RawAsset[]; meta?: { total?: number } }>("/asset?" + new URLSearchParams(params as any).toString());
         if (!mounted) return;
-        setData(Array.isArray(raw) ? raw : []);
-        setTotal(Number.isFinite(metaTotal) ? metaTotal : (Array.isArray(raw) ? raw.length : 0));
-      } catch (err: any) {
-        if (err?.response?.status === 401) {
-          signOut();
-          try {
-            router.push("/auth/sign-in");
-          } catch {}
-          return;
+        
+        if (res === null) {
+          // Handle error case
+          setError("Failed to fetch assets");
+          setData([]);
+          setTotal(0);
+        } else {
+          const raw: RawAsset[] = res?.data ?? [];
+          const metaTotal: number = Number(res?.meta?.total ?? raw.length ?? 0);
+          
+          setData(Array.isArray(raw) ? raw : []);
+          setTotal(Number.isFinite(metaTotal) ? metaTotal : (Array.isArray(raw) ? raw.length : 0));
         }
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message ?? "Failed to fetch assets");
+        setData([]);
+        setTotal(0);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -296,18 +303,21 @@ export default function AllItemsClient() {
 
     (async () => {
       try {
-        const res = await API.get("/clients");
-        const clients = Array.isArray(res?.data?.data) ? res.data.data : [];
+        const res = await safeGet<{ data: RawClient[] }>("/clients");
         if (!mounted) return;
-        setAllClients(Array.isArray(clients) ? clients : []);
-      } catch (err: any) {
-        if (err?.response?.status === 401) {
-          signOut();
-          try {
-            router.push("/auth/sign-in");
-          } catch {}
-          return;
+        
+        if (res === null) {
+          // Handle error case
+          setError("Failed to fetch clients");
+          setAllClients([]);
+        } else {
+          const clients = Array.isArray(res?.data) ? res.data : [];
+          setAllClients(clients);
         }
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message ?? "Failed to fetch clients");
+        setAllClients([]);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -326,20 +336,21 @@ export default function AllItemsClient() {
 
     (async () => {
       try {
-        const res = await API.get("/asset-type");
-        const type: AssetType[] = res?.data?.data ?? res?.data ?? [];
+        const res = await safeGet<{ data: AssetType[] }>("/asset-type");
         if (!mounted) return;
-        setAllType(Array.isArray(type) ? type : []);
-      } catch (err: any) {
-        console.error("fetch asset type error:", err);
-        if (err?.response?.status === 401) {
-          signOut();
-          try {
-            router.push("/auth/sign-in");
-          } catch {}
-          return;
+        
+        if (res === null) {
+          // Handle error case
+          setError("Failed to fetch asset types");
+          setAllType([]);
+        } else {
+          const type: AssetType[] = res?.data ?? [];
+          setAllType(Array.isArray(type) ? type : []);
         }
-        setError(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to fetch asset type");
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message ?? "Failed to fetch asset types");
+        setAllType([]);
       } finally {
         if (mounted) setLoading(false);
       }

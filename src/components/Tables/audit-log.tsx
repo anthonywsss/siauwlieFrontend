@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import API from "@/lib/api";
+import { safeGet } from "@/lib/fetcher";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
@@ -93,24 +94,31 @@ export default function AuditLog() {
 
     (async () => {
       try {
+        // Build query string with parameters
+        const buildUrl = (baseUrl: string, params: Record<string, string | number>) => {
+          const query = new URLSearchParams();
+          Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+              query.append(key, String(value));
+            }
+          });
+          return query.toString() ? `${baseUrl}?${query.toString()}` : baseUrl;
+        };
+
         if (query && query.trim() !== "") {
           // 1) Find ID
           try {
-            const idRes = await API.get("/audit-trail", {
-              params: {
-                limit: perPage,
-                offset,
-                id: query.trim(),
-              },
+            const idUrl = buildUrl("/audit-trail", {
+              limit: perPage,
+              offset,
+              id: query.trim(),
             });
-
-            const idRaw: RawAudit[] = idRes?.data?.data ?? idRes?.data ?? [];
-            const idTotal: number = Number(idRes?.data?.meta?.total ?? idRaw.length ?? 0);
+            const idRes = await safeGet<{ data: RawAudit[]; meta?: { total?: number } }>(idUrl);
 
             if (!mounted) return;
 
-            if (Array.isArray(idRaw) && idRaw.length > 0) {
-              const mapped: Item[] = idRaw.map((r) => ({
+            if (idRes && Array.isArray(idRes.data) && idRes.data.length > 0) {
+              const mapped: Item[] = idRes.data.map((r) => ({
                 id: String(r.id ?? r.record_id ?? Math.random().toString(36).slice(2, 9)),
                 action: String(r.action ?? "-"),
                 tableName: String(r.table_name ?? r.table ?? "-"),
@@ -121,25 +129,26 @@ export default function AuditLog() {
               }));
 
               setItems(mapped);
+              const idTotal: number = Number(idRes?.meta?.total ?? idRes.data.length ?? 0);
               setTotal(Number.isFinite(idTotal) ? idTotal : mapped.length);
               return; // ID found ;0
             }
 
           } catch (idErr) {
+            // ID search failed, continue with general search
           }
 
-          const res = await API.get("/audit-trail", {
-            params: {
-              limit: perPage,
-              offset,
-              q: query.trim(),
-            },
+          const searchUrl = buildUrl("/audit-trail", {
+            limit: perPage,
+            offset,
+            q: query.trim(),
           });
-
-          const rawData: RawAudit[] = res?.data?.data ?? res?.data ?? [];
-          const metaTotal: number = Number(res?.data?.meta?.total ?? rawData.length ?? 0);
+          const res = await safeGet<{ data: RawAudit[]; meta?: { total?: number } }>(searchUrl);
 
           if (!mounted) return;
+
+          const rawData: RawAudit[] = res?.data ?? [];
+          const metaTotal: number = Number(res?.meta?.total ?? rawData.length ?? 0);
 
           const mapped: Item[] = (Array.isArray(rawData) ? rawData : []).map((r) => ({
             id: String(r.id ?? r.record_id ?? Math.random().toString(36).slice(2, 9)),
@@ -156,17 +165,16 @@ export default function AuditLog() {
           return;
         }
 
-        const res = await API.get("/audit-trail", {
-          params: {
-            limit: perPage,
-            offset,
-          },
+        const url = buildUrl("/audit-trail", {
+          limit: perPage,
+          offset,
         });
-
-        const rawData: RawAudit[] = res?.data?.data ?? res?.data ?? [];
-        const metaTotal: number = Number(res?.data?.meta?.total ?? rawData.length ?? 0);
+        const res = await safeGet<{ data: RawAudit[]; meta?: { total?: number } }>(url);
 
         if (!mounted) return;
+
+        const rawData: RawAudit[] = res?.data ?? [];
+        const metaTotal: number = Number(res?.meta?.total ?? rawData.length ?? 0);
 
         const mapped: Item[] = (Array.isArray(rawData) ? rawData : []).map((r) => ({
           id: String(r.id ?? r.record_id ?? Math.random().toString(36).slice(2, 9)),
@@ -181,6 +189,8 @@ export default function AuditLog() {
         setItems(mapped);
         setTotal(Number.isFinite(metaTotal) ? metaTotal : mapped.length);
       } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message || "Failed to fetch audit logs");
         if (err?.response?.status === 401) {
           signOut();
           try {

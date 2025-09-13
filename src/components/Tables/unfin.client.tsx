@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
-import API from "@/lib/api";
+import { safeGet } from "@/lib/fetcher";
 import { PreviewIcon, CloseIcon } from "./icons";
 import { cn } from "@/lib/utils";
 import { Dialog } from "@headlessui/react";
@@ -109,11 +109,11 @@ export default function UnfinDelivery() {
     const fetchUnfinished = async () => {
       setLoading(true);
       try {
-        const res = await API.get("/movements/unfinished");
-        const items: RawUnfin[] = res.data?.data ?? [];
+        const res = await safeGet<{ data: RawUnfin[]; meta?: { total?: number } }>("/movements/unfinished");
+        const items: RawUnfin[] = res?.data ?? [];
         if (!mounted) return;
         setData(items);
-        const metaTotal = res.data?.meta?.total;
+        const metaTotal = res?.meta?.total;
         setTotal(typeof metaTotal === "number" ? metaTotal : items.length);
       } catch (err) {
         console.error("Error fetching unfinished deliveries:", err);

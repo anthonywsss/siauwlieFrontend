@@ -8,4 +8,18 @@ const API = axios.create({
   timeout: 10000,
 });
 
+API.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/auth/sign-in?expired=1";
+      return Promise.reject(null);
+    }
+    return Promise.reject(err);
+  }
+);
+
+
 export default API;

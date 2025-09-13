@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { compactFormat } from "@/lib/format-number";
 import { OverviewCard } from "./card";
 import * as icons from "./icons";
-import API from "@/lib/api";
+import { safeGet } from "@/lib/fetcher";
 
 type AssetSummaryItem = {
   count: number;
@@ -25,31 +25,21 @@ export default function OverviewCardsGroup() {
 
   useEffect(() => {
     let mounted = true;
-
     (async () => {
       try {
-        const res = await API.get("/assets/summary");
+        const res = await safeGet<{ data: OverviewShape }>("/assets/summary");
         if (!mounted) return;
-
-        // Map API response data
-        const summary: OverviewShape = res?.data?.data ?? {
-          inbound_at_factory: { count: 0, percentage: 0 },
-          outbound_to_client: { count: 0, percentage: 0 },
-          inbound_at_client: { count: 0, percentage: 0 },
-          outbound_to_factory: { count: 0, percentage: 0 },
-        };
-
-        setData(summary);
+        if (res?.data) {
+          setData(res.data);
+        }
       } catch (err: any) {
+        console.error("Overview fetch error:", err);
         if (!mounted) return;
       } finally {
         if (mounted) setLoading(false);
       }
     })();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
   if (loading) return <div className="py-8">Loading overview...</div>;

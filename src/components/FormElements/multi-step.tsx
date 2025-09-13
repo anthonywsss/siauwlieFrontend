@@ -4,10 +4,9 @@
 import { useState, ReactNode, useEffect } from "react";
 import { Select } from "@/components/FormElements/select";
 import ConfirmationStep from "@/components/FormElements/confirmation";
-import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
-import { safePost } from "@/lib/fetcher";
+import { safeGet, safePost } from "@/lib/fetcher";
 
 // Simple MultiStepForm & Step implementation
 type StepProps = { children: ReactNode };
@@ -44,8 +43,8 @@ export default function MultiStepFormPage() {
 
     (async () => {
       try {
-        const res = await API.get("/clients");
-        const clients: RawClient[] = res?.data?.data ?? res?.data ?? [];
+        const res = await safeGet<{ data: RawClient[] }>("/clients");
+        const clients: RawClient[] = res?.data ?? [];
         if (!mounted) return;
         setAllClients(Array.isArray(clients) ? clients : []);
       } catch (err: any) {
@@ -75,8 +74,8 @@ export default function MultiStepFormPage() {
 
     (async () => {
       try {
-        const res = await API.get("/asset-type");
-        const type: AssetType[] = res?.data?.data ?? res?.data ?? [];
+        const res = await safeGet<{ data: AssetType[] }>("/asset-type");
+        const type: AssetType[] = res?.data ?? [];
         if (!mounted) return;
         setAllType(Array.isArray(type) ? type : []);
       } catch (err: any) {

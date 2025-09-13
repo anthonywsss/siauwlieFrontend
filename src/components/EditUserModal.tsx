@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import API from "@/lib/api";
+import { safeGet, safePut } from "@/lib/fetcher";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useModalWatch } from "@/components/ModalContext";
 
@@ -30,8 +30,8 @@ export default function EditUserModal({ open, userData, onClose, onUpdated }: Pr
     let mounted = true;
     (async () => {
       try {
-        const res = await API.get("/roles");
-        const list: string[] = res?.data?.data ?? res?.data ?? [];
+        const res = await safeGet<{ data: string[] }>("/roles");
+        const list: string[] = res?.data ?? [];
         if (!mounted) return;
         if (Array.isArray(list) && list.length > 0) {
           setRoles(list);
@@ -107,7 +107,14 @@ export default function EditUserModal({ open, userData, onClose, onUpdated }: Pr
       // only include password if user provided one
       if (password) payload.password = password;
 
-      await API.put(`/users/${id}`, payload);
+      const result = await safePut(`/users/${id}`, payload);
+      
+      // If result is null, it means we were unauthorized and handled by the safePut function
+      if (result === null) {
+        setSubmitting(false);
+        return;
+      }
+      
       onUpdated?.();
       onClose();
     } catch (err: any) {

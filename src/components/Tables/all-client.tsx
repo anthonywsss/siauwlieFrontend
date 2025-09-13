@@ -3,13 +3,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { TrashIcon, AddIcon } from "@/assets/icons";
 import { cn } from "@/lib/utils";
-import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import CreateClientModal from "@/components/CreateClientModal";
 import EditClientModal from "@/components/EditClientModal";
 import DeleteClientModal from "@/components/DeleteClientModal";
-import { safeGet } from "@/lib/fetcher";
+import { safeGet, safeDelete } from "@/lib/fetcher";
 import {
   Table,
   TableBody,
@@ -187,7 +186,13 @@ export default function AllClientsPage() {
 
     setActionLoading(String(rawId));
     try {
-      await API.delete(`/clients/${rawId}`);
+      const result = await safeDelete(`/clients/${rawId}`);
+      
+      // If result is null, it means we were unauthorized and handled by the safeDelete function
+      if (result === null) {
+        return;
+      }
+      
       setRefreshKey((k) => k + 1);
     } catch (err: any) {
       console.error("delete client error:", err);

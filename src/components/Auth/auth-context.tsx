@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import API from "@/lib/api";
+import { safePost } from "@/lib/fetcher";
 import { useRouter } from "next/navigation";
 
 type User = {
@@ -80,8 +80,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn: AuthContextType["signIn"] = async (username, password) => {
     setLoading(true);
     try {
-      const res = await API.post("/login", { username, password });
-      const { token, userObj } = extractTokenAndUser(res.data);
+      const res = await safePost("/login", { username, password });
+      // If result is null, it means we were unauthorized and handled by the safePost function
+      if (res === null) {
+        return null;
+      }
+      const { token, userObj } = extractTokenAndUser(res);
       if (!token) throw new Error("Token missing from login response");
       persist(token, userObj);
       return userObj;
@@ -94,8 +98,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp: AuthContextType["signUp"] = async (payload) => {
     setLoading(true);
     try {
-      const res = await API.post("/register", payload);
-      const { token, userObj } = extractTokenAndUser(res.data);
+      const res = await safePost("/register", payload);
+      // If result is null, it means we were unauthorized and handled by the safePost function
+      if (res === null) {
+        return null;
+      }
+      const { token, userObj } = extractTokenAndUser(res);
       if (!token) throw new Error("Token missing from signup response");
       persist(token, userObj);
       return userObj;

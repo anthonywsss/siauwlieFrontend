@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import API from "@/lib/api";
+import { safePut } from "@/lib/fetcher";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useModalWatch } from "@/components/ModalContext";
 
@@ -56,7 +56,14 @@ export default function EditClientModal({ open, clientData, onClose, onUpdated }
         phone: phone.trim(),
         description: description.trim(),
       };
-      await API.put(`/clients/${id}`, payload);
+      const result = await safePut(`/clients/${id}`, payload);
+      
+      // If result is null, it means we were unauthorized and handled by the safePut function
+      if (result === null) {
+        setSubmitting(false);
+        return;
+      }
+      
       onUpdated?.();
       onClose();
     } catch (err: any) {

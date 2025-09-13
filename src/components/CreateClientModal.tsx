@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import API from "@/lib/api";
+import { safePost } from "@/lib/fetcher";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useModalWatch } from "@/components/ModalContext";
 
@@ -42,7 +42,13 @@ export default function CreateClientModal({ open, onClose, onCreated }: Props) {
         phone: phone.trim(),
         description: description.trim(),
       };
-      await API.post("/clients", payload);
+      const result = await safePost("/clients", payload);
+      
+      // If result is null, it means we were unauthorized and handled by the safePost function
+      if (result === null) {
+        return;
+      }
+      
       onCreated?.();
       // reset fields
       setName("");

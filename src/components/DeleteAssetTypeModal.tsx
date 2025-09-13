@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import API from "@/lib/api";
+import { safeDelete } from "@/lib/fetcher";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useModalWatch } from "@/components/ModalContext";
 
@@ -52,7 +52,14 @@ export default function DeleteAssetTypeModal({ open, assetType, onClose, onDelet
     setError(null);
 
     try {
-      await API.delete(`/asset-type/${id}`);
+      const result = await safeDelete(`/asset-type/${id}`);
+      
+      // If result is null, it means we were unauthorized and handled by the safeDelete function
+      if (result === null) {
+        setSubmitting(false);
+        return;
+      }
+      
       setShowInfo(true);
     } catch (err: any) {
       console.error("delete asset type error:", err);

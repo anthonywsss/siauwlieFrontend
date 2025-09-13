@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import API from "@/lib/api";
+import { safeGet, safePut } from "@/lib/fetcher";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useModalWatch } from "@/components/ModalContext";
 
@@ -122,9 +122,9 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
     let mounted = true;
     (async () => {
       try {
-        const tRes = await API.get("/asset-type");
+        const tRes = await safeGet<{ data: AssetType[] }>("/asset-type");
         if (!mounted) return;
-        setAssetTypes(Array.isArray(tRes?.data?.data) ? tRes.data.data : []);
+        setAssetTypes(Array.isArray(tRes?.data) ? tRes.data : []);
       } catch (err: any) {
         console.error("fetching asset types error:", err);
         if (err?.response?.status === 401) {
@@ -166,7 +166,13 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
         payload.photo = base64;
       }
 
-      await API.put(`/asset/${id}`, payload);
+      const result = await safePut(`/asset/${id}`, payload);
+      
+      // If result is null, it means we were unauthorized and handled by the safePut function
+      if (result === null) {
+        setSubmitting(false);
+        return;
+      }
 
       setShowInfo(true);
       onUpdated?.();

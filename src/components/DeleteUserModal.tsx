@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import API from "@/lib/api";
+import { safeDelete } from "@/lib/fetcher";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useModalWatch } from "@/components/ModalContext";
 
@@ -42,8 +42,14 @@ export default function DeleteUserModal({ open, userData, onClose, onDeleted }: 
         return;
       }
 
-      await API.delete(`/users/${id}`);
-
+      const result = await safeDelete(`/users/${id}`);
+      
+      // If result is null, it means we were unauthorized and handled by the safeDelete function
+      if (result === null) {
+        setSubmitting(false);
+        return;
+      }
+      
       setShowInfo(true);
     } catch (err: any) {
       console.error("delete user error:", err);

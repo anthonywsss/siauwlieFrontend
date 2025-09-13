@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Step } from "@/components/FormElements/step";
 import ConfirmationStep from "@/components/FormElements/confirmation";
-import API from "@/lib/api";
+import { safeGet, safePost } from "@/lib/fetcher";
 import { useAuth } from "@/components/Auth/auth-context";
 import { Camera } from "lucide-react";
 import { useModalWatch } from "@/components/ModalContext";
@@ -46,8 +46,8 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
   useEffect(() => {
     (async () => {
       try {
-        const res = await API.get("/clients");
-        const list = res?.data?.data ?? [];
+        const res = await safeGet<{ data: Client[] }>("/clients");
+        const list = res?.data ?? [];
         setClient(Array.isArray(list) ? list : []);
       } catch (err) {
         console.error("Failed to fetch clients", err);
@@ -62,8 +62,8 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
   useEffect(() => {
     (async () => {
       try {
-        const res = await API.get("/asset-type");
-        const list = res?.data?.data ?? [];
+        const res = await safeGet<{ data: RawType[] }>("/asset-type");
+        const list = res?.data ?? [];
         setType(Array.isArray(list) ? list : []);
       } catch (err) {
         console.error("Failed to fetch asset type", err);
@@ -241,9 +241,15 @@ async function handleSubmit() {
     console.log("The payload submitted:", payload)
 
 
-    const res = await API.post("/asset", payload);
+    const res = await safePost<{ data: any }>("/asset", payload);
+    
+    // If result is null, it means we were unauthorized and handled by the safePost function
+    if (res === null) {
+      setSubmitting(false);
+      return;
+    }
 
-    const created = res?.data?.data ?? null;
+    const created = res?.data ?? null;
     const qrUrl = created?.qr_code ?? created?.qr ?? null;
     setQrData(qrUrl);
     setCurrentStep(3);

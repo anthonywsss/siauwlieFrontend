@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import API from "@/lib/api";
+import { safeGet, safePost } from "@/lib/fetcher";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useModalWatch } from "@/components/ModalContext";
 
@@ -28,8 +28,8 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
     let mounted = true;
     (async () => {
       try {
-        const res = await API.get("/roles");
-        const list: string[] = res?.data?.data ?? res?.data ?? [];
+        const res = await safeGet<{ data: string[] }>("/roles");
+        const list: string[] = res?.data ?? [];
         if (!mounted) return;
         if (Array.isArray(list) && list.length > 0) {
           setRoles(list);
@@ -90,13 +90,19 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
 
     setSubmitting(true);
     try {
-      await API.post("/users", {
+      const result = await safePost("/users", {
         username: username.trim(),
         full_name: fullName.trim(),
         employee_id: employeeId.trim(),
         role: role.trim(),
         password: password,
       });
+      
+      // If result is null, it means we were unauthorized and handled by the safePost function
+      if (result === null) {
+        return;
+      }
+      
       onCreated?.();
       // reset
       setUsername("");

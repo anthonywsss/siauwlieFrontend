@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { safePost } from "@/lib/fetcher";
+import API from "@/lib/api";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useModalWatch } from "@/components/ModalContext";
 
@@ -56,12 +56,11 @@ export default function DeleteAssetModal({ open, AllAsset, onClose, onDeleted }:
 
     try {
       console.log("Deleting asset with ID:", id);
-      // Using safePost since we need to send data in the request body
-      const result = await safePost(`/asset/${id}/delete`, { reason });
-      
-      // If result is null, it means we were unauthorized and handled by the safePost function
-      if (result === null) {
+      const res = await API.delete(`/asset/${id}`, { data: reason ? { reason } : {} });
+      const result = res?.data;
+      if (result === null || typeof result === "undefined") {
         setSubmitting(false);
+        setShowInfo(true);
         return;
       }
       

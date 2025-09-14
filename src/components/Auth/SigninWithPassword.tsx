@@ -43,43 +43,32 @@ export default function SigninWithPassword() {
   const pathname = usePathname();
   const hasRedirected = useRef(false);
 
-  // Compute where to redirect after login
-  const desiredNext = useMemo(() => {
-    const nextParam = sanitizeInternalPath(searchParams?.get("next"));
-    const role = auth?.user?.role;
-    const roleDefault = getDefaultRouteForRole(role);
-
-    if (nextParam && isAllowedForRole(nextParam, role)) return nextParam;
-    return roleDefault || "/";
-  }, [searchParams, auth?.user?.role]);
-
-  // Safe redirect to prevent infinite loops
   const safeReplace = (to: string) => {
     if (!to || to === pathname || hasRedirected.current) return;
     hasRedirected.current = true;
     router.replace(to);
   };
 
-  // Form submission handler
+  const getRedirectTarget = (role?: string) => {
+    const nextParam = sanitizeInternalPath(searchParams?.get("next"));
+    const roleDefault = getDefaultRouteForRole(role);
+    
+    if (nextParam && isAllowedForRole(nextParam, role)) return nextParam;
+    return roleDefault || "/";
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      await signIn(username, password);
-
-      // Only redirect if login is successful
-      const nextParam = sanitizeInternalPath(searchParams?.get("next"));
-      const role = auth?.user?.role;
-      const roleDefault = getDefaultRouteForRole(role);
-      const target =
-        (nextParam && isAllowedForRole(nextParam, role) && nextParam) ||
-        roleDefault ||
-        "/";
-
-      if (target !== pathname) {
-        safeReplace(target); // redirect safely
+      const user = await signIn(username, password);
+      
+      const target = getRedirectTarget(user?.role);
+      
+      if (target && target !== pathname) {
+        safeReplace(target);
       }
     } catch (err: any) {
       const serverMsg =
@@ -87,7 +76,7 @@ export default function SigninWithPassword() {
         err?.response?.data?.message ||
         err?.message;
       setError(serverMsg ?? "Login failed — check your credentials.");
-      setIsModalOpen(true); // show modal only on error
+      setIsModalOpen(true);
     } finally {
       setLoading(false);
     }
@@ -96,7 +85,7 @@ export default function SigninWithPassword() {
   const handleTryAgain = () => {
     setIsModalOpen(false);
     setError(null);
-    window.location.reload(); // Refresh page on Try Again
+    window.location.reload();
   };
 
   return (

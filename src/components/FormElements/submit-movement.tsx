@@ -195,11 +195,11 @@ export default function SubmitMovement() {
   const [fetchingAssetStatus, setFetchingAssetStatus] = useState(false);
   const [assetValid, setAssetValid] = useState(false);
 
-  // Access control state
+  // Access control
   const [showAccessDeniedModal, setShowAccessDeniedModal] = useState(false);
   const [accessDeniedMessage, setAccessDeniedMessage] = useState("");
 
-  // QR Scanner state
+  // QR Scanner
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
@@ -209,6 +209,12 @@ export default function SubmitMovement() {
   const scanIntervalRef = useRef<number | null>(null);
   const lastScanTimeRef = useRef<number>(0);
   const scanStartTimeRef = useRef<number | null>(null);
+
+  // Photo capture
+  const photoVideoRef = useRef<HTMLVideoElement | null>(null);
+  const photoCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [showPhotoCamera, setShowPhotoCamera] = useState(false);
+  const [photoFacingMode, setPhotoFacingMode] = useState<'environment' | 'user'>('environment');
 
   useEffect(() => {
     if (error) {
@@ -339,6 +345,70 @@ export default function SubmitMovement() {
     setTimeout(startScanner, 300);
   };
 
+  // Photo camera controls
+  const startPhotoCamera = async () => {
+    try {
+      setShowPhotoCamera(true);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: photoFacingMode,
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+        },
+        audio: false,
+      });
+      if (photoVideoRef.current) {
+        photoVideoRef.current.srcObject = stream;
+        photoVideoRef.current.setAttribute('playsinline', 'true');
+        await photoVideoRef.current.play();
+      }
+    } catch (err: any) {
+      console.error('Photo camera error:', err);
+      setError('Camera access denied or unavailable. Please enable camera permissions.');
+      setShowPhotoCamera(false);
+    }
+  };
+
+  const stopPhotoCamera = useCallback(() => {
+    if (photoVideoRef.current?.srcObject) {
+      (photoVideoRef.current.srcObject as MediaStream)
+        .getTracks()
+        .forEach((t) => t.stop());
+      photoVideoRef.current.srcObject = null;
+    }
+    setShowPhotoCamera(false);
+  }, []);
+
+  const togglePhotoCamera = async () => {
+    stopPhotoCamera();
+    setPhotoFacingMode(photoFacingMode === 'environment' ? 'user' : 'environment');
+    setTimeout(startPhotoCamera, 300);
+  };
+
+  const capturePhoto = async () => {
+    try {
+      const video = photoVideoRef.current;
+      const canvas = photoCanvasRef.current;
+      if (!video || !canvas) return;
+      if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      setPhotoBase64(dataUrl);
+      setSuccess('Foto berhasil diambil!');
+      stopPhotoCamera();
+    } catch (err: any) {
+      console.error('Capture photo error:', err);
+      setError('Gagal mengambil foto. Coba lagi.');
+    }
+  };
+
   const startScanLoop = useCallback(() => {
     const scanFrame = async () => {
       if (!videoRef.current || !canvasRef.current || !overlayRef.current) {
@@ -433,8 +503,9 @@ export default function SubmitMovement() {
   useEffect(() => {
     return () => {
       stopScanner();
+      stopPhotoCamera();
     };
-  }, [stopScanner]);
+  }, [stopScanner, stopPhotoCamera]);
 
   const takeLocation = () => {
     return new Promise<void>((resolve) => {
@@ -1107,44 +1178,92 @@ export default function SubmitMovement() {
                   />
                 </div>
 
-                {/* Photo Upload */}
+                {/* Photo Capture */}
                 <div className="md:col-span-2">
                   <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
                     Bukti Foto <span className="text-red-500">*</span>
                   </label>
-                  <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
-                    <label className="flex-1 cursor-pointer">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={onPhotoChange}
-                        className="hidden"
-                      />
-                      <div className={`border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${
-                        photoBase64 
-                          ? 'border-green-300 bg-green-50 hover:border-green-400' 
-                          : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
-                      }`}>
+
+                  {showPhotoCamera ? (
+                    <div className="border-2 border-dashed border-blue-300 rounded-xl p-3 sm:p-4 md:p-6 relative overflow-hidden animate-expandScanner bg-gradient-to-br from-blue-50 to-indigo-50">
+                      <div className="relative">
+                        <video
+                          ref={photoVideoRef}
+                          className="w-full h-48 sm:h-64 md:h-80 lg:h-96 object-cover rounded-lg shadow-lg"
+                          playsInline
+                          muted
+                        />
+                        <canvas ref={photoCanvasRef} className="hidden" />
+
+                        {/* Close button */}
+                        <button
+                          onClick={stopPhotoCamera}
+                          className="absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 p-1.5 sm:p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-300 animate-fadeInDelay shadow-lg hover:shadow-xl transform hover:scale-105"
+                        >
+                          <X className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                        </button>
+
+                        {/* Switch camera */}
+                        <button
+                          onClick={togglePhotoCamera}
+                          className="absolute top-8 right-2 sm:top-12 sm:right-3 md:top-16 md:right-4 p-1.5 sm:p-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-all duration-300 animate-fadeInDelay shadow-lg hover:shadow-xl transform hover:scale-105"
+                        >
+                          <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                        </button>
+
+                        {/* Capture button */}
+                        <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center">
+                          <button
+                            onClick={capturePhoto}
+                            className="w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full bg-white/90 border-4 border-white shadow-xl hover:shadow-2xl flex items-center justify-center hover:bg-white transition-all duration-300 transform hover:scale-105"
+                            title="Ambil Foto"
+                          >
+                            <Camera className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row sm:items-start space-y-4 sm:space-y-0 sm:space-x-4">
+                      <button
+                        type="button"
+                        onClick={startPhotoCamera}
+                        className={`flex-1 border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${
+                          photoBase64 
+                            ? 'border-green-300 bg-green-50 hover:border-green-400' 
+                            : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
+                        }`}
+                      >
                         <Camera className={`w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 transition-colors ${
                           photoBase64 ? 'text-green-500' : 'text-gray-400'
                         }`} />
                         <div className={`text-sm sm:text-base transition-colors ${
                           photoBase64 ? 'text-green-700' : 'text-gray-600'
                         }`}>
-                          {photoBase64 ? "Ubah Foto" : "Unggah/Ambil Foto *"}
+                          {photoBase64 ? 'Ambil Ulang Foto' : 'Ambil Foto *'}
                         </div>
-                      </div>
-                    </label>
-                    {photoBase64 && (
-                      <div className="flex-1">
-                        <img
-                          src={photoBase64}
-                          alt="Preview"
-                          className="w-full h-32 object-cover rounded-lg border shadow-sm"
-                        />
-                      </div>
-                    )}
-                  </div>
+                      </button>
+
+                      {photoBase64 && (
+                        <div className="flex-1">
+                          <img
+                            src={photoBase64}
+                            alt="Preview"
+                            className="w-full h-32 object-cover rounded-lg border shadow-sm"
+                          />
+                          <div className="mt-2">
+                            <button
+                              type="button"
+                              onClick={startPhotoCamera}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                              Ambil Ulang
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Location Capture */}

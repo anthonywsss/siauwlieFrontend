@@ -4,7 +4,6 @@ import React, { useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/Auth/auth-context";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import LoginFailModal from "@/components/LoginModal";
-import { useEffect } from "react";
 
 const DEFAULT_ROUTE_BY_ROLE: Record<string, string> = {
   driver: "/submit-movement",
@@ -44,17 +43,6 @@ export default function SigninWithPassword() {
   const pathname = usePathname();
   const hasRedirected = useRef(false);
 
-  useEffect(() => {
-    if (isModalOpen) {
-      const timer = setTimeout(() => {
-        setIsModalOpen(false); 
-        setError(null);        
-      }, 10000); 
-      
-      return () => clearTimeout(timer);
-    }
-  }, [isModalOpen]);
-
   // Compute where to redirect after login
   const desiredNext = useMemo(() => {
     const nextParam = sanitizeInternalPath(searchParams?.get("next"));
@@ -69,7 +57,7 @@ export default function SigninWithPassword() {
   const safeReplace = (to: string) => {
     if (!to || to === pathname || hasRedirected.current) return;
     hasRedirected.current = true;
-    // router.replace(to);
+    router.replace(to);
   };
 
   // Form submission handler
@@ -79,13 +67,7 @@ export default function SigninWithPassword() {
     setError(null);
 
     try {
-      const result = await signIn(username, password);
-      if (result.error) {
-        setError(result.error);
-        setIsModalOpen(true);
-        setLoading(false);
-        return; // stop further execution
-      }
+      await signIn(username, password);
 
       // Only redirect if login is successful
       const nextParam = sanitizeInternalPath(searchParams?.get("next"));
@@ -106,12 +88,10 @@ export default function SigninWithPassword() {
         err?.message;
       setError(serverMsg ?? "Login failed — check your credentials.");
       setIsModalOpen(true); // show modal only on error
-      return;
     } finally {
       setLoading(false);
     }
   };
-
   
 
   return (

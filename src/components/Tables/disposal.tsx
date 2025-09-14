@@ -31,135 +31,99 @@ export type datas = {
   raw?: RawDisposal;
 };
 
-function generatePages(current: number, total: number) {
-  const delta = 1;
-  const range: number[] = [];
-  for (let i = Math.max(1, current - delta); i <= Math.min(total, current + delta); i++)
-    range.push(i);
-
-  const pages: (number | string)[] = [];
-  if (1 < current - delta - 1) {
-    pages.push(1);
-    if (2 < current - delta) pages.push("...");
-  } else {
-    for (let i = 1; i < Math.max(1, current - delta); i++) pages.push(i);
-  }
-
-  pages.push(...range);
-
-  if (current + delta + 1 < total) {
-    pages.push("...");
-    pages.push(total);
-  } else {
-    for (let i = Math.max(current + delta + 1, (pages[pages.length - 1] as number) + 1); i <= total; i++)
-      pages.push(i);
-  }
-
-  return Array.from(new Set(pages));
-}
 
 export default function DisposalHistory() {
   const [data, setData] = useState<RawDisposal[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // pagination & search
-  const [perPage, setPerPage] = useState<number>(10);
-  const [page, setPage] = useState<number>(1);
-  const [goto, setGoto] = useState<string>("");
-  const [query, setQuery] = useState<string>("");
-
-  const [total, setTotal] = useState<number>(0);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [datas, setdatas] = useState<datas[]>([]);
 
-  const totalPages = Math.max(1, Math.ceil(total / perPage));
-  const pages = useMemo(() => generatePages(page, totalPages), [page, totalPages]);
+  
+// these are pagination states
+  const [page, setPage] = useState(1);        // current page
+  const [perPage, setPerPage] = useState(10); // rows per page
+  const [total, setTotal] = useState(0);      // total items (from backend)
+  const totalPages = Math.ceil(total / perPage);
 
+  function getPages(current: number, totalPages: number): (number | string)[] {
+  const delta = 2; // how many pages before/after current
+  const range: (number | string)[] = [];
+  const rangeWithDots: (number | string)[] = [];
+  let l: number | undefined;
+
+  for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= current - delta && i <= current + delta)) {
+        range.push(i);
+      }
+    }
+
+    for (let i of range) {
+      if (l) {
+        if (Number(i) - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (Number(i) - l > 2) {
+          rangeWithDots.push("...");
+        }
+      }
+      rangeWithDots.push(i);
+      l = Number(i);
+    }
+
+    return rangeWithDots;
+  }
+
+  const pages = getPages(page, totalPages);
+  
   useEffect(() => {
     let mounted = true;
-    const fetchDisposals = async () => {
+    setLoading(true);
+    setError(null);
+  
+    (async () => {
       try {
-        setLoading(true);
-        setError(null);
-        const res = await safeGet<{ data: RawDisposal[] }>("/disposal-history?limit=20&offset=0");
+        const params: Record<string, any> = {
+          limit: perPage,
+          offset: (page - 1) * perPage,
+        };
+ 
+        const queryString = new URLSearchParams(params).toString();
+  
+        const res = await safeGet<{ data: RawDisposal[]; meta?: { total?: number } }>(
+          `/disposal-history?${queryString}`
+        );
         if (!mounted) return;
-        const types: RawDisposal[] = res?.data ?? [];
-        setData(types);
+  
+        if (res === null) {
+          setError("Failed to fetch assets");
+          setData([]);
+          setTotal(0);
+        } else {
+          setData(Array.isArray(res.data) ? res.data : []);
+          setTotal(res.meta?.total ?? 0); // backend should return total count
+        }
       } catch (err: any) {
         if (!mounted) return;
-        setError(err?.message || "Failed to fetch disposal history");
+        setError(err?.message ?? "Failed to fetch assets");
+        setData([]);
+        setTotal(0);
       } finally {
         if (mounted) setLoading(false);
       }
+    })();
+  
+    return () => {
+      mounted = false;
     };
-
-    fetchDisposals();
-    return () => { mounted = false; };
-  }, []);
-
-  useEffect(() => {
-    const q = query.trim().toLowerCase();
-    const filtered = data.filter((t) => {
-      if (!q) return true;
-      const assetId = String(t.asset_id ?? "").toLowerCase();
-      return assetId.includes(q);
-    });
-
-    const totalCount = filtered.length;
-    setTotal(totalCount);
-    const validPage = Math.max(1, Math.min(Math.max(1, Math.ceil(totalCount / perPage)), page));
-    if (validPage !== page) setPage(validPage);
-    const start = (validPage - 1) * perPage;
-    const pageSlice = filtered.slice(start, start + perPage);
-
-    const mapped: datas[] = pageSlice.map((t) => ({
-      id: String(t.id ?? Math.random().toString(36).slice(2, 9)),
-      asset_id: t.asset_id ?? "-",
-      reason: t.reason ?? "-",
-      disposed_at: t.disposed_at ?? "-",
-      disposed_by: t.disposed_by ?? "-",
-      raw: t,
-    }));
-
-    setdatas(mapped);
-  }, [data, query, page, perPage]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [perPage, query]);
-
-  function goToPageNumber(n: number | string) {
-    if (typeof n === "number") setPage(Math.max(1, Math.min(totalPages, n)));
-  }
-
-  function handleGotoSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const n = parseInt(goto, 10);
-    if (!isNaN(n)) {
-      setPage(Math.max(1, Math.min(totalPages, n)));
-      setGoto("");
-    }
-  }
-
+  }, [page, perPage, refreshKey]);
   return (
     <>
-      {/* Search Bar and Total */}
+      {/* Total */}
       <div className="rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:p-7.5">
-        <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <input
-              placeholder="Search Container ID"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="h-10 rounded border px-3 py-2 w-full md:w-96"
-            />
-          </div>
-
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} disposed assets`}</div>
-          </div>
+       <div className="mb-4 flex justify-end">
+        <div className="text-sm text-gray-500">
+          {loading ? "Loading..." : `${total} disposed assets`}
         </div>
+      </div>
 
         {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">{error}</div>}
 
@@ -183,14 +147,14 @@ export default function DisposalHistory() {
                     Loading...
                   </TableCell>
                 </TableRow>
-              ) : datas.length === 0 ? (
+              ) : data.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-6">
                     No data available.
                   </TableCell>
                 </TableRow>
               ) : (
-                datas.map((item, index) => (
+                data.map((item, index) => (
                   <TableRow key={index} className="border-[#eee] dark:border-dark-3">
                     <TableCell className="min-w-[155px] xl:pl-7.5">
                       <h5 className="text-dark">{item.asset_id ?? "-"}</h5>
@@ -200,7 +164,9 @@ export default function DisposalHistory() {
                     </TableCell>
                     <TableCell>
                       <p className="text-dark">
-                        {item.disposed_at ? dayjs(item.disposed_at).format("MMM DD, YYYY - HH:mm") : "-"}
+                        {item.disposed_at
+                          ? dayjs(item.disposed_at).format("MMM DD, YYYY - HH:mm")
+                          : "-"}
                       </p>
                     </TableCell>
                     <TableCell>
@@ -210,68 +176,56 @@ export default function DisposalHistory() {
                 ))
               )}
             </TableBody>
+
           </Table>
           {/* Pagination */}
-          <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-4 flex-wrap">
-              <span className="text-sm text-gray-500">Rows per page</span>
-              <select
-                value={perPage}
-                onChange={(e) => {
-                  setPerPage(Number(e.target.value));
-                  setPage(1);
-                }}
-                className="rounded border px-3 py-1.5"
-              >
-                {[5, 10, 20, 50, 100].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-              <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">Go to page</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={totalPages}
-                  value={goto}
-                  onChange={(e) => setGoto(e.target.value)}
-                  className="w-16 rounded border px-2 py-1"
-                />
-                <button type="submit" className="rounded border px-3 py-1">
-                  Go
-                </button>
-              </form>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded border px-3 py-1 disabled:opacity-50">
-                &lt;
-              </button>
-              {pages.map((p, i) =>
-                p === "..." ? (
-                  <span key={`dot-${i}`} className="px-2">
-                    …
-                  </span>
-                ) : (
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
-                    key={p}
-                    onClick={() => goToPageNumber(p)}
-                    className={cn("rounded border px-3 py-1 min-w-[36px] md:min-w-[40px]", { "ring-2 ring-blue-400 bg-white": p === page })}
-                    aria-current={p === page ? "page" : undefined}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="rounded border px-3 py-1 disabled:opacity-50"
                   >
-                    {p}
+                    &lt;
                   </button>
-                )
-              )}
-              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="rounded border px-3 py-1 disabled:opacity-50">
-                &gt;
-              </button>
-              <div className="ml-3 text-sm text-gray-500">
-                {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} of {total}
-              </div>
-            </div>
-          </div>
+          
+                  {pages.map((p, i) =>
+                    p === "..." ? (
+                      <span key={`dot-${i}`} className="px-2">
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => setPage(Number(p))}
+                        className={cn(
+                          "rounded border px-3 py-1 min-w-[36px] md:min-w-[40px]",
+                          { "ring-2 ring-blue-400 bg-white": p === page }
+                        )}
+                        aria-current={p === page ? "page" : undefined}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+          
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="rounded border px-3 py-1 disabled:opacity-50"
+                  >
+                    &gt;
+                  </button>
+          
+                  <div className="ml-3 text-sm text-gray-500">
+                    {total === 0
+                      ? "0"
+                      : `${Math.min((page - 1) * perPage + 1, total)}–${Math.min(
+                          page * perPage,
+                          total
+                        )}`}{" "}
+                    of {total}
+                  </div>
+                </div>
         </div>
         {/* Mobile List Cards */}
         <div className="md:hidden">
@@ -279,15 +233,15 @@ export default function DisposalHistory() {
             ? Array.from({ length: perPage }).map((_, i) => (
                 <div key={`skeleton-card-${i}`} className="animate-pulse border rounded-lg p-3 mb-3 bg-gray-50" />
               ))
-            : datas.map((item, index) => (
+            : data.map((item, index) => (
                 <div key={index} className="border rounded-lg p-4 mb-3 bg-white dark:bg-gray-dark dark:border-dark-3 shadow-sm">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="text-sm text-gray-500 dark:text-gray-300">Container ID</div>
-                      <div className="text-base font-medium text-dark">{item.id}</div>
+                      <div className="text-base font-medium text-dark">{item.asset_id ?? "-"}</div>
 
                       <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Reason</div>
-                      <div className="text-base text-dark">{item.reason}</div>
+                      <div className="text-base text-dark">{item.reason ?? "-"}</div>
 
                       <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Recorded At</div>
                       <div className="text-base text-dark">
@@ -295,11 +249,10 @@ export default function DisposalHistory() {
                       </div>
 
                       <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Disposed By</div>
-                      <div className="text-base text-dark">{item.disposed_by}</div>
+                      <div className="text-base text-dark">{item.disposed_by ?? "-"}</div>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">
-                    {/* Action button */}
                     <a href="#">
                       <button className="bg-primary text-white px-3 py-1 rounded-md mt-2 text-sm">
                         View History
@@ -309,6 +262,7 @@ export default function DisposalHistory() {
                 </div>
               ))}
         </div>
+
       </div>
     </>
   );

@@ -20,8 +20,18 @@ const nextConfig = {
       },
     ],
   },
+
   devIndicators: {
-    position: "bottom-right", // or 'bottom-right', 'top-left', 'top-right'
+    buildActivity: false,
+  },
+
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: "http://103.197.190.167:8080/:path*",
+      },
+    ];
   },
 };
 

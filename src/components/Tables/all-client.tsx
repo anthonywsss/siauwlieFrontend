@@ -40,45 +40,50 @@ type Item = {
   raw?: RawClient;
 };
 
-function generatePages(current: number, total: number) {
-  const delta = 1;
-  const range: number[] = [];
-  for (let i = Math.max(1, current - delta); i <= Math.min(total, current + delta); i++) range.push(i);
-
-  const pages: (number | string)[] = [];
-  if (1 < current - delta - 1) {
-    pages.push(1);
-    if (2 < current - delta) pages.push("...");
-  } else {
-    for (let i = 1; i < Math.max(1, current - delta); i++) pages.push(i);
-  }
-
-  pages.push(...range);
-
-  if (current + delta + 1 < total) {
-    pages.push("...");
-    pages.push(total);
-  } else {
-    for (let i = Math.max(current + delta + 1, (pages[pages.length - 1] as number) + 1); i <= total; i++) pages.push(i);
-  }
-
-  return Array.from(new Set(pages));
-}
-
 export default function AllClientsPage() {
   const { signOut } = useAuth();
   const router = useRouter();
 
-  // pagination & search
-  const [perPage, setPerPage] = useState<number>(10);
-  const [page, setPage] = useState<number>(1);
-  const [goto, setGoto] = useState<string>("");
-  const [query, setQuery] = useState<string>("");
+  // these are pagination states
+    const [page, setPage] = useState(1);        // current page
+    const [perPage, setPerPage] = useState(10); // rows per page
+    const [total, setTotal] = useState(0);      // total items (from backend)
+    const totalPages = Math.ceil(total / perPage);
+  
+    function getPages(current: number, totalPages: number): (number | string)[] {
+    const delta = 2; // how many pages before/after current
+    const range: (number | string)[] = [];
+    const rangeWithDots: (number | string)[] = [];
+    let l: number | undefined;
+  
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= current - delta && i <= current + delta)) {
+          range.push(i);
+        }
+      }
+  
+      for (let i of range) {
+        if (l) {
+          if (Number(i) - l === 2) {
+            rangeWithDots.push(l + 1);
+          } else if (Number(i) - l > 2) {
+            rangeWithDots.push("...");
+          }
+        }
+        rangeWithDots.push(i);
+        l = Number(i);
+      }
+  
+      return rangeWithDots;
+    }
+  
+    const pages = getPages(page, totalPages);
+    const [data, setData] = useState<RawClient[]>([])  
+    const [query, setQuery] = useState<string>("");
 
   // data state
   const [allClients, setAllClients] = useState<RawClient[]>([]);
   const [items, setItems] = useState<Item[]>([]);
-  const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -88,9 +93,6 @@ export default function AllClientsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [deletingRaw, setDeletingRaw] = useState<RawClient | null>(null);
-
-  const totalPages = Math.max(1, Math.ceil(total / perPage));
-  const pages = useMemo(() => generatePages(page, totalPages), [page, totalPages]);
 
   useEffect(() => {
     let mounted = true;
@@ -125,59 +127,61 @@ export default function AllClientsPage() {
   }, [refreshKey, signOut, router]);
 
   useEffect(() => {
-    // filter
-    const q = query.trim().toLowerCase();
-    const filtered = (allClients ?? []).filter((c) => {
-      if (!q) return true;
-      const fields = [
-        String(c.id ?? ""),
-        String(c.name ?? ""),
-        String(c.address ?? ""),
-        String(c.contact_person ?? ""),
-        String(c.phone ?? ""),
-      ];
-      return fields.some((f) => f.toLowerCase().includes(q));
-    });
+    let mounted = true;
+    setLoading(true);
+    setError(null);
+  
+    (async () => {
+      try {
+        const params: Record<string, any> = {
+          limit: perPage,
+          offset: (page - 1) * perPage,
+        };
+  
+        if (query && query.trim() !== "") params.search = query.trim();
+  
+        const queryString = new URLSearchParams(params).toString();
+  
+        const res = await safeGet<{ data: RawClient[]; meta?: { total?: number } }>(
+          `/clients?${queryString}`
+        );
+        if (!mounted) return;
+  
+        if (res === null) {
+          setError("Failed to fetch assets");
+          setData([]);
+          setItems([]);
+          setTotal(0);
+        } else {
+          setData(Array.isArray(res.data) ? res.data : []);
+          const mapped: Item[] = (res.data ?? []).map((raw) => ({
+            id: String(raw.id ?? ""),
+            name: raw.name ?? "",
+            address: raw.address ?? "",
+            personInCharge: raw.contact_person ?? "",
+            phone: raw.phone ?? "",
+            description: raw.description ?? "",
+            createdAt: raw.created_at ?? "",
+            raw,
+          }));
 
-    const totalCount = filtered.length;
-    setTotal(totalCount);
-    const validPage = Math.max(1, Math.min(Math.max(1, Math.ceil(totalCount / perPage)), page));
-    if (validPage !== page) setPage(validPage);
-    const start = (validPage - 1) * perPage;
-    const pageSlice = filtered.slice(start, start + perPage);
-
-    const mapped: Item[] = pageSlice.map((c) => ({
-      id: String(c.id ?? Math.random().toString(36).slice(2, 9)),
-      name: c.name ?? "-",
-      address: c.address ?? "-",
-      personInCharge: (c.contact_person ?? c.contactPerson ?? "-") as string,
-      phone: c.phone ?? "-",
-      description: c.description ?? "-",
-      createdAt: c.created_at ?? "-",
-      raw: c,
-    }));
-
-    setItems(mapped);
-  }, [allClients, query, page, perPage]);
-
-  // when reset page to 1
-  useEffect(() => {
-    setPage(1);
-  }, [perPage, query]);
-
-  // pagination
-  function goToPageNumber(n: number | string) {
-    if (typeof n === "number") setPage(Math.max(1, Math.min(totalPages, n)));
-  }
-
-  function handleGotoSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const n = parseInt(goto, 10);
-    if (!isNaN(n)) {
-      setPage(Math.max(1, Math.min(totalPages, n)));
-      setGoto("");
-    }
-  }
+        setItems(mapped);    
+        setTotal(res.meta?.total ?? 0);
+        }
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message ?? "Failed to fetch assets");
+        setData([]);
+        setTotal(0);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+  
+    return () => {
+      mounted = false;
+    };
+  }, [page, perPage, query, refreshKey]);
 
   // Delete client
   async function handleDelete(rawId?: number | string) {
@@ -230,15 +234,13 @@ export default function AllClientsPage() {
       {/* Header */}
       <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <input
-            placeholder="Search ID/ Name/ Address"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-            }}
-            className="h-10 rounded border px-3 py-2 w-full md:w-96"
-          />
-        </div>
+              <input
+                placeholder="Search ID"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="h-10 rounded border px-3 py-2 w-full md:w-96"
+              />
+            </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} clients`}</div>
@@ -396,70 +398,53 @@ export default function AllClientsPage() {
       </div>
 
       {/* Pagination */}
-      <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-4 flex-wrap">
-          <span className="text-sm text-gray-500">Row per page</span>
-          <select
-            value={perPage}
-            onChange={(e) => {
-              setPerPage(Number(e.target.value));
-            }}
-            className="rounded border px-3 py-1.5"
-          >
-            {[5, 10, 20, 50, 100].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-
-          <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Go to page</span>
-            <input
-              type="number"
-              min={1}
-              max={totalPages}
-              value={goto}
-              onChange={(e) => setGoto(e.target.value)}
-              className="w-16 rounded border px-2 py-1"
-            />
-            <button type="submit" className="rounded border px-3 py-1">
-              Go
-            </button>
-          </form>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded border px-3 py-1 disabled:opacity-50">
-            &lt;
-          </button>
-
-          {pages.map((p, i) =>
-            p === "..." ? (
-              <span key={`dot-${i}`} className="px-2">
-                …
-              </span>
-            ) : (
+            <div className="flex items-center gap-2 flex-wrap">
               <button
-                key={p}
-                onClick={() => goToPageNumber(p)}
-                className={cn("rounded border px-3 py-1 min-w-[36px] md:min-w-[40px]", { "ring-2 ring-blue-400 bg-white": p === page })}
-                aria-current={p === page ? "page" : undefined}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="rounded border px-3 py-1 disabled:opacity-50"
               >
-                {p}
+                &lt;
               </button>
-            )
-          )}
-
-          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="rounded border px-3 py-1 disabled:opacity-50">
-            &gt;
-          </button>
-
-          <div className="ml-3 text-sm text-gray-500">
-            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} of {total}
-          </div>
-        </div>
-      </div>
+      
+              {pages.map((p, i) =>
+                p === "..." ? (
+                  <span key={`dot-${i}`} className="px-2">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(Number(p))}
+                    className={cn(
+                      "rounded border px-3 py-1 min-w-[36px] md:min-w-[40px]",
+                      { "ring-2 ring-blue-400 bg-white": p === page }
+                    )}
+                    aria-current={p === page ? "page" : undefined}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+      
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="rounded border px-3 py-1 disabled:opacity-50"
+              >
+                &gt;
+              </button>
+      
+              <div className="ml-3 text-sm text-gray-500">
+                {total === 0
+                  ? "0"
+                  : `${Math.min((page - 1) * perPage + 1, total)}–${Math.min(
+                      page * perPage,
+                      total
+                    )}`}{" "}
+                of {total}
+              </div>
+            </div>
 
       {error && <div className="mt-3 text-red-600">{error}</div>}
 

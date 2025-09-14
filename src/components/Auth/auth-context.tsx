@@ -14,6 +14,7 @@ type User = {
 
 type AuthContextType = {
   user: User | null;
+  token: string | null;
   loading: boolean;
   signIn: (username: string, password: string) => Promise<User | null>;
   signUp: (payload: Record<string, any>) => Promise<User | null>;
@@ -25,14 +26,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // Hydrate user dari localStorage saat pertama kali load
+  // Hydrate user + token from localStorage
   useEffect(() => {
     try {
       const rawUser = localStorage.getItem("user");
+      const rawToken = localStorage.getItem("token");
       if (rawUser) setUser(JSON.parse(rawUser));
+      if (rawToken) setToken(rawToken);
     } catch (e) {
       console.warn("Auth hydration failed", e);
     } finally {
@@ -40,24 +44,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Persist user + token ke localStorage
+  // Persist user + token to localStorage
   const persist = (token: string | null, userObj: User | null) => {
     if (token) {
       localStorage.setItem("token", token);
+      setToken(token);
     } else {
       localStorage.removeItem("token");
+      setToken(null);
     }
 
     if (userObj) {
       localStorage.setItem("user", JSON.stringify(userObj));
+      setUser(userObj);
     } else {
       localStorage.removeItem("user");
+      setUser(null);
     }
-
-    setUser(userObj);
   };
 
-  // Extract token + user dari API response
+  // Extract token + user from API response
   const extractTokenAndUser = (resData: any): { token: string | null; userObj: User | null } => {
     const dataArray = resData?.data;
     const token =
@@ -78,31 +84,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Login
   const signIn: AuthContextType["signIn"] = async (username, password) => {
-    setLoading(true);
-    try {
-      const res = await safePost("/login", { username, password });
-      // If result is null, it means we were unauthorized and handled by the safePost function
-      if (res === null) {
-        return null;
-      }
-      const { token, userObj } = extractTokenAndUser(res);
-      if (!token) throw new Error("Token missing from login response");
-      persist(token, userObj);
-      return userObj;
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  try {
+    const res = await safePost("/login", { username, password });
+    
+    if (!res) throw new Error("No response from server");
+
+    // Assuming your API returns a status or success flag
+    if (res?.status === "error" || !res?.data?.[0]?.token) {
+      const msg = res?.message || "Invalid username or password";
+      throw new Error(msg);
     }
-  };
+
+    const { token, userObj } = extractTokenAndUser(res);
+    persist(token, userObj);
+    return userObj;
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Register
   const signUp: AuthContextType["signUp"] = async (payload) => {
     setLoading(true);
     try {
-      const res = await safePost("/register", payload);
-      // If result is null, it means we were unauthorized and handled by the safePost function
-      if (res === null) {
-        return null;
-      }
+      const res = await safePost("/register", payload); // ✅ changed from /SigninWithPassword
+      if (res === null) return null;
+
       const { token, userObj } = extractTokenAndUser(res);
       if (!token) throw new Error("Token missing from signup response");
       persist(token, userObj);
@@ -112,17 +120,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Manual sign out
+  // Sign out
   const signOut = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setUser(null);
+    persist(null, null);
     router.push("/auth/sign-in");
   };
 
-
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, setUser }}>
+    <AuthContext.Provider value={{ user, token, loading, signIn, signUp, signOut, setUser }}>
       {children}
     </AuthContext.Provider>
   );

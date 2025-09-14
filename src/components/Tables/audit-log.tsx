@@ -38,206 +38,121 @@ type Item = {
   raw?: RawAudit;
 };
 
-function generatePages(current: number, total: number) {
-  const delta = 1;
-  const range: number[] = [];
-  for (let i = Math.max(1, current - delta); i <= Math.min(total, current + delta); i++)
-    range.push(i);
-
-  const pages: (number | string)[] = [];
-  if (1 < current - delta - 1) {
-    pages.push(1);
-    if (2 < current - delta) pages.push("...");
-  } else {
-    for (let i = 1; i < Math.max(1, current - delta); i++) pages.push(i);
-  }
-
-  pages.push(...range);
-
-  if (current + delta + 1 < total) {
-    pages.push("...");
-    pages.push(total);
-  } else {
-    for (let i = Math.max(current + delta + 1, (pages[pages.length - 1] as number) + 1); i <= total; i++)
-      pages.push(i);
-  }
-
-  return Array.from(new Set(pages));
-}
-
 export default function AuditLog() {
   const { signOut } = useAuth();
   const router = useRouter();
 
-  // pagination & search
-  const [perPage, setPerPage] = useState<number>(10);
-  const [page, setPage] = useState<number>(1);
-  const [goto, setGoto] = useState<string>("");
-  const [query, setQuery] = useState<string>("");
+  // these are pagination states
+      const [page, setPage] = useState(1);        // current page
+      const [perPage, setPerPage] = useState(10); // rows per page
+      const [total, setTotal] = useState(0);      // total items (from backend)
+      const totalPages = Math.ceil(total / perPage);
+    
+      function getPages(current: number, totalPages: number): (number | string)[] {
+      const delta = 2; // how many pages before/after current
+      const range: (number | string)[] = [];
+      const rangeWithDots: (number | string)[] = [];
+      let l: number | undefined;
+    
+      for (let i = 1; i <= totalPages; i++) {
+          if (i === 1 || i === totalPages || (i >= current - delta && i <= current + delta)) {
+            range.push(i);
+          }
+        }
+    
+        for (let i of range) {
+          if (l) {
+            if (Number(i) - l === 2) {
+              rangeWithDots.push(l + 1);
+            } else if (Number(i) - l > 2) {
+              rangeWithDots.push("...");
+            }
+          }
+          rangeWithDots.push(i);
+          l = Number(i);
+        }
+    
+        return rangeWithDots;
+      }
+    
+      const pages = getPages(page, totalPages);
+      const [data, setData] = useState<RawAudit[]>([])  
+      const [query, setQuery] = useState<string>("");
 
   // data state
   const [items, setItems] = useState<Item[]>([]);
-  const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-
-  const totalPages = Math.max(1, Math.ceil(total / perPage));
-  const pages = useMemo(() => generatePages(page, totalPages), [page, totalPages]);
   
   useEffect(() => {
-    let mounted = true;
-    setLoading(true);
-    setError(null);
-
-    const offset = Math.max(0, (page - 1) * perPage);
-
-    (async () => {
-      try {
-        // Build query string with parameters
-        const buildUrl = (baseUrl: string, params: Record<string, string | number>) => {
-          const query = new URLSearchParams();
-          Object.entries(params).forEach(([key, value]) => {
-            if (value !== undefined && value !== null && value !== '') {
-              query.append(key, String(value));
-            }
-          });
-          return query.toString() ? `${baseUrl}?${query.toString()}` : baseUrl;
-        };
-
-        if (query && query.trim() !== "") {
-          // 1) Find ID
-          try {
-            const idUrl = buildUrl("/audit-trail", {
-              limit: perPage,
-              offset,
-              id: query.trim(),
-            });
-            const idRes = await safeGet<{ data: RawAudit[]; meta?: { total?: number } }>(idUrl);
-
-            if (!mounted) return;
-
-            if (idRes && Array.isArray(idRes.data) && idRes.data.length > 0) {
-              const mapped: Item[] = idRes.data.map((r) => ({
-                id: String(r.id ?? r.record_id ?? Math.random().toString(36).slice(2, 9)),
-                action: String(r.action ?? "-"),
-                tableName: String(r.table_name ?? r.table ?? "-"),
-                recordId: String(r.record_id ?? r.recordId ?? "-"),
-                userId: String(r.user_id ?? r.userId ?? "-"),
-                timestamp: String(r.created_at ?? r.timestamp ?? "-"),
-                raw: r,
-              }));
-
-              setItems(mapped);
-              const idTotal: number = Number(idRes?.meta?.total ?? idRes.data.length ?? 0);
-              setTotal(Number.isFinite(idTotal) ? idTotal : mapped.length);
-              return; // ID found ;0
-            }
-
-          } catch (idErr) {
-            // ID search failed, continue with general search
-          }
-
-          const searchUrl = buildUrl("/audit-trail", {
+      let mounted = true;
+      setLoading(true);
+      setError(null);
+    
+      (async () => {
+        try {
+          const params: Record<string, any> = {
             limit: perPage,
-            offset,
-            q: query.trim(),
-          });
-          const res = await safeGet<{ data: RawAudit[]; meta?: { total?: number } }>(searchUrl);
-
+            offset: (page - 1) * perPage,
+          };
+    
+          if (query && query.trim() !== "") params.search = query.trim();
+    
+          const queryString = new URLSearchParams(params).toString();
+    
+          const res = await safeGet<{ data: RawAudit[]; meta?: { total?: number } }>(
+            `/audit-trail?${queryString}`
+          );
           if (!mounted) return;
+    
+          if (res === null) {
+            setError("Failed to fetch assets");
+            setData([]);
+            setItems([]);
+            setTotal(0);
+          } else {
+            setData(Array.isArray(res.data) ? res.data : []);
+            const mapped: Item[] = (res.data ?? []).map((raw: RawAudit) => ({
+              id: String(raw.id ?? ""),           
+              action: raw.action ?? "",           
+              tableName: raw.table_name ?? "",    
+              recordId: String(raw.record_id ?? ""), 
+              userId: String(raw.user_id ?? ""),     
+              timestamp: raw.created_at ?? "",    
+              raw,                               
+            }));
 
-          const rawData: RawAudit[] = res?.data ?? [];
-          const metaTotal: number = Number(res?.meta?.total ?? rawData.length ?? 0);
-
-          const mapped: Item[] = (Array.isArray(rawData) ? rawData : []).map((r) => ({
-            id: String(r.id ?? r.record_id ?? Math.random().toString(36).slice(2, 9)),
-            action: String(r.action ?? "-"),
-            tableName: String(r.table_name ?? r.table ?? "-"),
-            recordId: String(r.record_id ?? r.recordId ?? "-"),
-            userId: String(r.user_id ?? r.userId ?? "-"),
-            timestamp: String(r.created_at ?? r.timestamp ?? "-"),
-            raw: r,
-          }));
-
-          setItems(mapped);
-          setTotal(Number.isFinite(metaTotal) ? metaTotal : mapped.length);
-          return;
+  
+          setItems(mapped);    
+          setTotal(res.meta?.total ?? 0);
+          }
+        } catch (err: any) {
+          if (!mounted) return;
+          setError(err?.message ?? "Failed to fetch assets");
+          setData([]);
+          setTotal(0);
+        } finally {
+          if (mounted) setLoading(false);
         }
-
-        const url = buildUrl("/audit-trail", {
-          limit: perPage,
-          offset,
-        });
-        const res = await safeGet<{ data: RawAudit[]; meta?: { total?: number } }>(url);
-
-        if (!mounted) return;
-
-        const rawData: RawAudit[] = res?.data ?? [];
-        const metaTotal: number = Number(res?.meta?.total ?? rawData.length ?? 0);
-
-        const mapped: Item[] = (Array.isArray(rawData) ? rawData : []).map((r) => ({
-          id: String(r.id ?? r.record_id ?? Math.random().toString(36).slice(2, 9)),
-          action: String(r.action ?? "-"),
-          tableName: String(r.table_name ?? r.table ?? "-"),
-          recordId: String(r.record_id ?? r.recordId ?? "-"),
-          userId: String(r.user_id ?? r.userId ?? "-"),
-          timestamp: String(r.created_at ?? r.timestamp ?? "-"),
-          raw: r,
-        }));
-
-        setItems(mapped);
-        setTotal(Number.isFinite(metaTotal) ? metaTotal : mapped.length);
-      } catch (err: any) {
-        if (!mounted) return;
-        setError(err?.message || "Failed to fetch audit logs");
-        if (err?.response?.status === 401) {
-          signOut();
-          try {
-            router.push("/auth/sign-in");
-          } catch {}
-          return;
-        }
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, [perPage, page, query, refreshKey, signOut, router]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [perPage, query]);
-
-  function goToPageNumber(n: number | string) {
-    if (typeof n === "number") setPage(Math.max(1, Math.min(totalPages, n)));
-  }
-
-  function handleGotoSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const n = parseInt(goto, 10);
-    if (!isNaN(n)) {
-      setPage(Math.max(1, Math.min(totalPages, n)));
-      setGoto("");
-    }
-  }
+      })();
+    
+      return () => {
+        mounted = false;
+      };
+    }, [page, perPage, query, refreshKey]);
 
   return (
     <div className="rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark sm:p-7.5">
       <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <input
-            placeholder="Search"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-            }}
-            className="h-10 rounded border px-3 py-2 w-full md:w-96"
-          />
-        </div>
+              <input
+                placeholder="Search ID"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="h-10 rounded border px-3 py-2 w-full md:w-96"
+              />
+            </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} records`}</div>
@@ -343,71 +258,53 @@ export default function AuditLog() {
       </div>
 
       {/* Pagination */}
-      <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-4 flex-wrap">
-          <span className="text-sm text-gray-500">Row per page</span>
-          <select
-            value={perPage}
-            onChange={(e) => {
-              setPerPage(Number(e.target.value));
-              setPage(1);
-            }}
-            className="rounded border px-3 py-1.5"
-          >
-            {[5, 10, 20, 50, 100].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-
-          <form onSubmit={handleGotoSubmit} className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Go to page</span>
-            <input
-              type="number"
-              min={1}
-              max={totalPages}
-              value={goto}
-              onChange={(e) => setGoto(e.target.value)}
-              className="w-16 rounded border px-2 py-1"
-            />
-            <button type="submit" className="rounded border px-3 py-1">
-              Go
-            </button>
-          </form>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded border px-3 py-1 disabled:opacity-50">
-            &lt;
-          </button>
-
-          {pages.map((p, i) =>
-            p === "..." ? (
-              <span key={`dot-${i}`} className="px-2">
-                …
-              </span>
-            ) : (
+            <div className="flex items-center gap-2 flex-wrap">
               <button
-                key={p}
-                onClick={() => goToPageNumber(p)}
-                className={cn("rounded border px-3 py-1 min-w-[36px] md:min-w-[40px]", { "ring-2 ring-blue-400 bg-white": p === page })}
-                aria-current={p === page ? "page" : undefined}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="rounded border px-3 py-1 disabled:opacity-50"
               >
-                {p}
+                &lt;
               </button>
-            )
-          )}
-
-          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="rounded border px-3 py-1 disabled:opacity-50">
-            &gt;
-          </button>
-
-          <div className="ml-3 text-sm text-gray-500">
-            {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} of {total}
-          </div>
-        </div>
-      </div>
+      
+              {pages.map((p, i) =>
+                p === "..." ? (
+                  <span key={`dot-${i}`} className="px-2">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(Number(p))}
+                    className={cn(
+                      "rounded border px-3 py-1 min-w-[36px] md:min-w-[40px]",
+                      { "ring-2 ring-blue-400 bg-white": p === page }
+                    )}
+                    aria-current={p === page ? "page" : undefined}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+      
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="rounded border px-3 py-1 disabled:opacity-50"
+              >
+                &gt;
+              </button>
+      
+              <div className="ml-3 text-sm text-gray-500">
+                {total === 0
+                  ? "0"
+                  : `${Math.min((page - 1) * perPage + 1, total)}–${Math.min(
+                      page * perPage,
+                      total
+                    )}`}{" "}
+                of {total}
+              </div>
+            </div>
 
       {error && <div className="mt-3 text-red-600">{error}</div>}
     </div>

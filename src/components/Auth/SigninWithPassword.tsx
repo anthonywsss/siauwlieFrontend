@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/Auth/auth-context";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import LoginFailModal from "@/components/LoginModal"
+import LoginFailModal from "@/components/LoginModal";
+import { useEffect } from "react";
 
 const DEFAULT_ROUTE_BY_ROLE: Record<string, string> = {
   driver: "/submit-movement",
@@ -33,6 +34,7 @@ export default function SigninWithPassword() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const auth: any = useAuth();
   const { signIn } = auth;
@@ -40,93 +42,77 @@ export default function SigninWithPassword() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-
   const hasRedirected = useRef(false);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  useEffect(() => {
+    if (isModalOpen) {
+      const timer = setTimeout(() => {
+        setIsModalOpen(false); 
+        setError(null);        
+      }, 10000); 
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isModalOpen]);
 
+  // Compute where to redirect after login
   const desiredNext = useMemo(() => {
     const nextParam = sanitizeInternalPath(searchParams?.get("next"));
-    const role: string | undefined = auth?.user?.role;
+    const role = auth?.user?.role;
     const roleDefault = getDefaultRouteForRole(role);
-
-    console.log("SigninWithPassword - desiredNext calculation:", {
-      nextParam,
-      role,
-      roleDefault,
-      hasUser: !!auth?.user
-    });
 
     if (nextParam && isAllowedForRole(nextParam, role)) return nextParam;
     return roleDefault || "/";
   }, [searchParams, auth?.user?.role]);
 
-  const isAuthed: boolean = Boolean(
-    auth?.isAuthenticated ?? auth?.user ?? auth?.token
-  );
-
-  const isReady: boolean = Boolean(
-    auth?.initialized ?? auth?.ready ?? true
-  );
-
+  // Safe redirect to prevent infinite loops
   const safeReplace = (to: string) => {
-    if (!to || to === pathname) return;
-    if (hasRedirected.current) return;
+    if (!to || to === pathname || hasRedirected.current) return;
     hasRedirected.current = true;
-    router.replace(to);
+    // router.replace(to);
   };
 
-  useEffect(() => {
-    console.log("SigninWithPassword - redirect effect:", {
-      isReady,
-      isAuthed,
-      desiredNext,
-      pathname,
-      hasRedirected: hasRedirected.current
-    });
-
-    if (isReady && isAuthed) {
-      if (desiredNext.startsWith("/history/") && auth?.user?.role === "supervisor") {
-        console.log("Preventing history redirect loop, going to dashboard");
-        safeReplace("/");
-      } else {
-        safeReplace(desiredNext);
-      }
-    }
-  }, [isReady, isAuthed, desiredNext, pathname]);
-
+  // Form submission handler
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    
+
     try {
-      await signIn(username, password);
-      const role: string | undefined = auth?.user?.role ?? auth?.role;
+      const result = await signIn(username, password);
+      if (result.error) {
+        setError(result.error);
+        setIsModalOpen(true);
+        setLoading(false);
+        return; // stop further execution
+      }
+
+      // Only redirect if login is successful
       const nextParam = sanitizeInternalPath(searchParams?.get("next"));
+      const role = auth?.user?.role;
+      const roleDefault = getDefaultRouteForRole(role);
       const target =
         (nextParam && isAllowedForRole(nextParam, role) && nextParam) ||
-        getDefaultRouteForRole(role) ||
+        roleDefault ||
         "/";
-      safeReplace(target);
+
+      if (target !== pathname) {
+        safeReplace(target); // redirect safely
+      }
     } catch (err: any) {
       const serverMsg =
         err?.response?.data?.meta?.message ||
         err?.response?.data?.message ||
         err?.message;
-      const msg = serverMsg ?? "Login failed — check your credentials.";
-      setError(msg);
-       setIsModalOpen(true);
+      setError(serverMsg ?? "Login failed — check your credentials.");
+      setIsModalOpen(true); // show modal only on error
+      return;
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (error && (username || password)) {
-      setError(null);
-    }
-  }, [username, password, error]);
+  
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -139,11 +125,8 @@ export default function SigninWithPassword() {
             </svg>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Selamat Datang
+            Sign In
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
-            Sign in ke akun anda untuk lanjut
-          </p>
         </div>
 
         {/* Error Message */}
@@ -251,8 +234,15 @@ export default function SigninWithPassword() {
         </form>
       </div>
         {isModalOpen && (
-          <LoginFailModal open={isModalOpen} onClose={() => setIsModalOpen(false)} />
+          <LoginFailModal 
+            open={isModalOpen}
+            onClose={() => {
+              setIsModalOpen(false);
+              setError(null);
+            }}
+          />
         )}
+
     </div>
   );
 }

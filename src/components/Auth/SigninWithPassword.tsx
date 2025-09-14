@@ -92,7 +92,12 @@ export default function SigninWithPassword() {
       setLoading(false);
     }
   };
-  
+
+  const handleTryAgain = () => {
+    setIsModalOpen(false);
+    setError(null);
+    window.location.reload(); // Refresh page on Try Again
+  };
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -220,6 +225,7 @@ export default function SigninWithPassword() {
               setIsModalOpen(false);
               setError(null);
             }}
+            onTryAgain={handleTryAgain}
           />
         )}
 

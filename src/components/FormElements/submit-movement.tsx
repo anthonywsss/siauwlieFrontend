@@ -210,7 +210,7 @@ export default function SubmitMovement() {
   const lastScanTimeRef = useRef<number>(0);
   const scanStartTimeRef = useRef<number | null>(null);
 
-  // Photo capture
+  // Photo captur
   const photoVideoRef = useRef<HTMLVideoElement | null>(null);
   const photoCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [showPhotoCamera, setShowPhotoCamera] = useState(false);
@@ -1195,32 +1195,32 @@ export default function SubmitMovement() {
                         />
                         <canvas ref={photoCanvasRef} className="hidden" />
 
+                      <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-6">
                         {/* Close button */}
                         <button
                           onClick={stopPhotoCamera}
-                          className="absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 p-1.5 sm:p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-300 animate-fadeInDelay shadow-lg hover:shadow-xl transform hover:scale-105"
+                          className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95"
                         >
-                          <X className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                          <X className="w-6 h-6 text-gray-700" />
                         </button>
-
-                        {/* Switch camera */}
+                        
+                        {/* Capture button */}
+                        <button
+                          onClick={capturePhoto}
+                          className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 shadow-xl flex items-center justify-center hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 hover:shadow-2xl"
+                          title="Ambil Foto"
+                        >
+                          <Camera className="w-7 h-7 text-white" />
+                        </button>
+                        
+                        {/* Switch camera button */}
                         <button
                           onClick={togglePhotoCamera}
-                          className="absolute top-8 right-2 sm:top-12 sm:right-3 md:top-16 md:right-4 p-1.5 sm:p-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-all duration-300 animate-fadeInDelay shadow-lg hover:shadow-xl transform hover:scale-105"
+                          className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl"
                         >
-                          <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                          <RotateCcw className="w-6 h-6 text-gray-700" />
                         </button>
-
-                        {/* Capture button */}
-                        <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center">
-                          <button
-                            onClick={capturePhoto}
-                            className="w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full bg-white/90 border-4 border-white shadow-xl hover:shadow-2xl flex items-center justify-center hover:bg-white transition-all duration-300 transform hover:scale-105"
-                            title="Ambil Foto"
-                          >
-                            <Camera className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600" />
-                          </button>
-                        </div>
+                      </div>
                       </div>
                     </div>
                   ) : (

@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/Layouts/sidebar";
 import { Header } from "@/components/Layouts/header";
 import { usePathname } from "next/navigation";
 import { PropsWithChildren } from "react";
+import ProtectedRoute from "@/components/Auth/ProtectedRoute";
 
 export default function LayoutWrapper({ children }: PropsWithChildren) {
   const pathname = usePathname();
@@ -18,15 +19,17 @@ export default function LayoutWrapper({ children }: PropsWithChildren) {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
+    <ProtectedRoute>
+      <div className="flex min-h-screen">
+        <Sidebar />
 
-      <div className="flex-1 min-w-0 bg-gray-2 dark:bg-[#020d1a]">
-        <Header />
-        <main className="isolate mx-auto w-full max-w-screen-2xl overflow-hidden p-4 md:p-6 2xl:p-10">
-          {children}
-        </main>
+        <div className="flex-1 min-w-0 bg-gray-2 dark:bg-[#020d1a]">
+          <Header />
+          <main className="isolate mx-auto w-full max-w-screen-2xl overflow-hidden p-4 md:p-6 2xl:p-10">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }

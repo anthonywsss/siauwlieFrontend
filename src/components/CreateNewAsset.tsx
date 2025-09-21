@@ -21,6 +21,7 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
   useModalWatch(open);
   const { signOut } = useAuth();
 
+  const [newAsset, setNewAsset] = useState<any | null>(null);
   const [status, setStatus] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [base64Photo, setBase64Photo] = useState<string | null>(null);
@@ -108,107 +109,6 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
 
   if (!open) return null;
 
-  // steps defined as functions (not JSX directly)
-  const steps = [
-    // Step 1: Status, Asset Type, Client
-    () => (
-      <Step>
-        <div className="space-y-6 rounded-2xl px-5 py-4 sm:px-6 sm:py-5">
-          <div>
-            <label className="block mb-2 font-medium">Status</label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full rounded-lg border px-3 py-2"
-            >
-              <option value="">Pilih Status</option>
-              <option value="inbound_at_factory">At Factory</option>
-              <option value="inbound_at_client">At Client</option>
-              <option value="outbound_from_factory">In Transit to Factory</option>
-              <option value="outbound_from_client">In Transit to Client</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block mb-2 font-medium">Asset Type</label>
-            <select
-              value={typeId || ""}
-              onChange={(e) => setTypeId(e.target.value ? Number(e.target.value) : null)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg"
-            >
-              <option value="">Select Asset Type</option>
-              {type.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block mb-2 font-medium">Client</label>
-            <select
-              value={clientId || ""}
-              onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg"
-            >
-              <option value="">Select Client</option>
-              {client.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </Step>
-    ),
-
-    // Step 2: Photo Upload
-    () => (
-      <Step>
-        <label className="block mb-2 font-medium">Upload Foto QR Asset</label>
-        <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
-          <label className="flex-1 cursor-pointer">
-            <input type="file" accept="image/*" onChange={onPhotoChange} className="hidden" />
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors">
-              <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mx-auto mb-2" />
-              <div className="text-xs sm:text-sm text-gray-600">
-                {base64Photo ? "Change photo" : "Unggah Foto"}
-              </div>
-            </div>
-          </label>
-          {base64Photo && (
-            <div className="flex-1">
-              <img src={base64Photo} alt="Preview" className="w-full h-32 object-cover rounded-lg border" />
-            </div>
-          )}
-        </div>
-      </Step>
-    ),
-
-    // Step 3: Confirmation
-    () => (
-      <Step>
-        <div className="space-y-4 text-left">
-          <h2 className="text-xl font-semibold">Konfirmasi</h2>
-          <ConfirmationStep onValidityChange={setIsConfirmed} />
-        </div>
-      </Step>
-    ),
-
-    // Step 4: Display QR
-    () => (
-      <Step>
-        <div className="space-y-4 text-center">
-          <h2 className="text-xl font-semibold">QR Asset</h2>
-          {qrData ? (
-            <img src={qrData} alt="Asset QR" className="mx-auto w-40 h-40" />
-          ) : (
-            <p>Loading QR...</p>
-          )}
-        </div>
-      </Step>
-    ),
-  ];
-
-
 async function handleSubmit() {
   setSubmitting(true);
   try {
@@ -250,9 +150,11 @@ async function handleSubmit() {
     }
 
     const created = res?.data ?? null;
+    setNewAsset(created);  
     const qrUrl = created?.qr_code ?? created?.qr ?? null;
     setQrData(qrUrl);
     setCurrentStep(3);
+
   } catch (err: any) {
     console.error("add asset error:", err);
     alert(
@@ -316,7 +218,7 @@ const resetForm = () => {
                   {/* Step 1: Status, Type, Client */}
                   <div className="space-y-6 rounded-2xl px-5 py-4 sm:px-6 sm:py-5">
                     <div>
-                      <label className="block mb-2 font-medium">Status</label>
+                      <label className="block mb-2 font-medium appearance-none">Status</label>
                       <select
                         value={status}
                         onChange={(e) => setStatus(e.target.value)}
@@ -368,7 +270,7 @@ const resetForm = () => {
               {currentStep === 1 && (
                 <div>
                   {/* Step 2: Upload Foto */}
-                  <label className="block mb-2 font-medium">Upload Foto QR Asset</label>
+                  <label className="block mb-2 font-medium">Foto Asset</label>
                   <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
                     <label className="flex-1 cursor-pointer">
                       <input type="file" accept="image/*" onChange={onPhotoChange} className="hidden" />
@@ -416,8 +318,11 @@ const resetForm = () => {
               {currentStep === 3 && (
                 <div className="flex flex-col items-center justify-center space-y-6 p-6">
                   {/* Step 4: Tampilkan QR */}
-                  <div className="text-center space-y-4">
+                  <div className="text-center space-y-4"> 
                     <h2 className="text-xl font-semibold">QR Asset</h2>
+                    <p className="text-sm text-gray-7 mt-1">
+                      ID: <span className="font-mono text-primary">{newAsset?.id ?? "-"}</span>
+                    </p>
                     {qrData ? (
                       <>
                         <img src={qrData} alt="Asset QR" className="mx-auto w-40 h-40 object-contain" />

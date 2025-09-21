@@ -354,9 +354,9 @@ useEffect(() => {
 
   // dropdown asset type
   const ASSET_TYPE_OPTIONS = alltype.map(t => ({
-    value: t.id,
+    value: Number(t.id),
     label: t.name,
-  }));
+  })) ?? [];
 
   const visibleItems = (data ?? []).filter(item =>
     (assetFilter === "all" ? true : item.asset_type_id === assetFilter) &&
@@ -371,7 +371,7 @@ useEffect(() => {
   };
 
 
-  const visible = data;
+  const visible = visibleItems;
 
   function PreviewModal({ open, src, type, onClose }: { open: boolean; src: string | null; type: 'photo' | 'qr'; onClose: () => void }) {
     useModalWatch(open);
@@ -694,7 +694,7 @@ useEffect(() => {
 
       {/* Mobile list Cards*/}
       <div className="md:hidden">
-        {visible.map((item, index) => {
+        {visibleItems.map((item, index) => {
               return (
                 <div key={index} className="border rounded-lg p-3 mb-3">
                   <div className="flex items-start justify-between gap-3">
@@ -722,7 +722,7 @@ useEffect(() => {
                     </div>
                     <div>
                       <div className="text-sm text-gray-500">Type</div>
-                      <div className="font-medium">{item.asset_type_id}</div>
+                      <div className="font-medium">{assetTypeMap[item.asset_type_id] ?? "Unknown"}</div>
                     </div>
                   </div>
 
@@ -754,7 +754,11 @@ useEffect(() => {
                     )}
 
                     <div className="flex gap-2 mt-2">
-                      <button className="flex-1 bg-blue-500 text-white px-3 py-2 rounded-md text-sm">History</button>
+                      <button
+                        onClick={() => router.push(`/history/${item.id}`)}
+                        className="flex-1 bg-blue-500 text-white px-3 py-2 rounded-md text-sm">
+                        History
+                      </button>
                       <button className="p-2 border rounded-md" aria-label="Edit" onClick={() => handleEditOpen(item)}>Edit</button>
                       <button className="p-2 border rounded-md text-red-600" aria-label="Delete" onClick={() => setDeletingRaw(item)}>Delete</button>
                     </div>
@@ -765,7 +769,7 @@ useEffect(() => {
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap mt-10">
         <button
           onClick={() => setPage((p) => Math.max(1, p - 1))}
           disabled={page === 1}

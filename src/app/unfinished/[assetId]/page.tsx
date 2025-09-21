@@ -168,15 +168,24 @@ export default function Page() {
     return `https://www.google.com/maps?q=${lat},${lng}`;
   }
 
-  function movementTypeToStatus(m?: string | null) {
-    if (!m) return "Unknown";
-    const s = (m + "").toLowerCase();
-    if (s.includes("outbound")) return "Outbound";
-    if (s.includes("inbound")) return "Inbound";
-    if (s.includes("to_client")) return "To Client";
-    if (s.includes("return")) return "Return";
-    return m;
+   //status
+  function movementTypeToStatus(status?: string | null) {
+  if (!status) return "Unknown";
+
+  switch (status.toLowerCase()) {
+    case "outbound_to_client":
+      return "Perjalanan ke pelanggan";
+    case "inbound_at_client":
+      return "Di pelanggan";
+    case "outbound_to_factory":
+      return "Perjalanan ke pabrik";
+    case "inbound_at_factory":
+      return "Di pabrik";
+    default:
+      return "Unknown";
   }
+}
+
   
     return (
       <div className="relative z-0 p-4 sm:p-7.5 bg-white min-h-[60vh] rounded-[10px] border border-stroke shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card">
@@ -185,7 +194,7 @@ export default function Page() {
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
               <h1 className="text-[26px] font-bold leading-[30px] text-dark dark:text-white">
-                Unfinished Delivery Detail <span className="text-gray-600">[{assetId ?? "—"}]</span>
+                Pengiriman Belum Tuntas <span className="text-gray-600">[{assetId ?? "—"}]</span>
               </h1>
               <p className="mt-1 text-sm text-gray-500">Rincian pengiriman belum tuntas</p>
             </div>
@@ -217,7 +226,7 @@ export default function Page() {
                   <table className="min-w-full table-fixed">
                     <thead>
                       <tr className="bg-[#F7F9FC] dark:bg-dark-2">
-                        {["User", "Status", "Customer", "Waktu Pencatatan", "Foto", "Catatan", "Location", "Quantity"].map((h) => (
+                        {["User", "Status", "Klien", "Waktu Pencatatan", "Foto", "Catatan", "Lokasi", "Kuantitas"].map((h) => (
                           <th
                             key={h}
                             className="px-6 py-4 text-left text-base font-medium text-dark dark:text-white border-r"
@@ -292,17 +301,17 @@ export default function Page() {
                       <div className="mt-3 grid grid-cols-2 gap-3">
                         <div>
                           <div className="text-xs text-gray-500">
-                            Customer
+                            Klien
                           </div>
                           <div className="text-sm text-dark dark:text-white">
                             {clientLabel}
                           </div>
                         </div>
-                        <div>
+                        <div className="text-right">
                           <div className="text-xs text-gray-500">
                             Waktu
                           </div>
-                          <div className="text-sm text-dark dark:text-white">
+                          <div className="text-sm text-dark dark:text-white whitespace-nowrap">
                             {rec.timestamp ? dayjs(rec.timestamp).format("MMM DD, YYYY - HH:mm") : "-"}
                           </div>
                         </div>
@@ -333,12 +342,12 @@ export default function Page() {
                       <div className="mt-3 grid grid-cols-2 gap-3"> 
                         <div> 
                           <div className="text-xs text-gray-500">
-                            Location
+                            Lokasi
                           </div> 
                           <div className="text-sm text-dark dark:text-white">
                             <button 
                               onClick={ () => window.open(getGoogleMapsLink(Number(rec.latitude), Number(rec.longitude)), "_blank")}
-                              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition whitespace-nowrap" >
+                              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition whitespace-nowrap mt-1 mb-3" >
                                 Buka Google Maps
                             </button>
                           </div>
@@ -347,7 +356,7 @@ export default function Page() {
 
                       <div> 
                         <div className="text-xs text-gray-500">
-                          Quantity
+                          Kuantitas
                         </div>
                         <div className="text-sm text-dark dark:text-white">
                           {rec.quantity ?? "-"}

@@ -252,13 +252,6 @@ export default function DisposalHistory() {
                       <div className="text-base text-dark">{item.disposed_by ?? "-"}</div>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <a href="#">
-                      <button className="bg-primary text-white px-3 py-1 rounded-md mt-2 text-sm">
-                        View History
-                      </button>
-                    </a>
-                  </div>
                 </div>
               ))}
         </div>

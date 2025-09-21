@@ -29,6 +29,16 @@ export type RawUnfin = {
   notes?: string | null;
 };
 
+type RawClient = {
+  id: number;
+  name: string;
+};
+
+type RawUser = {
+  user_id: number;
+  username: string;
+};
+
 function generatePages(current: number, total: number) {
   const delta = 1;
   const range: number[] = [];
@@ -92,6 +102,71 @@ export default function UnfinDelivery() {
     return `data:${mime};base64,${trimmed}`;
   }
 
+
+  // fetch client
+  const [allClients, setAllClients] = useState<RawClient[]>([]);
+    useEffect(() => {
+      let mounted = true;
+  
+      (async () => {
+        try {
+          const res = await safeGet<{ data: RawClient[] }>("/clients");
+          if (!mounted) return;
+          
+          if (res === null) {
+            // Handle error case
+            setError("Failed to fetch clients");
+            setAllClients([]);
+          } else {
+            const clients = Array.isArray(res?.data) ? res.data : [];
+            setAllClients(clients);
+          }
+        } catch (err: any) {
+          if (!mounted) return;
+          setError(err?.message ?? "Failed to fetch clients");
+          setAllClients([]);
+        } finally {
+          if (mounted) setLoading(false);
+        }
+      })();
+  
+      return () => {
+        mounted = false;
+      };
+    }, []);
+
+    //fetch user
+    const [alluser, setAllUser] = useState<RawUser[]>([]);
+      useEffect(() => {
+        let mounted = true;
+    
+        (async () => {
+          try {
+            const res = await safeGet<{ data: RawUser[] }>("/users");
+            if (!mounted) return;
+            
+            if (res === null) {
+              // Handle error case
+              setError("Failed to fetch users");
+              setAllUser([]);
+            } else {
+              const type: RawUser[] = res?.data ?? [];
+              setAllUser(Array.isArray(type) ? type : []);
+            }
+          } catch (err: any) {
+            if (!mounted) return;
+            setError(err?.message ?? "Failed to fetch users");
+            setAllUser([]);
+          } finally {
+            if (mounted) setLoading(false);
+          }
+        })();
+    
+        return () => {
+          mounted = false;
+        };
+      }, []);
+
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
@@ -135,7 +210,6 @@ export default function UnfinDelivery() {
     setIsOpen(true);
   };
 
-
   const goToDetail = (assetId?: string) => {
     if (!assetId) return;
     router.push(`/unfinished/${encodeURIComponent(String(assetId))}`);
@@ -174,10 +248,10 @@ export default function UnfinDelivery() {
           <TableHeader>
             <TableRow className="border-none bg-[#F7F9FC] dark:bg-dark-2 [&>th]:py-4 [&>th]:text-base [&>th]:text-dark [&>th]:dark:text-white">
               <TableHead className="min-w-[155px] xl:pl-7.5">Asset ID</TableHead>
-              <TableHead>Client ID</TableHead>
+              <TableHead>Nama Client</TableHead>
               <TableHead>Foto</TableHead>
               <TableHead>Timestamp</TableHead>
-              <TableHead>User ID</TableHead>
+              <TableHead>Nama User</TableHead>
               <TableHead>Aksi</TableHead>
             </TableRow>
           </TableHeader>
@@ -191,7 +265,9 @@ export default function UnfinDelivery() {
                 </TableCell>
 
                 <TableCell>
-                  <h5 className="text-dark dark:text-white">{item.client_id}</h5>
+                  <p>
+                    {allClients.find((c) => c.id === item.client_id)?.name ?? "Unknown"}
+                  </p>
                 </TableCell>
 
                 <TableCell>
@@ -218,7 +294,9 @@ export default function UnfinDelivery() {
                 </TableCell>
 
                 <TableCell>
-                  <h5 className="text-dark dark:text-white">{item.user_id}</h5>
+                  <p>
+                    {alluser.find((c) => c.user_id === item.user_id)?.username ?? "Unknown"}
+                  </p>
                 </TableCell>
 
                 <TableCell>
@@ -329,12 +407,14 @@ export default function UnfinDelivery() {
                     <div className="mt-2 grid grid-cols-2 gap-3">
                       <div>
                         <div className="text-xs text-gray-500">Client ID</div>
-                        <div className="text-sm text-dark dark:text-white">{item.client_id}</div>
+                        <div className="text-sm text-dark dark:text-white">{allClients.find((c) => c.id === item.client_id)?.name ?? "Unknown"}</div>
                       </div>
 
                       <div>
                         <div className="text-xs text-gray-500">User ID</div>
-                        <div className="text-sm text-dark dark:text-white">{item.user_id}</div>
+                        <div className="text-sm text-dark dark:text-white">
+                          {alluser.find((c) => c.user_id === item.user_id)?.username ?? "Unknown"}
+                        </div>
                       </div>
                     </div>
 

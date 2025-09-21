@@ -71,7 +71,7 @@ export default function CreateClientModal({ open, onClose, onCreated }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full md:w-[720px] max-h-[95vh] overflow-auto rounded-lg md:rounded-lg bg-white p-5 md:p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-2xl font-semibold">Add New Client</h3>

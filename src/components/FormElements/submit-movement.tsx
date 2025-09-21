@@ -998,7 +998,7 @@ export default function SubmitMovement() {
                       <div className="relative">
                         <video
                           ref={videoRef}
-                          className="w-full h-64 sm:h-72 md:h-80 lg:h-96 object-cover rounded-lg shadow-lg"
+                          className="w-full h-[60vh] sm:h-72 md:h-80 lg:h-96 object-cover rounded-lg shadow-lg"
                           playsInline
                           muted
                         />

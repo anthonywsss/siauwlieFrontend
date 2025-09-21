@@ -406,12 +406,12 @@ export default function UnfinDelivery() {
 
                     <div className="mt-2 grid grid-cols-2 gap-3">
                       <div>
-                        <div className="text-xs text-gray-500">Client ID</div>
+                        <div className="text-xs text-gray-500">Nama Client</div>
                         <div className="text-sm text-dark dark:text-white">{allClients.find((c) => c.id === item.client_id)?.name ?? "Unknown"}</div>
                       </div>
 
                       <div>
-                        <div className="text-xs text-gray-500">User ID</div>
+                        <div className="text-xs text-gray-500">Nama User</div>
                         <div className="text-sm text-dark dark:text-white">
                           {alluser.find((c) => c.user_id === item.user_id)?.username ?? "Unknown"}
                         </div>

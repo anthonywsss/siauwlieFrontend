@@ -169,6 +169,32 @@ const SuccessPopup = ({ message, onClose }: { message: string; onClose: () => vo
   );
 };
 
+const WarningModal = ({ open, onClose, message }: { open: boolean; onClose: () => void; message: string }) => {
+  useModalWatch(open);
+  
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50 animate-fadeIn">
+      <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 animate-scaleIn">
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <AlertTriangle className="w-8 h-8 text-red-600" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Peringatan</h3>
+          <p className="text-gray-600 mb-4 text-sm leading-relaxed">{message}</p>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function SubmitMovement() {
   const { user } = useAuth();
   const router = useRouter();
@@ -177,7 +203,7 @@ export default function SubmitMovement() {
   const [assetId, setAssetId] = useState("");
   const [movementType, setMovementType] = useState<string | null>(null);
   const [clientId, setClientId] = useState<number | null>(null);
-  const [quantity, setQuantity] = useState<number>(1);
+  const [quantity, setQuantity] = useState<number>(0);
   const [notes, setNotes] = useState("");
   const [photoBase64, setPhotoBase64] = useState("");
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -189,6 +215,8 @@ export default function SubmitMovement() {
   const [success, setSuccess] = useState<string | null>(null);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [warningModalMessage, setWarningModalMessage] = useState("");
   const scanningRef = useRef(false);
 
   const [assetCurrentStatus, setAssetCurrentStatus] = useState<string | null>(null);
@@ -508,26 +536,22 @@ export default function SubmitMovement() {
   }, [stopScanner, stopPhotoCamera]);
 
   const takeLocation = () => {
-    return new Promise<void>((resolve) => {
+    return new Promise<{ success: boolean; error?: string; latitude?: number; longitude?: number }>((resolve) => {
       if (!navigator.geolocation) {
-        setError("Geolocation not supported by browser");
-        resolve();
+        resolve({ success: false, error: "Geolocation not supported by browser" });
         return;
       }
 
-      setBusy(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setLatitude(pos.coords.latitude);
-          setLongitude(pos.coords.longitude);
-          setSuccess("Location captured successfully");
-          setBusy(false);
-          resolve();
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          setLatitude(lat);
+          setLongitude(lng);
+          resolve({ success: true, latitude: lat, longitude: lng });
         },
         (err) => {
-          setError(`Location error: ${err.message}`);
-          setBusy(false);
-          resolve();
+          resolve({ success: false, error: err.message });
         },
         { 
           enableHighAccuracy: true, 
@@ -750,22 +774,19 @@ export default function SubmitMovement() {
           }
         }
 
-        if (config?.requiresQuantity && quantity < 1) {
-          setError("Quantity must be at least 1");
+        if (config?.requiresQuantity && quantity < 0) {
+          setError("Quantity must be at least 0");
           return false;
         }
 
         // Validate photo
         if (!photoBase64.trim()) {
-          setError("Foto bukti wajib diupload sebelum melanjutkan");
+          setWarningModalMessage("Foto bukti wajib diupload sebelum melanjutkan");
+          setShowWarningModal(true);
           return false;
         }
 
-        // Validate location
-        if (!latitude || !longitude) {
-          setError("Lokasi wajib direkam sebelum melanjutkan");
-          return false;
-        }
+        // Location will be fetched automatically when submitting, so no need to validate here
         break;
       }
 
@@ -809,6 +830,23 @@ export default function SubmitMovement() {
     setError(null);
 
     try {
+      // Determine which location values to use
+      let finalLatitude = latitude;
+      let finalLongitude = longitude;
+
+      // First, fetch location if not already available
+      if (!finalLatitude || !finalLongitude) {
+        const locationResult = await takeLocation();
+        if (!locationResult.success) {
+          setError(`Location is required. ${locationResult.error || 'Please enable location services and try again.'}`);
+          setBusy(false);
+          return;
+        }
+        // Use the location values returned from takeLocation
+        finalLatitude = locationResult.latitude!;
+        finalLongitude = locationResult.longitude!;
+      }
+
       let finalPhoto = photoBase64;
       if (finalPhoto.startsWith("data:image")) {
         finalPhoto = finalPhoto.split(",")[1];
@@ -825,14 +863,14 @@ export default function SubmitMovement() {
       const body: any = {
         asset_id: assetId.trim(),
         movement_type: movementType,
-        ...(Number.isFinite(Number(latitude)) ? { latitude: clamp(Number(latitude), -90, 90) } : {}),
-        ...(Number.isFinite(Number(longitude)) ? { longitude: clamp(Number(longitude), -180, 180) } : {}),
+        ...(Number.isFinite(Number(finalLatitude)) ? { latitude: clamp(Number(finalLatitude), -90, 90) } : {}),
+        ...(Number.isFinite(Number(finalLongitude)) ? { longitude: clamp(Number(finalLongitude), -180, 180) } : {}),
         photo: finalPhoto || "",
         notes: notes.trim() || ""
       };
 
       if (config?.requiresQuantity) {
-        body.quantity = clamp(Math.trunc(Number(quantity) || 0), 1, 32767);
+        body.quantity = clamp(Math.trunc(Number(quantity) || 0), 0, 32767);
       }
       if (config?.clientPolicy === "required") {
         if (typeof clientId === 'number' && Number.isFinite(clientId)) {
@@ -865,7 +903,7 @@ export default function SubmitMovement() {
       setAssetId("");
       setMovementType(null);
       setClientId(null);
-      setQuantity(1);
+      setQuantity(0);
       setLatitude(null);
       setLongitude(null);
       setPhotoBase64("");
@@ -913,6 +951,13 @@ export default function SubmitMovement() {
         message={accessDeniedMessage}
       />
 
+      {/* Warning Modal */}
+      <WarningModal
+        open={showWarningModal}
+        onClose={() => setShowWarningModal(false)}
+        message={warningModalMessage}
+      />
+
       
       <div className="max-w-4xl mx-auto px-3 sm:px-4">
         {/* Header */}
@@ -924,7 +969,7 @@ export default function SubmitMovement() {
         {/* Progress Steps */}
         <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
           <div className="flex justify-center w-full">
-            <div className="flex items-center justify-between max-w-xl sm:max-w-2xl mx-auto w-full sm:mr-0 sm:pr-8">
+            <div className="flex items-center justify-between max-w-55 sm:max-w-[25rem] w-full mx-auto">
               {STEPS.map((s, index) => (
                 <div key={s.id} className="flex items-center flex-1">
                   <div className="flex flex-col items-center text-center min-w-0">
@@ -1142,9 +1187,36 @@ export default function SubmitMovement() {
                   </div>
                 </div>
 
-                {/* Client*/}
-                {currentConfig?.clientPolicy === "required" && (
+                {/* Client Dropdown */}
+                {(movementType === "outbound_to_client" || movementType === "inbound_at_client") && (
                   <div className="md:col-span-2 animate-fadeIn">
+                    <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                      Pilih Klien <span className="text-red-500">*</span>
+                    </label>
+                    {loadingClients ? (
+                      <div className="w-full px-4 py-3 border border-white-300 rounded-lg bg-white text-gray-500">
+                        Loading clients...
+                      </div>
+                    ) : (
+                      <select
+                        value={clientId || ""}
+                        onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg bg-white"
+                        required
+                      >
+                        <option value="">-- Pilih Klien --</option>
+                        {clients.map((client) => (
+                          <option key={client.id} value={client.id}>
+                            {client.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {clients.length === 0 && !loadingClients && (
+                      <div className="text-sm text-gray-500 mt-1">
+                        Tidak ada client.
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1152,13 +1224,22 @@ export default function SubmitMovement() {
                 {currentConfig?.requiresQuantity && (
                   <div className="animate-fadeIn">
                     <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
-                      Kuantitas *
+                      Kuantitas
                     </label>
                     <input
                       type="number"
-                      min="1"
-                      value={quantity}
-                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      min="0"
+                      placeholder="0"
+                      value={quantity === 0 ? "" : quantity}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === "" || value === "-") {
+                          setQuantity(0);
+                        } else {
+                          const numValue = parseInt(value, 10);
+                          setQuantity(isNaN(numValue) ? 0 : numValue);
+                        }
+                      }}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
                     />
                   </div>
@@ -1266,67 +1347,7 @@ export default function SubmitMovement() {
                   )}
                 </div>
 
-                {/* Location Capture */}
-                <div className="md:col-span-2">
-                  <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
-                    Lokasi <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                    <button
-                      type="button"
-                      onClick={takeLocation}
-                      disabled={busy}
-                      className={`group relative overflow-hidden flex items-center justify-center px-6 py-3 rounded-xl font-medium text-base sm:text-lg transition-all duration-500 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
-                        latitude && longitude
-                          ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:from-emerald-600 hover:to-green-700'
-                          : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700'
-                      }`}
-                    >
-                      {/* Animated background */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                      
-                      <div className="absolute inset-0 rounded-xl overflow-hidden">
-                        <div className="absolute inset-0 bg-white/30 rounded-full scale-0 group-active:scale-100 transition-transform duration-300 origin-center"></div>
-                      </div>
-                      
-                      <div className="relative flex items-center">
-                        <div className={`mr-3 transition-all duration-300 ${busy ? 'animate-spin' : 'group-hover:scale-110'}`}>
-                          <MapPin className={`w-5 h-5 transition-all duration-300 ${
-                            latitude && longitude 
-                              ? 'text-white drop-shadow-sm' 
-                              : 'text-white drop-shadow-sm'
-                          }`} />
-                        </div>
-                        
-                        <span className="relative transition-all duration-300 group-hover:tracking-wide">
-                          {busy 
-                            ? "Mengambil Lokasi..." 
-                            : latitude && longitude 
-                              ? "Perbarui Lokasi" 
-                              : "Rekam Lokasi *"
-                          }
-                        </span>
-                      </div>
-                      
-                      {/* Success indicator */}
-                      {latitude && longitude && (
-                        <div>
-                          <div className="w-full h-full bg-emerald-400 rounded-full animate-ping"></div>
-                        </div>
-                      )}
-                    </button>
-                    
-                    {latitude && longitude && (
-                      <div className="flex items-center space-x-2 animate-fadeIn">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <div className="text-sm sm:text-base text-green-700 font-medium bg-green-50 px-3 py-1 rounded-full border border-green-200">
-                          📍 {latitude.toFixed(6)}, {longitude.toFixed(6)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+                              </div>
 
               {/* Navigation Buttons */}
               <div className="flex justify-between pt-4 sm:pt-6">

@@ -998,7 +998,7 @@ export default function SubmitMovement() {
                       <div className="relative">
                         <video
                           ref={videoRef}
-                          className="w-full h-48 sm:h-64 md:h-80 lg:h-96 object-cover rounded-lg shadow-lg"
+                          className="w-full h-[60vh] sm:h-72 md:h-80 lg:h-96 object-cover rounded-lg shadow-lg"
                           playsInline
                           muted
                         />
@@ -1010,7 +1010,7 @@ export default function SubmitMovement() {
                         
                         {/* Scanner frame overlay */}
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 lg:w-64 lg:h-64 border-4 border-blue-500 rounded-2xl relative animate-scannerFrame shadow-lg">
+                          <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 lg:w-64 lg:h-64 border-4 border-blue-500 rounded-2xl relative animate-scannerFrame shadow-lg">
                             {/* Corner */}
                             <div className="absolute -top-1 -left-1 sm:-top-2 sm:-left-2 w-3 h-3 sm:w-4 sm:h-4 md:w-6 md:h-6 border-t-4 border-l-4 border-blue-400 animate-cornerPulse rounded-tl-lg"></div>
                             <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-3 h-3 sm:w-4 sm:h-4 md:w-6 md:h-6 border-t-4 border-r-4 border-blue-400 animate-cornerPulse rounded-tr-lg"></div>
@@ -1189,7 +1189,7 @@ export default function SubmitMovement() {
                       <div className="relative">
                         <video
                           ref={photoVideoRef}
-                          className="w-full h-48 sm:h-64 md:h-80 lg:h-96 object-cover rounded-lg shadow-lg"
+                          className="w-full h-[60vh] sm:h-64 md:h-80 lg:h-96 object-cover rounded-lg shadow-lg"
                           playsInline
                           muted
                         />

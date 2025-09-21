@@ -60,6 +60,7 @@ export default function UnfinDelivery() {
   const router = useRouter();
   const [data, setData] = useState<RawUnfin[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // pagination & search
   const [perPage, setPerPage] = useState<number>(10);
@@ -107,7 +108,7 @@ export default function UnfinDelivery() {
   useEffect(() => {
     let mounted = true;
     const fetchUnfinished = async () => {
-      setLoading(true);
+    setLoading(true);
       try {
         const res = await safeGet<{ data: RawUnfin[]; meta?: { total?: number } }>("/movements/unfinished");
         const items: RawUnfin[] = res?.data ?? [];
@@ -121,7 +122,7 @@ export default function UnfinDelivery() {
         if (mounted) setLoading(false);
       }
     };
-
+  
     fetchUnfinished();
     return () => {
       mounted = false;
@@ -280,35 +281,35 @@ export default function UnfinDelivery() {
 
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded border px-3 py-1 disabled:opacity-50">
-              &lt;
-            </button>
+          &lt;
+        </button>
 
-            {pages.map((p, i) =>
-              p === "..." ? (
-                <span key={`dot-${i}`} className="px-2">
-                  …
-                </span>
-              ) : (
-                <button
-                  key={p}
+        {pages.map((p, i) =>
+          p === "..." ? (
+            <span key={`dot-${i}`} className="px-2">
+              …
+            </span>
+          ) : (
+            <button
+              key={p}
                   onClick={() => goToPageNumber(p)}
                   className={cn("rounded border px-3 py-1 min-w-[36px] md:min-w-[40px]", { "ring-2 ring-blue-400 bg-white": p === page })}
-                  aria-current={p === page ? "page" : undefined}
-                >
-                  {p}
-                </button>
-              )
-            )}
+              aria-current={p === page ? "page" : undefined}
+            >
+              {p}
+            </button>
+          )
+        )}
 
             <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="rounded border px-3 py-1 disabled:opacity-50">
-              &gt;
-            </button>
+          &gt;
+        </button>
 
-            <div className="ml-3 text-sm text-gray-500">
+        <div className="ml-3 text-sm text-gray-500">
               {total === 0 ? 0 : Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)} dari {total}
             </div>
-          </div>
         </div>
+      </div>
       </div>
       <div className="md:hidden space-y-3">
         {loading

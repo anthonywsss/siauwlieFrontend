@@ -260,7 +260,7 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
               <div className="flex-1 overflow-y-auto p-6 sm:p-8">
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* QR Code Field */}
-                  <div className="space-y-2">
+                  {/* <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       QR Code URL
                     </label>
@@ -279,7 +279,7 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
                         disabled={submitting}
                       />
                     </div>
-                  </div>
+                  </div> */}
                   
                   {/* Asset Type Field */}
                   <div className="space-y-2">

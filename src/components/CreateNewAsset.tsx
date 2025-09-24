@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Step } from "@/components/FormElements/step";
 import ConfirmationStep from "@/components/FormElements/confirmation";
 import { safeGet, safePost } from "@/lib/fetcher";
 import { useAuth } from "@/components/Auth/auth-context";
-import { Camera } from "lucide-react";
+import { Camera, X, RotateCcw } from "lucide-react";
 import { useModalWatch } from "@/components/ModalContext";
 
 type CreateNewAssetProps = {
@@ -43,6 +43,32 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Photo camera controls
+  const photoVideoRef = useRef<HTMLVideoElement | null>(null);
+  const photoCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [showPhotoCamera, setShowPhotoCamera] = useState(false);
+  const [photoFacingMode, setPhotoFacingMode] = useState<'environment' | 'user'>('environment');
+
+  // Handle QR code image source properly
+  function buildQRSrc(qrCode?: string | null): string | null {
+    if (!qrCode) return null;
+    const trimmed = qrCode.trim();
+    
+    // If complete URL return as is
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    
+    // If base64 image data treat it as such
+    if (/^data:image\//i.test(trimmed)) return trimmed;
+    
+    // If plain base64 == PNG
+    if (/^[A-Za-z0-9+/]+=*$/.test(trimmed) && trimmed.length > 50) {
+      return `data:image/png;base64,${trimmed}`;
+    }
+    
+    // else, return as is
+    return trimmed;
+  }
+
 // fetch client
   useEffect(() => {
     (async () => {
@@ -75,7 +101,6 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
     })();
   }, []);
 
-  // Enhanced file conversion with error handling
     const fileToBase64 = useCallback((file: File): Promise<string> =>
       new Promise((resolve, reject) => {
         if (file.size > 10 * 1024 * 1024) { // 10MB limit
@@ -89,10 +114,9 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
         reader.readAsDataURL(file);
       }), []);
   
-      // Enhanced photo upload
       const onPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0] ?? null;
-        setPhoto(file); // keep the file itself in state
+        setPhoto(file);
 
         if (file) {
           try {
@@ -106,6 +130,77 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
           setBase64Photo(null);
         }
       };
+
+  // Photo camera
+  const startPhotoCamera = async () => {
+    try {
+      setShowPhotoCamera(true);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: photoFacingMode,
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+        },
+        audio: false,
+      });
+      if (photoVideoRef.current) {
+        photoVideoRef.current.srcObject = stream;
+        photoVideoRef.current.setAttribute('playsinline', 'true');
+        await photoVideoRef.current.play();
+      }
+    } catch (err: any) {
+      console.error('Photo camera error:', err);
+      setError('Camera access denied or unavailable. Please enable camera permissions.');
+      setShowPhotoCamera(false);
+    }
+  };
+
+  const stopPhotoCamera = useCallback(() => {
+    if (photoVideoRef.current?.srcObject) {
+      (photoVideoRef.current.srcObject as MediaStream)
+        .getTracks()
+        .forEach((t) => t.stop());
+      photoVideoRef.current.srcObject = null;
+    }
+    setShowPhotoCamera(false);
+  }, []);
+
+  const togglePhotoCamera = async () => {
+    stopPhotoCamera();
+    setPhotoFacingMode(photoFacingMode === 'environment' ? 'user' : 'environment');
+    setTimeout(startPhotoCamera, 300);
+  };
+
+  const capturePhoto = async () => {
+    try {
+      const video = photoVideoRef.current;
+      const canvas = photoCanvasRef.current;
+      if (!video || !canvas) return;
+      if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      setBase64Photo(dataUrl);
+      setPhoto(null); // Clear file input since we're using camera
+      stopPhotoCamera();
+    } catch (err: any) {
+      console.error('Capture photo error:', err);
+      setError('Gagal mengambil foto. Coba lagi.');
+    }
+  };
+
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      stopPhotoCamera();
+    };
+  }, [stopPhotoCamera]);
 
   if (!open) return null;
 
@@ -189,6 +284,7 @@ const resetForm = () => {
   setCurrentStep(0);
   setIsConfirmed(false);
   setError(null);
+  stopPhotoCamera(); // Clean up camera when resetting
 
   onClose();
 };
@@ -269,26 +365,96 @@ const resetForm = () => {
 
               {currentStep === 1 && (
                 <div>
-                  {/* Step 2: Upload Foto */}
-                  <label className="block mb-2 font-medium">Foto Asset</label>
-                  <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
-                    <label className="flex-1 cursor-pointer">
-                      <input type="file" accept="image/*" onChange={onPhotoChange} className="hidden" />
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors">
-                        <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mx-auto mb-2" />
-                        <div className="text-xs sm:text-sm text-gray-600">
-                          {base64Photo ? "Change photo" : "Unggah Foto"}
+                  {/* Step 2: Photo Capture */}
+                  <label className="block mb-2 font-medium">Foto Asset <span className="text-red-500">*</span></label>
+
+                  {showPhotoCamera ? (
+                    <div className="border-2 border-dashed border-blue-300 rounded-xl p-3 sm:p-4 md:p-6 relative overflow-hidden animate-expandScanner bg-gradient-to-br from-blue-50 to-indigo-50">
+                      <div className="relative">
+                        <video
+                          ref={photoVideoRef}
+                          className="w-full h-[60vh] sm:h-72 md:h-80 lg:h-96 object-cover rounded-lg shadow-lg"
+                          playsInline
+                          muted
+                        />
+                        <canvas ref={photoCanvasRef} className="hidden" />
+
+                        <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-6">
+                          {/* Close button */}
+                          <button
+                            onClick={stopPhotoCamera}
+                            className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95"
+                          >
+                            <X className="w-6 h-6 text-gray-700" />
+                          </button>
+                          
+                          {/* Capture button */}
+                          <button
+                            onClick={capturePhoto}
+                            className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 shadow-xl flex items-center justify-center hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 hover:shadow-2xl"
+                            title="Ambil Foto"
+                          >
+                            <Camera className="w-7 h-7 text-white" />
+                          </button>
+                          
+                          {/* Switch camera button */}
+                          <button
+                            onClick={togglePhotoCamera}
+                            className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl"
+                          >
+                            <RotateCcw className="w-6 h-6 text-gray-700" />
+                          </button>
                         </div>
                       </div>
-                    </label>
-                    {base64Photo && (
-                      <>
-                        <div className="flex-1">
-                          <img src={base64Photo} alt="Preview" className="w-full h-32 object-cover rounded-lg border" />
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row sm:items-start space-y-4 sm:space-y-0 sm:space-x-4">
+                      <button
+                        type="button"
+                        onClick={startPhotoCamera}
+                        className={`flex-1 border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${
+                          base64Photo 
+                            ? 'border-green-300 bg-green-50 hover:border-green-400' 
+                            : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
+                        }`}
+                      >
+                        <Camera className={`w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 transition-colors ${
+                          base64Photo ? 'text-green-500' : 'text-gray-400'
+                        }`} />
+                        <div className={`text-sm sm:text-base transition-colors ${
+                          base64Photo ? 'text-green-700' : 'text-gray-600'
+                        }`}>
+                          {base64Photo ? 'Ambil Ulang Foto' : 'Ambil Foto *'}
                         </div>
-                      </>
-                    )}
-                  </div>
+                      </button>
+
+                      {base64Photo && (
+                        <div className="flex-1">
+                          <img
+                            src={base64Photo}
+                            alt="Preview"
+                            className="w-full h-32 object-cover rounded-lg border shadow-sm"
+                          />
+                          <div className="mt-2 flex gap-2">
+                            <button
+                              type="button"
+                              onClick={startPhotoCamera}
+                              className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+                            >
+                              Ambil Ulang
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setBase64Photo(null)}
+                              className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
+                            >
+                              Hapus
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -325,15 +491,17 @@ const resetForm = () => {
                     </p>
                     {qrData ? (
                       <>
-                        <img src={qrData} alt="Asset QR" className="mx-auto w-40 h-40 object-contain" />
-                        <a
-                          href={qrData}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline"
-                        >
-                          Open in new tab
-                        </a>
+                        <img src={buildQRSrc(qrData) || qrData} alt="Asset QR" className="mx-auto w-40 h-40 object-contain" />
+                        {buildQRSrc(qrData) && (
+                          <a
+                            href={buildQRSrc(qrData)!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            Open in new tab
+                          </a>
+                        )}
                       </>
                     ) : (
                       <p className="text-gray-600">QR code not available.</p>

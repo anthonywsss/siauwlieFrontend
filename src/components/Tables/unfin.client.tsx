@@ -183,16 +183,41 @@ export default function UnfinDelivery() {
   useEffect(() => {
     let mounted = true;
     const fetchUnfinished = async () => {
-    setLoading(true);
+      setLoading(true);
+      setError(null);
+      
       try {
-        const res = await safeGet<{ data: RawUnfin[]; meta?: { total?: number } }>("/movements/unfinished");
-        const items: RawUnfin[] = res?.data ?? [];
+        const params: Record<string, any> = {
+          limit: perPage,
+          offset: (page - 1) * perPage,
+        };
+
+        if (query && query.trim() !== "") {
+          params.search = query.trim();
+        }
+
+        const queryString = new URLSearchParams(params).toString();
+        const res = await safeGet<{ data: RawUnfin[]; meta?: { total?: number } }>(
+          `/movements/unfinished?${queryString}`
+        );
+        
         if (!mounted) return;
-        setData(items);
-        const metaTotal = res?.meta?.total;
-        setTotal(typeof metaTotal === "number" ? metaTotal : items.length);
-      } catch (err) {
+
+        if (res === null) {
+          setError("Failed to fetch unfinished deliveries");
+          setData([]);
+          setTotal(0);
+        } else {
+          const items: RawUnfin[] = Array.isArray(res.data) ? res.data : [];
+          setData(items);
+          setTotal(res.meta?.total ?? 0);
+        }
+      } catch (err: any) {
+        if (!mounted) return;
         console.error("Error fetching unfinished deliveries:", err);
+        setError(err?.message ?? "Failed to fetch unfinished deliveries");
+        setData([]);
+        setTotal(0);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -228,18 +253,27 @@ export default function UnfinDelivery() {
     }
   }
 
-  const visible = data.slice((page - 1) * perPage, page * perPage);
+  const visible = data; // Use data directly since pagination is now handled server-side
 
   return (
     <>
       {/* Desktop Table*/}
       <div className="hidden md:block rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:p-7.5">
-        <div className="flex items-center justify-between w-full md:w-auto mb-5">
+        <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
           <h1 className="text-[26px] font-bold leading-[30px] text-dark">
             Pengiriman Belum Tuntas
           </h1>
-          <div className="text-sm text-gray-500">
-            {loading ? "Loading..." : `${total} unfinished deliveries`}
+          
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <input
+              placeholder="Search Asset ID"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-10 rounded border px-3 py-2 w-full md:w-64"
+            />
+            <div className="text-sm text-gray-500 whitespace-nowrap">
+              {loading ? "Loading..." : `${total} items`}
+            </div>
           </div>
         </div>
 

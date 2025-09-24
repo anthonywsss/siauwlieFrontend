@@ -11,6 +11,42 @@ import { cn } from "@/lib/utils";
 import { getInvoiceTableData } from "./fetch";
 import { DownloadIcon, PreviewIcon } from "./icons";
 
+// Handle image source properly
+function buildImageSrc(photo?: string | null): string | null {
+  if (!photo) return null;
+  const trimmed = photo.trim();
+  if (/^data:image\//i.test(trimmed)) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+  const startsWith = (s: string) => trimmed.startsWith(s);
+  let mime = "image/jpeg";
+  if (startsWith("iVBORw0KGgo")) mime = "image/png";
+  else if (startsWith("/9j/")) mime = "image/jpeg";
+  else if (startsWith("R0lGOD")) mime = "image/gif";
+  else if (startsWith("UklGR")) mime = "image/webp";
+  return `data:${mime};base64,${trimmed}`;
+}
+
+// Handle QR code image source properly
+function buildQRSrc(qrCode?: string | null): string | null {
+  if (!qrCode) return null;
+  const trimmed = qrCode.trim();
+  
+  // If complete URL return as is
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  
+  // If base64 image data treat it as such
+  if (/^data:image\//i.test(trimmed)) return trimmed;
+  
+  // If plain base64 == PNG
+  if (/^[A-Za-z0-9+/]+=*$/.test(trimmed) && trimmed.length > 50) {
+    return `data:image/png;base64,${trimmed}`;
+  }
+  
+  // else, return as is
+  return trimmed;
+}
+
 export async function AllItemsTable() {
   // NOTE: nanti rename getInvoiceTableData -> getAllItemsData di ./fetch kalo update api
   const data = await getInvoiceTableData();
@@ -60,15 +96,19 @@ export async function AllItemsTable() {
 
                 {/* QR Code Preview */}
                 <TableCell>
-                  <a
-                    href={qrUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 text-primary hover:underline"
-                  >
-                    <PreviewIcon />
-                    <span>Preview</span>
-                  </a>
+                  {buildQRSrc(qrUrl) && qrUrl !== "#" ? (
+                    <a
+                      href={buildQRSrc(qrUrl)!}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 text-primary hover:underline"
+                    >
+                      <PreviewIcon />
+                      <span>Preview</span>
+                    </a>
+                  ) : (
+                    <span className="text-gray-400">No QR Code</span>
+                  )}
                 </TableCell>
 
                 <TableCell>
@@ -85,15 +125,19 @@ export async function AllItemsTable() {
 
                 {/* Photo Preview */}
                 <TableCell>
-                  <a
-                    href={photoUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 text-primary hover:underline"
-                  >
-                    <PreviewIcon />
-                    <span>Preview</span>
-                  </a>
+                  {buildImageSrc(photoUrl) && photoUrl !== "#" ? (
+                    <a
+                      href={buildImageSrc(photoUrl)!}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 text-primary hover:underline"
+                    >
+                      <PreviewIcon />
+                      <span>Preview</span>
+                    </a>
+                  ) : (
+                    <span className="text-gray-400">No Photo</span>
+                  )}
                 </TableCell>
 
                 <TableCell>

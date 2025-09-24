@@ -820,7 +820,19 @@ export default function SubmitMovement() {
   };
 
   const handlePrev = () => {
-    setStep(Math.max(step - 1, 0));
+    const newStep = Math.max(step - 1, 0);
+    setStep(newStep);
+    
+    // Reset relevant state when going back to step 0
+    if (newStep === 0) {
+      setAssetId("");
+      setMovementType(null);
+      setAssetCurrentStatus(null);
+      setAssetValid(false);
+      setError(null);
+      setSuccess(null);
+      setWarning(null);
+    }
   };
 
   const handleSubmit = async () => {

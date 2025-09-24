@@ -40,8 +40,7 @@ export default function CreateAssetTypeModal({ open, onClose, onCreated }: Props
       };
 
       const result = await safePost("/asset-type", payload);
-      
-      // If result is null, it means we were unauthorized and handled by the safePost function
+
       if (result === null) {
         return;
       }

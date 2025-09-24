@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { useAuth } from "@/components/Auth/auth-context";
 import { Dropdown, DropdownTrigger, DropdownContent } from "@/components/ui/dropdown";
 import { ChevronUpIcon } from "@/assets/icons";
@@ -12,17 +11,43 @@ export function UserInfo() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, signOut } = useAuth();
 
+  const getRoleAvatar = (role?: string) => {
+    if (!role) return "U";
+    
+    switch (role.toLowerCase()) {
+      case "supervisor":
+        return "S";
+      case "driver":
+        return "D";
+      case "security":
+        return "Se";
+      default:
+        return role.charAt(0).toUpperCase();
+    }
+  };
+
   const USER = {
     name: user ? (user.username) : "Guest",
     img: user?.img ?? "/images/user/user-03.png",
+    roleAvatar: getRoleAvatar(user?.role),
   };
+
+  const RoleAvatar = ({ letter, size = "size-12" }: { letter: string; size?: string }) => (
+    <div className={cn(
+      "flex items-center justify-center rounded-full bg-primary text-white font-bold",
+      size,
+      size === "size-12" ? "text-lg" : "text-xl"
+    )}>
+      {letter}
+    </div>
+  );
 
   return (
     <Dropdown isOpen={isOpen} setIsOpen={setIsOpen}>
       <DropdownTrigger className=" z-100 rounded align-middle outline-none ring-primary ring-offset-2 focus-visible:ring-1">
         <span className="sr-only">My Account</span>
         <figure className="flex items-center gap-3">
-          <Image src={USER.img} className="size-12" alt={`Avatar of ${USER.name}`} width={40} height={40} />
+          <RoleAvatar letter={USER.roleAvatar} size="size-12" />
           <figcaption className="flex items-center gap-1 font-medium max-[1024px]:sr-only">
             <span>{USER.name}</span>
             <ChevronUpIcon
@@ -36,7 +61,7 @@ export function UserInfo() {
 
       <DropdownContent className=" z-100 border border-stroke bg-white shadow-md min-[230px]:min-w-[17.5rem]" align="end">
         <figure className="flex items-center gap-2.5 px-5 py-3.5">
-          <Image src={USER.img} alt={`Avatar for ${USER.name}`} width={48} height={48} />
+          <RoleAvatar letter={USER.roleAvatar} size="w-12 h-12" />
           <figcaption className="text-base font-medium">
             <div className="mb-2 leading-none">{USER.name}</div>
           </figcaption>

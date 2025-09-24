@@ -54,8 +54,8 @@ const AccessDeniedModal = ({ open, onClose, message }: { open: boolean; onClose:
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
             <AlertTriangle className="w-8 h-8 text-red-600" />
           </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Akses Ditolak</h3>
-          <p className="text-gray-600 mb-4 text-sm leading-relaxed">{message}</p>
+          <h3 className="text-2xl font-semibold text-gray-900 mb-2">Akses Ditolak</h3>
+          <p className="text-gray-600 mb-4 text-lg leading-relaxed">{message}</p>
           <button
             onClick={onClose}
             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
@@ -155,8 +155,8 @@ const SuccessPopup = ({ message, onClose }: { message: string; onClose: () => vo
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
             <Check className="w-8 h-8 text-green-600" />
           </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Berhasil!</h3>
-          <p className="text-gray-600 mb-4">{message}</p>
+          <h3 className="text-2xl font-semibold text-gray-900 mb-2">Berhasil!</h3>
+          <p className="text-gray-600 mb-4 text-lg">{message}</p>
           <button
             onClick={onClose}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -181,8 +181,8 @@ const WarningModal = ({ open, onClose, message }: { open: boolean; onClose: () =
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
             <AlertTriangle className="w-8 h-8 text-red-600" />
           </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Peringatan</h3>
-          <p className="text-gray-600 mb-4 text-sm leading-relaxed">{message}</p>
+          <h3 className="text-2xl font-semibold text-gray-900 mb-2">Peringatan</h3>
+          <p className="text-gray-600 mb-4 text-lg leading-relaxed">{message}</p>
           <button
             onClick={onClose}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -1044,14 +1044,14 @@ export default function SubmitMovement() {
               <h2 className="text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Pindai kode QR</h2>
               
               {/* QR Scanner */}
-              <div className="flex justify-center">
+              <div className={`${showScanner ? '-mx-4 sm:-mx-6' : 'flex justify-center'}`}>
                 <div className={`transition-all duration-1000 ease-out transform ${
                   showScanner 
                     ? 'w-full max-w-none scale-100 opacity-100' 
                     : 'w-full max-w-md scale-95 opacity-100'
                 }`}>
                   {showScanner ? (
-                    <div className="border-2 border-dashed border-blue-300 rounded-xl p-3 sm:p-4 md:p-6 relative overflow-hidden animate-expandScanner bg-gradient-to-br from-blue-50 to-indigo-50">
+                    <div className="border-2 border-dashed border-blue-300 rounded-none sm:rounded-xl p-3 sm:p-4 md:p-6 relative overflow-hidden animate-expandScanner bg-gradient-to-br from-blue-50 to-indigo-50">
                       <div className="relative">
                         <video
                           ref={videoRef}
@@ -1272,13 +1272,13 @@ export default function SubmitMovement() {
                 </div>
 
                 {/* Photo Capture */}
-                <div className="md:col-span-2">
-                  <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                <div className={`md:col-span-2 ${showPhotoCamera ? '-mx-4 sm:-mx-6' : ''}`}>
+                  <label className={`block text-base sm:text-lg font-medium text-gray-700 mb-2 ${showPhotoCamera ? 'mx-4 sm:mx-6' : ''}`}>
                     Bukti Foto <span className="text-red-500">*</span>
                   </label>
 
                   {showPhotoCamera ? (
-                    <div className="border-2 border-dashed border-blue-300 rounded-xl p-3 sm:p-4 md:p-6 relative overflow-hidden animate-expandScanner bg-gradient-to-br from-blue-50 to-indigo-50">
+                    <div className="border-2 border-dashed border-blue-300 rounded-none sm:rounded-xl p-3 sm:p-4 md:p-6 relative overflow-hidden animate-expandScanner bg-gradient-to-br from-blue-50 to-indigo-50">
                       <div className="relative">
                         <video
                           ref={photoVideoRef}

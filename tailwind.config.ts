@@ -103,8 +103,8 @@ const config: Config = {
         "heading-5": ["28px", "40px"],
         "heading-6": ["24px", "30px"],
         "body-2xlg": ["22px", "28px"],
-        "body-sm": ["14px", "22px"],
-        "body-xs": ["12px", "20px"],
+        "body-sm": ["16px", "24px"],
+        "body-xs": ["14px", "22px"],
       },
       spacing: {
         4.5: "1.125rem",

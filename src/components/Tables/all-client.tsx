@@ -7,7 +7,7 @@ import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import CreateClientModal from "@/components/CreateClientModal";
 import EditClientModal from "@/components/EditClientModal";
-import DeleteClientModal from "@/components/DeleteClientModal";
+import DeleteConfirmModal from "@/components/ConfirmDeletion";
 import { safeGet, safeDelete } from "@/lib/fetcher";
 import {
   Table,
@@ -462,15 +462,20 @@ export default function AllClientsPage() {
         onUpdated={handleCreatedOrUpdated}
       />
 
-      <DeleteClientModal
-        open={!!deletingRaw}
-        client={deletingRaw ?? undefined}
-        onClose={() => setDeletingRaw(null)}
+      <DeleteConfirmModal
+        open={!!deletingRaw}                      
+        resourceName="Client"                     
+        resourceId={deletingRaw?.id}              
+        resourceLabel={deletingRaw?.name}
+        deleteUrl={`/clients/${deletingRaw?.id}`}
+        onClose={() => setDeletingRaw(null)}      
         onDeleted={() => {
           setDeletingRaw(null);
-          setRefreshKey((k) => k + 1);
+          setRefreshKey((k) => k + 1);            
         }}
       />
+
+
     </div>
   );
 }

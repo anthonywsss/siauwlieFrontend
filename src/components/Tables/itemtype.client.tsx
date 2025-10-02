@@ -8,7 +8,7 @@ import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import CreateAssetTypeModal from "@/components/CreateAssetTypeModal";
 import EditAssetTypeModal from "@/components/EditAssetTypeModal";
-import DeleteAssetTypeModal from "@/components/DeleteAssetTypeModal";
+import DeleteConfirmModal from "@/components/ConfirmDeletion";
 import { safeGet } from "@/lib/fetcher";
 
 import dayjs from "dayjs";
@@ -144,30 +144,6 @@ useEffect(() => {
     mounted = false;
   };
 }, [page, perPage, query, refreshKey]);
-
-  // Delete asset type
-  async function handleDelete(rawId?: number | string) {
-    if (!rawId) return;
-    if (!confirm("Hapus asset ini? Aksi ini tidak bisa diulang")) return;
-
-    setActionLoading(String(rawId));
-    try {
-      await API.delete(`/asset-type/${rawId}`);
-      setRefreshKey((k) => k + 1);
-    } catch (err: any) {
-      console.error("delete asset type error:", err);
-      if (err?.response?.status === 401) {
-        signOut();
-        try {
-          router.push("/auth/sign-in");
-        } catch {}
-        return;
-      }
-      alert(err?.response?.data?.meta?.message ?? err?.message ?? "Gagal menghapus asset");
-    } finally {
-      setActionLoading(null);
-    }
-  }
 
   // open edit modal
   function handleEditOpen(raw?: RawAssetType | null) {
@@ -398,10 +374,13 @@ useEffect(() => {
         onUpdated={handleCreatedOrUpdated}
       />
 
-      <DeleteAssetTypeModal
-        open={!!deletingRaw}
-        assetType={deletingRaw ?? undefined}
-        onClose={() => setDeletingRaw(null)}
+      <DeleteConfirmModal
+        open={!!deletingRaw}                      
+        resourceName="Asset Type"                     
+        resourceId={deletingRaw?.id}              
+        resourceLabel={deletingRaw?.name}
+        deleteUrl={`/asset-type/${deletingRaw?.id}`}
+        onClose={() => setDeletingRaw(null)}      
         onDeleted={() => {
           setDeletingRaw(null);
           setRefreshKey((k) => k + 1);

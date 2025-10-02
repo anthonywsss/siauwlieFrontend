@@ -8,7 +8,7 @@ import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import CreateUserModal from "@/components/CreateUserModal";
 import EditUserModal from "@/components/EditUserModal";
-import DeleteUserModal from "@/components/DeleteUserModal";
+import DeleteConfirmModal from "@/components/ConfirmDeletion";
 import { safeGet } from "@/lib/fetcher";
 
 import dayjs from "dayjs";
@@ -182,30 +182,6 @@ export default function AllItemsClient() {
       mounted = false;
     };
   }, [page, perPage, query, refreshKey]);
-
-  // Delete user
-  async function handleDelete(rawId?: number | string) {
-    if (!rawId) return;
-    if (!confirm("Delete this user? This cannot be undone.")) return;
-
-    setActionLoading(String(rawId));
-    try {
-      await API.delete(`/users/${rawId}`);
-      setRefreshKey((k) => k + 1);
-    } catch (err: any) {
-      console.error("delete user error:", err);
-      if (err?.response?.status === 401) {
-        signOut();
-        try {
-          router.push("/auth/sign-in");
-        } catch {}
-        return;
-      }
-      alert(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to delete user");
-    } finally {
-      setActionLoading(null);
-    }
-  }
 
   // open edit modal
   function handleEditOpen(raw?: RawUser | null) {
@@ -455,15 +431,18 @@ export default function AllItemsClient() {
         onUpdated={handleCreatedOrUpdated}
       />
 
-      <DeleteUserModal
-        open={!!deletingUserRaw}
-        userData={deletingUserRaw ?? undefined}
-        onClose={() => setDeletingUserRaw(null)}
-        onDeleted={() => {
-          setDeletingUserRaw(null);
-          setRefreshKey((k) => k + 1);
-        }}
-      />
+      <DeleteConfirmModal
+              open={!!deletingUserRaw}                      
+              resourceName="User"                     
+              resourceId={deletingUserRaw?.user_id}              
+              resourceLabel={deletingUserRaw?.username}
+              deleteUrl={`/users/${deletingUserRaw?.user_id}`}
+              onClose={() => setDeletingUserRaw(null)}      
+              onDeleted={() => {
+                setDeletingUserRaw(null);
+                setRefreshKey((k) => k + 1);     
+              }}
+            />
 
     </div>
   );

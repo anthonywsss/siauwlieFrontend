@@ -296,7 +296,6 @@ export default function SubmitMovement() {
     }
   }, [movementType, clients]);
 
-  // Compress image using react-image-file-resizer
   const compressImage = useCallback((file: File): Promise<string> =>
     new Promise((resolve, reject) => {
       if (file.size > 10 * 1024 * 1024) { 

@@ -55,10 +55,13 @@ type AssetType = {
 
 export default function AllItemsClient() {
   // these are pagination states
-  const [page, setPage] = useState(1);        // current page
-  const [perPage, setPerPage] = useState(10); // rows per page
-  const [total, setTotal] = useState(0);      // total items (from backend)
-  const totalPages = Math.ceil(total / perPage);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [total, setTotal] = useState(0);
+
+  // derive totalPages from total + perPage
+  const totalPages = useMemo(() => Math.ceil(total / perPage), [total, perPage]);
+
   
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -114,7 +117,7 @@ export default function AllItemsClient() {
             setTotal(0);
           } else {
             setData(Array.isArray(res.data) ? res.data : []);
-            setTotal(res.meta?.total ?? 0); // backend should return total count
+            setTotal(res.total?? 0); // backend should return total count
           }
         } catch (err: any) {
           if (!mounted) return;
@@ -246,7 +249,7 @@ useEffect(() => {
 
       const queryString = new URLSearchParams(params).toString();
 
-      const res = await safeGet<{ data: RawAsset[]; meta?: { total?: number } }>(
+      const res = await safeGet<{ data: RawAsset[]; meta?: { total: number }; }>(
         `/asset?${queryString}`
       );
       if (!mounted) return;
@@ -257,7 +260,7 @@ useEffect(() => {
         setTotal(0);
       } else {
         setData(Array.isArray(res.data) ? res.data : []);
-        setTotal(res.meta?.total ?? 0); // backend should return total count
+        setTotal(res.total ?? 0); // backend should return total count
       }
     } catch (err: any) {
       if (!mounted) return;

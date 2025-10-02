@@ -369,7 +369,7 @@ export default function SubmitMovement() {
 
   const toggleCamera = async () => {
     stopScanner();
-    setFacingMode(facingMode === 'environment' ? 'user' : 'environment');
+    setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
     setTimeout(startScanner, 300);
   };
 
@@ -1051,11 +1051,11 @@ export default function SubmitMovement() {
                     : 'w-full max-w-md scale-95 opacity-100'
                 }`}>
                   {showScanner ? (
-                    <div className="border-2 border-dashed border-blue-300 rounded-none sm:rounded-xl p-3 sm:p-4 md:p-6 relative overflow-hidden animate-expandScanner bg-gradient-to-br from-blue-50 to-indigo-50">
+                    <div className="border-2 border-dashed border-blue-300 rounded-none sm:rounded-xl p-0 relative overflow-hidden animate-expandScanner bg-gradient-to-br from-blue-50 to-indigo-50">
                       <div className="relative">
                         <video
                           ref={videoRef}
-                          className="w-full h-[60vh] sm:h-72 md:h-80 lg:h-96 object-cover rounded-lg shadow-lg"
+                          className="w-full h-[60vh] sm:h-72 md:h-80 lg:h-96 object-cover rounded-none sm:rounded-lg shadow-lg"
                           playsInline
                           muted
                         />
@@ -1083,25 +1083,25 @@ export default function SubmitMovement() {
                           </div>
                         </div>
                         
+                        
+                      </div>
+                      
+                      <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-6">
+                        {/* Dismiss button */}
                         <button
                           onClick={stopScanner}
-                          className="absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 p-1.5 sm:p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-300 animate-fadeInDelay shadow-lg hover:shadow-xl transform hover:scale-105"
+                          className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95"
                         >
-                          <X className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                          <X className="w-6 h-6 text-gray-700" />
                         </button>
                         
+                        {/* Flip camera button */}
                         <button
                           onClick={toggleCamera}
-                          className="absolute top-8 right-2 sm:top-12 sm:right-3 md:top-16 md:right-4 p-1.5 sm:p-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-all duration-300 animate-fadeInDelay shadow-lg hover:shadow-xl transform hover:scale-105"
+                          className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95"
                         >
-                          <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                          <RotateCcw className="w-6 h-6 text-gray-700" />
                         </button>
-                        
-                        <div className="absolute bottom-2 left-2 right-2 text-center animate-fadeInDelay">
-                          <div className="bg-black bg-opacity-70 text-white px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm rounded-lg animate-textPulse backdrop-blur-sm shadow-lg">
-                            Posisikan QR dalam frame
-                          </div>
-                        </div>
                       </div>
                     </div>
                   ) : (

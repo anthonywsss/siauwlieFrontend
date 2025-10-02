@@ -6,6 +6,7 @@ import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import { Camera, MapPin, Check, ArrowLeft, ArrowRight, X, Scan, RotateCcw, AlertTriangle } from "lucide-react";
 import { useModalWatch } from "@/components/ModalContext";
+import Resizer from "react-image-file-resizer";
 
 type BerhasilModal = {
   open: boolean;
@@ -295,6 +296,32 @@ export default function SubmitMovement() {
     }
   }, [movementType, clients]);
 
+  // Compress image using react-image-file-resizer
+  const compressImage = useCallback((file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      if (file.size > 10 * 1024 * 1024) { 
+        reject(new Error("File terlalu besar (max 10MB)"));
+        return;
+      }
+      
+      try {
+        Resizer.imageFileResizer(
+          file,
+          1280, // maxWidth
+          720,  // maxHeight
+          "JPEG", 
+          85,
+          0,
+          (uri) => {
+            resolve(uri as string);
+          },
+          "base64" // outputType
+        );
+      } catch (err) {
+        reject(new Error("Gagal mengkompresi gambar"));
+      }
+    }), []);
+
   const fileToBase64 = useCallback((file: File): Promise<string> =>
     new Promise((resolve, reject) => {
       if (file.size > 10 * 1024 * 1024) { 
@@ -313,9 +340,9 @@ export default function SubmitMovement() {
     const file = e.target.files?.[0] ?? null;
     if (file) {
       try {
-        const base64 = await fileToBase64(file);
+        const base64 = await compressImage(file);
         setPhotoBase64(base64);
-        setSuccess("Foto berhasil diupload!");
+        setSuccess("Foto berhasil diupload dan dikompres!");
       } catch (err: any) {
         setError(err.message || "Foto gagal diupload");
       }
@@ -427,10 +454,29 @@ export default function SubmitMovement() {
       if (!ctx) return;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-      setPhotoBase64(dataUrl);
-      setSuccess('Foto berhasil diambil!');
-      stopPhotoCamera();
+      // Convert canvas to blob, then compress
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          setError('Gagal mengambil foto. Coba lagi.');
+          return;
+        }
+        
+        try {
+          // Convert blob to file for compression
+          const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+          const compressedBase64 = await compressImage(file);
+          setPhotoBase64(compressedBase64);
+          setSuccess('Foto berhasil diambil dan dikompres!');
+          stopPhotoCamera();
+        } catch (err: any) {
+          console.error('Compress photo error:', err);
+          // Fallback to uncompressed if compression fails
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          setPhotoBase64(dataUrl);
+          setSuccess('Foto berhasil diambil!');
+          stopPhotoCamera();
+        }
+      }, 'image/jpeg', 0.92);
     } catch (err: any) {
       console.error('Capture photo error:', err);
       setError('Gagal mengambil foto. Coba lagi.');

@@ -55,10 +55,15 @@ type AssetType = {
 
 export default function AllItemsClient() {
   // these are pagination states
-  const [page, setPage] = useState(1);        // current page
-  const [perPage, setPerPage] = useState(10); // rows per page
-  const [total, setTotal] = useState(0);      // total items (from backend)
-  const totalPages = Math.ceil(total / perPage);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [total, setTotal] = useState(0);
+
+  // derive totalPages from total + perPage
+  const totalPages = useMemo(() => Math.ceil(total / perPage), [total, perPage]);
+
+  
+  const [refreshKey, setRefreshKey] = useState(0);
 
   function getPages(current: number, totalPages: number): (number | string)[] {
   const delta = 2; // how many pages before/after current
@@ -87,6 +92,48 @@ export default function AllItemsClient() {
     return rangeWithDots;
   }
 
+   useEffect(() => {
+      let mounted = true;
+      setLoading(true);
+      setError(null);
+    
+      (async () => {
+        try {
+          const params: Record<string, any> = {
+            limit: perPage,
+            offset: (page - 1) * perPage,
+          };
+   
+          const queryString = new URLSearchParams(params).toString();
+    
+          const res = await safeGet<{ data: RawAsset[]; meta?: { total?: number } }>(
+            `/asset?${queryString}`
+          );
+          if (!mounted) return;
+    
+          if (res === null) {
+            setError("Failed to fetch assets");
+            setData([]);
+            setTotal(0);
+          } else {
+            setData(Array.isArray(res.data) ? res.data : []);
+            setTotal(res.total?? 0); // backend should return total count
+          }
+        } catch (err: any) {
+          if (!mounted) return;
+          setError(err?.message ?? "Failed to fetch assets");
+          setData([]);
+          setTotal(0);
+        } finally {
+          if (mounted) setLoading(false);
+        }
+      })();
+    
+      return () => {
+        mounted = false;
+      };
+    }, [page, perPage, refreshKey]);
+
   const pages = getPages(page, totalPages);
 
 
@@ -107,7 +154,6 @@ export default function AllItemsClient() {
   const [editingRaw, setEditingRaw] = useState<RawAsset | null>(null);
   const [deletingRaw, setDeletingRaw] = useState<RawAsset | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const [allAssets, setAllAssets] = useState<RawAsset[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<RawAsset | null>(null);
@@ -122,7 +168,7 @@ export default function AllItemsClient() {
   const [previewType, setPreviewType] = useState<'photo' | 'qr'>('photo');
 
   const { signOut } = useAuth();
-  const router = useRouter();
+  const router = useRouter();  
 
   // Normalize
   function buildImageSrc(photo?: string | null): string | null {
@@ -203,7 +249,7 @@ useEffect(() => {
 
       const queryString = new URLSearchParams(params).toString();
 
-      const res = await safeGet<{ data: RawAsset[]; meta?: { total?: number } }>(
+      const res = await safeGet<{ data: RawAsset[]; meta?: { total: number }; }>(
         `/asset?${queryString}`
       );
       if (!mounted) return;
@@ -214,7 +260,7 @@ useEffect(() => {
         setTotal(0);
       } else {
         setData(Array.isArray(res.data) ? res.data : []);
-        setTotal(res.meta?.total ?? 0); // backend should return total count
+        setTotal(res.total ?? 0); // backend should return total count
       }
     } catch (err: any) {
       if (!mounted) return;
@@ -229,7 +275,7 @@ useEffect(() => {
   return () => {
     mounted = false;
   };
-}, [page, perPage, query, statusFilter, assetFilter, refreshKey]);
+}, [query, statusFilter, assetFilter, refreshKey]);
 
   // open edit modal
   function handleEditOpen(raw?: RawAsset | null) {
@@ -769,53 +815,53 @@ useEffect(() => {
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center gap-2 flex-wrap mt-10">
-        <button
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-          disabled={page === 1}
-          className="rounded border px-3 py-1 disabled:opacity-50"
-        >
-          &lt;
-        </button>
-
-        {pages.map((p, i) =>
-          p === "..." ? (
-            <span key={`dot-${i}`} className="px-2">
-              …
-            </span>
-          ) : (
-            <button
-              key={p}
-              onClick={() => setPage(Number(p))}
-              className={cn(
-                "rounded border px-3 py-1 min-w-[36px] md:min-w-[40px]",
-                { "ring-2 ring-blue-400 bg-white": p === page }
-              )}
-              aria-current={p === page ? "page" : undefined}
-            >
-              {p}
-            </button>
-          )
-        )}
-
-        <button
-          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          disabled={page === totalPages}
-          className="rounded border px-3 py-1 disabled:opacity-50"
-        >
-          &gt;
-        </button>
-
-        <div className="ml-3 text-sm text-gray-500">
-          {total === 0
-            ? "0"
-            : `${Math.min((page - 1) * perPage + 1, total)}–${Math.min(
-                page * perPage,
-                total
-              )}`}{" "}
-          of {total}
-        </div>
-      </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="rounded border px-3 py-1 disabled:opacity-50"
+                  >
+                    &lt;
+                  </button>
+          
+                  {pages.map((p, i) =>
+                    p === "..." ? (
+                      <span key={`dot-${i}`} className="px-2">
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => setPage(Number(p))}
+                        className={cn(
+                          "rounded border px-3 py-1 min-w-[36px] md:min-w-[40px]",
+                          { "ring-2 ring-blue-400 bg-white": p === page }
+                        )}
+                        aria-current={p === page ? "page" : undefined}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+          
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="rounded border px-3 py-1 disabled:opacity-50"
+                  >
+                    &gt;
+                  </button>
+          
+                  <div className="ml-3 text-sm text-gray-500">
+                    {total === 0
+                      ? "0"
+                      : `${Math.min((page - 1) * perPage + 1, total)}–${Math.min(
+                          page * perPage,
+                          total
+                        )}`}{" "}
+                    of {total}
+                  </div>
+                </div>
 
       {/* Modals */}
         <CreateNewAsset

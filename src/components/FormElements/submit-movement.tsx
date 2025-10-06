@@ -6,6 +6,7 @@ import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import { Camera, MapPin, Check, ArrowLeft, ArrowRight, X, Scan, RotateCcw, AlertTriangle } from "lucide-react";
 import { useModalWatch } from "@/components/ModalContext";
+import Resizer from "react-image-file-resizer";
 
 type BerhasilModal = {
   open: boolean;
@@ -295,6 +296,50 @@ export default function SubmitMovement() {
     }
   }, [movementType, clients]);
 
+  const compressImage = useCallback((file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      if (file.size > 10 * 1024 * 1024) { 
+        reject(new Error("File terlalu besar (max 10MB)"));
+        return;
+      }
+
+      const img = new Image();
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
+        
+        img.onload = () => {
+          try {
+            Resizer.imageFileResizer(
+              file,
+              img.width,
+              img.height,
+              "JPEG", 
+              55, // quality
+              0,
+              (uri) => {
+                resolve(uri as string);
+              },
+              "base64" // outputType
+            );
+          } catch (err) {
+            reject(new Error("Gagal mengkompresi gambar"));
+          }
+        };
+        
+        img.onerror = () => {
+          reject(new Error("Gagal membaca dimensi gambar"));
+        };
+      };
+      
+      reader.onerror = () => {
+        reject(new Error("Gagal membaca file"));
+      };
+      
+      reader.readAsDataURL(file);
+    }), []);
+
   const fileToBase64 = useCallback((file: File): Promise<string> =>
     new Promise((resolve, reject) => {
       if (file.size > 10 * 1024 * 1024) { 
@@ -313,9 +358,9 @@ export default function SubmitMovement() {
     const file = e.target.files?.[0] ?? null;
     if (file) {
       try {
-        const base64 = await fileToBase64(file);
+        const base64 = await compressImage(file);
         setPhotoBase64(base64);
-        setSuccess("Foto berhasil diupload!");
+        setSuccess("Foto berhasil diupload dan dikompres!");
       } catch (err: any) {
         setError(err.message || "Foto gagal diupload");
       }
@@ -427,10 +472,29 @@ export default function SubmitMovement() {
       if (!ctx) return;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-      setPhotoBase64(dataUrl);
-      setSuccess('Foto berhasil diambil!');
-      stopPhotoCamera();
+      // Convert canvas to blob, then compress
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          setError('Gagal mengambil foto. Coba lagi.');
+          return;
+        }
+        
+        try {
+          // Convert blob to file for compression
+          const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+          const compressedBase64 = await compressImage(file);
+          setPhotoBase64(compressedBase64);
+          setSuccess('Foto berhasil diambil dan dikompres!');
+          stopPhotoCamera();
+        } catch (err: any) {
+          console.error('Compress photo error:', err);
+          // Fallback to uncompressed if compression fails
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          setPhotoBase64(dataUrl);
+          setSuccess('Foto berhasil diambil!');
+          stopPhotoCamera();
+        }
+      }, 'image/jpeg', 0.92);
     } catch (err: any) {
       console.error('Capture photo error:', err);
       setError('Gagal mengambil foto. Coba lagi.');
@@ -1055,7 +1119,7 @@ export default function SubmitMovement() {
                       <div className="relative">
                         <video
                           ref={videoRef}
-                          className="w-full h-[60vh] sm:h-72 md:h-80 lg:h-96 object-cover rounded-none sm:rounded-lg shadow-lg"
+                          className="w-full h-[50vh] xsm:h-[55vh] sm:h-[60vh] md:h-96 lg:h-[500px] object-cover rounded-none sm:rounded-lg shadow-lg"
                           playsInline
                           muted
                         />
@@ -1066,41 +1130,41 @@ export default function SubmitMovement() {
                         />
                         
                         {/* Scanner frame overlay */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 lg:w-64 lg:h-64 border-4 border-blue-500 rounded-2xl relative animate-scannerFrame shadow-lg">
-                            {/* Corner */}
-                            <div className="absolute -top-1 -left-1 sm:-top-2 sm:-left-2 w-3 h-3 sm:w-4 sm:h-4 md:w-6 md:h-6 border-t-4 border-l-4 border-blue-400 animate-cornerPulse rounded-tl-lg"></div>
-                            <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-3 h-3 sm:w-4 sm:h-4 md:w-6 md:h-6 border-t-4 border-r-4 border-blue-400 animate-cornerPulse rounded-tr-lg"></div>
-                            <div className="absolute -bottom-1 -left-1 sm:-bottom-2 sm:-left-2 w-3 h-3 sm:w-4 sm:h-4 md:w-6 md:h-6 border-b-4 border-l-4 border-blue-400 animate-cornerPulse rounded-bl-lg"></div>
-                            <div className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 w-3 h-3 sm:w-4 sm:h-4 md:w-6 md:h-6 border-b-4 border-r-4 border-blue-400 animate-cornerPulse rounded-br-lg"></div>
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-48 h-48 xsm:w-56 xsm:h-56 sm:w-64 sm:h-64 md:w-72 md:h-72 lg:w-80 lg:h-80 border-4 sm:border-[5px] border-blue-500 rounded-2xl sm:rounded-3xl relative animate-scannerFrame shadow-2xl">
+                            {/* Corner accents - larger and more visible on mobile */}
+                            <div className="absolute -top-2 -left-2 sm:-top-3 sm:-left-3 w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 border-t-[5px] border-l-[5px] sm:border-t-[6px] sm:border-l-[6px] border-blue-400 animate-cornerPulse rounded-tl-xl"></div>
+                            <div className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 border-t-[5px] border-r-[5px] sm:border-t-[6px] sm:border-r-[6px] border-blue-400 animate-cornerPulse rounded-tr-xl"></div>
+                            <div className="absolute -bottom-2 -left-2 sm:-bottom-3 sm:-left-3 w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 border-b-[5px] border-l-[5px] sm:border-b-[6px] sm:border-l-[6px] border-blue-400 animate-cornerPulse rounded-bl-xl"></div>
+                            <div className="absolute -bottom-2 -right-2 sm:-bottom-3 sm:-right-3 w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 border-b-[5px] border-r-[5px] sm:border-b-[6px] sm:border-r-[6px] border-blue-400 animate-cornerPulse rounded-br-xl"></div>
                             
-                            {/*  line */}
-                            <div className="absolute top-0 left-0 right-0 h-0.5 sm:h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent animate-scanMobile rounded-full shadow-lg"></div>
+                            {/* Scanning line - more prominent on mobile */}
+                            <div className="absolute top-0 left-0 right-0 h-1 sm:h-1.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent animate-scanMobile rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
                             
                             {/* Scanning grid overlay */}
-                            <div className="absolute inset-2 border border-blue-300 rounded-xl opacity-30 animate-gridPulse"></div>
-                            <div className="absolute inset-4 border border-blue-200 rounded-lg opacity-20 animate-gridPulse" style={{animationDelay: '0.5s'}}></div>
+                            <div className="absolute inset-3 sm:inset-4 border-2 border-blue-300 rounded-xl opacity-30 animate-gridPulse"></div>
+                            <div className="absolute inset-6 sm:inset-8 border border-blue-200 rounded-lg opacity-20 animate-gridPulse" style={{animationDelay: '0.5s'}}></div>
                           </div>
                         </div>
                         
                         
                       </div>
                       
-                      <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-6">
+                      <div className="absolute bottom-4 sm:bottom-6 left-0 right-0 flex items-center justify-center gap-4 sm:gap-6 px-4">
                         {/* Dismiss button */}
                         <button
                           onClick={stopScanner}
-                          className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95"
+                          className="w-14 h-14 sm:w-12 sm:h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95 touch-manipulation"
                         >
-                          <X className="w-6 h-6 text-gray-700" />
+                          <X className="w-6 h-6 sm:w-5 sm:h-5 text-gray-700" />
                         </button>
                         
                         {/* Flip camera button */}
                         <button
                           onClick={toggleCamera}
-                          className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95"
+                          className="w-14 h-14 sm:w-12 sm:h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95 touch-manipulation"
                         >
-                          <RotateCcw className="w-6 h-6 text-gray-700" />
+                          <RotateCcw className="w-6 h-6 sm:w-5 sm:h-5 text-gray-700" />
                         </button>
                       </div>
                     </div>
@@ -1278,40 +1342,59 @@ export default function SubmitMovement() {
                   </label>
 
                   {showPhotoCamera ? (
-                    <div className="border-2 border-dashed border-blue-300 rounded-none sm:rounded-xl p-3 sm:p-4 md:p-6 relative overflow-hidden animate-expandScanner bg-gradient-to-br from-blue-50 to-indigo-50">
+                    <div className="border-2 border-dashed border-blue-300 rounded-none sm:rounded-xl p-0 relative overflow-hidden animate-expandScanner bg-gradient-to-br from-blue-50 to-indigo-50">
                       <div className="relative">
                         <video
                           ref={photoVideoRef}
-                          className="w-full h-[60vh] sm:h-64 md:h-80 lg:h-96 object-cover rounded-lg shadow-lg"
+                          className="w-full h-[50vh] xsm:h-[55vh] sm:h-[60vh] md:h-96 lg:h-[500px] object-cover rounded-none sm:rounded-lg shadow-lg"
                           playsInline
                           muted
                         />
                         <canvas ref={photoCanvasRef} className="hidden" />
 
-                      <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-6">
+                        {/* Photo frame overlay - simple gridlines */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          {/* Main frame */}
+                          <div className="w-64 h-48 xsm:w-72 xsm:h-54 sm:w-80 sm:h-60 md:w-96 md:h-72 lg:w-[450px] lg:h-80 relative animate-photoFrame">
+                            {/* Rule of thirds grid */}
+                            <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 opacity-40">
+                              <div className="border-r border-b border-white"></div>
+                              <div className="border-r border-b border-white"></div>
+                              <div className="border-b border-white"></div>
+                              <div className="border-r border-b border-white"></div>
+                              <div className="border-r border-b border-white"></div>
+                              <div className="border-b border-white"></div>
+                              <div className="border-r border-white"></div>
+                              <div className="border-r border-white"></div>
+                              <div></div>
+                            </div>
+                          </div>
+                        </div>
+
+                      <div className="absolute bottom-4 sm:bottom-6 left-0 right-0 flex items-center justify-center gap-4 sm:gap-6 px-4">
                         {/* Close button */}
                         <button
                           onClick={stopPhotoCamera}
-                          className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95"
+                          className="w-14 h-14 sm:w-12 sm:h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95 touch-manipulation"
                         >
-                          <X className="w-6 h-6 text-gray-700" />
+                          <X className="w-6 h-6 sm:w-5 sm:h-5 text-gray-700" />
                         </button>
                         
-                        {/* Capture button */}
+                        {/* Capture button - larger on mobile */}
                         <button
                           onClick={capturePhoto}
-                          className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 shadow-xl flex items-center justify-center hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 hover:shadow-2xl"
+                          className="w-20 h-20 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 shadow-xl flex items-center justify-center hover:from-green-600 hover:to-emerald-700 transition-all duration-300 hover:shadow-2xl transform hover:scale-105 active:scale-95 touch-manipulation ring-4 ring-white"
                           title="Ambil Foto"
                         >
-                          <Camera className="w-7 h-7 text-white" />
+                          <Camera className="w-9 h-9 sm:w-7 sm:h-7 text-white" />
                         </button>
                         
                         {/* Switch camera button */}
                         <button
                           onClick={togglePhotoCamera}
-                          className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl"
+                          className="w-14 h-14 sm:w-12 sm:h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95 touch-manipulation"
                         >
-                          <RotateCcw className="w-6 h-6 text-gray-700" />
+                          <RotateCcw className="w-6 h-6 sm:w-5 sm:h-5 text-gray-700" />
                         </button>
                       </div>
                       </div>
@@ -1537,47 +1620,116 @@ export default function SubmitMovement() {
           0% { 
             top: 0%; 
             opacity: 0;
-            transform: scaleX(0.5);
+            transform: scaleX(0.3);
+            box-shadow: 0 0 5px rgba(59, 130, 246, 0.3);
+          }
+          5% {
+            opacity: 0.8;
+            transform: scaleX(0.8);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
           }
           10% {
             opacity: 1;
             transform: scaleX(1);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
           }
           50% { 
             top: 100%; 
             opacity: 1;
             transform: scaleX(1);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
           }
           90% {
-            opacity: 1;
+            opacity: 0.8;
             transform: scaleX(0.8);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
+          }
+          95% {
+            opacity: 0.3;
+            transform: scaleX(0.5);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
           }
           100% { 
             top: 0%; 
             opacity: 0;
             transform: scaleX(0.3);
+            box-shadow: 0 0 5px rgba(59, 130, 246, 0.2);
           }
         }
         @keyframes cornerPulse {
           0%, 100% { 
-            opacity: 0.6;
+            opacity: 0.7;
             transform: scale(1);
-            filter: brightness(1);
+            filter: brightness(1) drop-shadow(0 0 3px rgba(96, 165, 250, 0.5));
           }
           50% { 
             opacity: 1;
-            transform: scale(1.1);
-            filter: brightness(1.2);
+            transform: scale(1.15);
+            filter: brightness(1.3) drop-shadow(0 0 8px rgba(96, 165, 250, 0.8));
+          }
+        }
+        @keyframes cornerPulsePhoto {
+          0%, 100% { 
+            opacity: 0.7;
+            transform: scale(1);
+            filter: brightness(1) drop-shadow(0 0 3px rgba(74, 222, 128, 0.5));
+          }
+          50% { 
+            opacity: 1;
+            transform: scale(1.15);
+            filter: brightness(1.3) drop-shadow(0 0 8px rgba(74, 222, 128, 0.8));
+          }
+        }
+        @keyframes photoFrame {
+          0% { 
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          100% { 
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        @keyframes cornerBracket {
+          0%, 100% { 
+            opacity: 0.8;
+            transform: scale(1);
+          }
+          50% { 
+            opacity: 1;
+            transform: scale(1.05);
+          }
+        }
+        @keyframes focusPulse {
+          0%, 100% { 
+            opacity: 0.6;
+            transform: translate(-50%, -50%) scale(1);
+          }
+          50% { 
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.1);
+          }
+        }
+        @keyframes recordPulse {
+          0%, 100% { 
+            opacity: 1;
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+          }
+          50% { 
+            opacity: 0.8;
+            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
           }
         }
         @keyframes gridPulse {
           0%, 100% { 
-            opacity: 0.2;
+            opacity: 0.25;
             transform: scale(1);
+            filter: drop-shadow(0 0 2px rgba(147, 197, 253, 0.3));
           }
           50% { 
-            opacity: 0.4;
-            transform: scale(1.02);
+            opacity: 0.45;
+            transform: scale(1.03);
+            filter: drop-shadow(0 0 4px rgba(147, 197, 253, 0.5));
           }
         }
         @keyframes iconPulse {
@@ -1622,10 +1774,25 @@ export default function SubmitMovement() {
           opacity: 0;
         }
         .animate-scanMobile {
-          animation: scanMobile 3s ease-in-out infinite;
+          animation: scanMobile 2.5s ease-in-out infinite;
         }
         .animate-cornerPulse {
           animation: cornerPulse 2s ease-in-out infinite;
+        }
+        .animate-cornerPulsePhoto {
+          animation: cornerPulsePhoto 2s ease-in-out infinite;
+        }
+        .animate-photoFrame {
+          animation: photoFrame 0.5s ease-out forwards;
+        }
+        .animate-cornerBracket {
+          animation: cornerBracket 2s ease-in-out infinite;
+        }
+        .animate-focusPulse {
+          animation: focusPulse 2s ease-in-out infinite;
+        }
+        .animate-recordPulse {
+          animation: recordPulse 1.5s ease-in-out infinite;
         }
         .animate-gridPulse {
           animation: gridPulse 3s ease-in-out infinite;
@@ -1648,6 +1815,21 @@ export default function SubmitMovement() {
           .animate-fadeInDelay {
             animation-duration: 1s;
           }
+          .animate-scanMobile {
+            animation: scanMobile 2s ease-in-out infinite;
+          }
+          .animate-cornerPulse {
+            animation: cornerPulse 1.5s ease-in-out infinite;
+          }
+          .animate-cornerPulsePhoto {
+            animation: cornerPulsePhoto 1.5s ease-in-out infinite;
+          }
+          .animate-cornerBracket {
+            animation: cornerBracket 1.5s ease-in-out infinite;
+          }
+          .animate-focusPulse {
+            animation: focusPulse 1.5s ease-in-out infinite;
+          }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -1657,6 +1839,11 @@ export default function SubmitMovement() {
           .animate-fadeInDelay,
           .animate-scanMobile,
           .animate-cornerPulse,
+          .animate-cornerPulsePhoto,
+          .animate-photoFrame,
+          .animate-cornerBracket,
+          .animate-focusPulse,
+          .animate-recordPulse,
           .animate-gridPulse,
           .animate-iconPulse,
           .animate-textPulse {

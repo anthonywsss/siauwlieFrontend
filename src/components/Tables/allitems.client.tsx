@@ -92,47 +92,54 @@ export default function AllItemsClient() {
     return rangeWithDots;
   }
 
-   useEffect(() => {
-      let mounted = true;
-      setLoading(true);
-      setError(null);
-    
-      (async () => {
-        try {
-          const params: Record<string, any> = {
-            limit: perPage,
-            offset: (page - 1) * perPage,
-          };
-   
-          const queryString = new URLSearchParams(params).toString();
-    
-          const res = await safeGet<{ data: RawAsset[]; meta?: { total?: number } }>(
-            `/asset?${queryString}`
-          );
-          if (!mounted) return;
-    
-          if (res === null) {
-            setError("Failed to fetch assets");
-            setData([]);
-            setTotal(0);
-          } else {
-            setData(Array.isArray(res.data) ? res.data : []);
-            setTotal(res.total?? 0); // backend should return total count
-          }
-        } catch (err: any) {
-          if (!mounted) return;
-          setError(err?.message ?? "Failed to fetch assets");
-          setData([]);
-          setTotal(0);
-        } finally {
-          if (mounted) setLoading(false);
-        }
-      })();
-    
-      return () => {
-        mounted = false;
+useEffect(() => {
+  let mounted = true;
+  setLoading(true);
+  setError(null);
+
+  (async () => {
+    try {
+      const params: Record<string, any> = {
+        limit: perPage,
+        offset: (page - 1) * perPage,
       };
-    }, [page, perPage, refreshKey]);
+
+      const queryString = new URLSearchParams(params).toString();
+
+      const res = await safeGet<{ data: RawAsset[]; meta?: { total?: number }; total?: number }>(
+        `/asset?${queryString}`
+      );
+      
+      if (!mounted) return;
+
+      if (res === null) {
+        setError("Failed to fetch assets");
+        setData([]);
+        setTotal(0);
+      } else {
+        const assets = Array.isArray(res.data) ? res.data : [];
+        setData(assets);
+        
+        // Try multiple possible locations for total
+        const totalCount = res.meta?.total ?? res.total ?? assets.length;
+        setTotal(totalCount);
+        
+        console.log('Set total to:', totalCount); // Debug line
+      }
+    } catch (err: any) {
+      if (!mounted) return;
+      setError(err?.message ?? "Failed to fetch assets");
+      setData([]);
+      setTotal(0);
+    } finally {
+      if (mounted) setLoading(false);
+    }
+  })();
+
+  return () => {
+    mounted = false;
+  };
+}, [page, perPage, refreshKey]);
 
   const pages = getPages(page, totalPages);
 
@@ -230,52 +237,6 @@ export default function AllItemsClient() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
-  
-useEffect(() => {
-  let mounted = true;
-  setLoading(true);
-  setError(null);
-
-  (async () => {
-    try {
-      const params: Record<string, any> = {
-        limit: perPage,
-        offset: (page - 1) * perPage,
-      };
-
-      if (query && query.trim() !== "") params.search = query.trim();
-      if (statusFilter !== "all") params.status = statusFilter;
-      if (assetFilter !== "all") params.asset_type_id = Number(assetFilter);
-
-      const queryString = new URLSearchParams(params).toString();
-
-      const res = await safeGet<{ data: RawAsset[]; meta?: { total: number }; }>(
-        `/asset?${queryString}`
-      );
-      if (!mounted) return;
-
-      if (res === null) {
-        setError("Failed to fetch assets");
-        setData([]);
-        setTotal(0);
-      } else {
-        setData(Array.isArray(res.data) ? res.data : []);
-        setTotal(res.total ?? 0); // backend should return total count
-      }
-    } catch (err: any) {
-      if (!mounted) return;
-      setError(err?.message ?? "Failed to fetch assets");
-      setData([]);
-      setTotal(0);
-    } finally {
-      if (mounted) setLoading(false);
-    }
-  })();
-
-  return () => {
-    mounted = false;
-  };
-}, [query, statusFilter, assetFilter, refreshKey]);
 
   // open edit modal
   function handleEditOpen(raw?: RawAsset | null) {

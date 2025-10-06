@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { safeGet, safePost } from "@/lib/fetcher";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
-import { Camera, MapPin, Check, ArrowLeft, ArrowRight, X, Scan, RotateCcw, AlertTriangle } from "lucide-react";
+import { Camera, MapPin, Check, ArrowLeft, ArrowRight, X, Scan, RotateCcw, AlertTriangle, ChevronDown, Search } from "lucide-react";
 import { useModalWatch } from "@/components/ModalContext";
 import Resizer from "react-image-file-resizer";
 
@@ -244,6 +244,11 @@ export default function SubmitMovement() {
   const photoCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [showPhotoCamera, setShowPhotoCamera] = useState(false);
   const [photoFacingMode, setPhotoFacingMode] = useState<'environment' | 'user'>('environment');
+
+  // Searchable dropdown state
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const clientDropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (error) {
@@ -598,6 +603,28 @@ export default function SubmitMovement() {
       stopPhotoCamera();
     };
   }, [stopScanner, stopPhotoCamera]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(event.target as Node)) {
+        setIsClientDropdownOpen(false);
+      }
+    };
+
+    if (isClientDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isClientDropdownOpen]);
+
+  // Filter clients based on search query
+  const filteredClients = clients.filter(client =>
+    client.name.toLowerCase().includes(clientSearchQuery.toLowerCase())
+  );
 
   const takeLocation = () => {
     return new Promise<{ success: boolean; error?: string; latitude?: number; longitude?: number }>((resolve) => {
@@ -1263,9 +1290,9 @@ export default function SubmitMovement() {
                   </div>
                 </div>
 
-                {/* Client Dropdown */}
+                {/* Client Dropdown - Searchable */}
                 {(movementType === "outbound_to_client" || movementType === "inbound_at_client") && (
-                  <div className="md:col-span-2 animate-fadeIn">
+                  <div className="md:col-span-2">
                     <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
                       Pilih Klien <span className="text-red-500">*</span>
                     </label>
@@ -1274,19 +1301,68 @@ export default function SubmitMovement() {
                         Loading clients...
                       </div>
                     ) : (
-                      <select
-                        value={clientId || ""}
-                        onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg bg-white"
-                        required
-                      >
-                        <option value="">-- Pilih Klien --</option>
-                        {clients.map((client) => (
-                          <option key={client.id} value={client.id}>
-                            {client.name}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="relative" ref={clientDropdownRef}>
+                        {/* Dropdown trigger button */}
+                        <button
+                          type="button"
+                          onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg bg-white text-left flex items-center justify-between hover:border-gray-400 transition-colors"
+                        >
+                          <span className={clientId ? "text-gray-900" : "text-gray-500"}>
+                            {clientId ? clients.find(c => c.id === clientId)?.name : "-- Pilih Klien --"}
+                          </span>
+                          <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isClientDropdownOpen ? 'transform rotate-180' : ''}`} />
+                        </button>
+
+                        {/* Dropdown menu */}
+                        {isClientDropdownOpen && (
+                          <div className="absolute z-[9999] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-hidden">
+                            {/* Search input */}
+                            <div className="p-2 border-b border-gray-200 relative bg-white">
+                              <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input
+                                  type="text"
+                                  value={clientSearchQuery}
+                                  onChange={(e) => setClientSearchQuery(e.target.value)}
+                                  placeholder="Cari klien..."
+                                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Options list */}
+                            <div className="max-h-48 overflow-y-auto">
+                              {filteredClients.length > 0 ? (
+                                filteredClients.map((client) => (
+                                  <button
+                                    key={client.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setClientId(client.id);
+                                      setIsClientDropdownOpen(false);
+                                      setClientSearchQuery("");
+                                    }}
+                                    className={`w-full px-4 py-2 text-left hover:bg-blue-50 transition-colors ${
+                                      clientId === client.id ? 'bg-blue-100 text-blue-900 font-medium' : 'text-gray-900'
+                                    }`}
+                                  >
+                                    {client.name}
+                                    {clientId === client.id && (
+                                      <Check className="inline-block w-4 h-4 ml-2 text-blue-600" />
+                                    )}
+                                  </button>
+                                ))
+                              ) : (
+                                <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                                  Tidak ada klien yang cocok
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                     {clients.length === 0 && !loadingClients && (
                       <div className="text-sm text-gray-500 mt-1">
@@ -1298,7 +1374,7 @@ export default function SubmitMovement() {
 
                 {/* Quantity*/}
                 {currentConfig?.requiresQuantity && (
-                  <div className="animate-fadeIn">
+                  <div>
                     <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
                       Kuantitas
                     </label>

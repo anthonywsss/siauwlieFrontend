@@ -120,11 +120,10 @@ useEffect(() => {
         const assets = Array.isArray(res.data) ? res.data : [];
         setData(assets);
         
-        // Try multiple possible locations for total
         const totalCount = res.meta?.total ?? res.total ?? assets.length;
         setTotal(totalCount);
         
-        console.log('Set total to:', totalCount); // Debug line
+        console.log('Set total to:', totalCount);
       }
     } catch (err: any) {
       if (!mounted) return;

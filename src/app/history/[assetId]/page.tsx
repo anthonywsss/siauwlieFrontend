@@ -4,9 +4,12 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import API from "@/lib/api";
 import dayjs from "dayjs";
+import "dayjs/locale/id";
 import { CloseIcon } from "@/components/Tables/icons";
 import { useModalWatch } from "@/components/ModalContext";
 
+
+dayjs.locale("id");
 type History = {
   accuracy: number;            
   asset_id: string;            
@@ -164,10 +167,11 @@ export default function Page() {
   function movementTypeToStatus(m?: string | null) {
     if (!m) return "Unknown";
     const s = (m + "").toLowerCase();
-    if (s.includes("outbound")) return "Outbound";
-    if (s.includes("inbound")) return "Inbound";
-    if (s.includes("to_client")) return "To Client";
-    if (s.includes("return")) return "Return";
+    if (s.includes("inbound_at_client")) return "Di Klien";
+    if (s.includes("outbound_to_client")) return "Pengiriman ke Klien";
+    if (s.includes("inbound_at_factory")) return "Di Pabrik";
+    if (s.includes("outbound_to_factory")) return "Pengiriman ke Pabrik";
+    if (s.includes("return")) return "-";
     return m;
   }
   
@@ -178,16 +182,16 @@ export default function Page() {
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
               <h1 className="text-[26px] font-bold leading-[30px] text-dark dark:text-white">
-                Movement History <span className="text-gray-600">[{assetId ?? "—"}]</span>
+                Riwayat Pergerakan <span className="text-gray-600">[{assetId ?? "—"}]</span>
               </h1>
-              <p className="mt-1 text-sm text-gray-500"> Detailed movement log of the current asset</p>
+              <p className="mt-1 text-sm text-gray-500"> Catatan pergerakan detail aset ini</p>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => router.back()}
                 className="flex items-center justify-center w-fit px-4 py-2 text-md font-medium leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg hover:bg-purple-700"
               >
-                Back
+                Kembali
               </button>
             </div>
           </div>
@@ -201,7 +205,7 @@ export default function Page() {
           ) : error ? (
             <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded">{error}</div>
           ) : record.length === 0 ? (
-            <div className="p-4 bg-yellow-50 border border-yellow-100 text-yellow-700 rounded">No data available</div>
+            <div className="p-4 bg-yellow-50 border border-yellow-100 text-yellow-700 rounded">Riwayat tidak tersedia.</div>
           ) : (
             <>
               {/* Desktop Table */}
@@ -210,7 +214,7 @@ export default function Page() {
                   <table className="min-w-full table-fixed">
                     <thead>
                       <tr className="bg-[#F7F9FC] dark:bg-dark-2">
-                        {["User", "Status", "Client", "Timestamp", "Photo", "Notes", "Location", "Quantity"].map((h) => (
+                        {["User", "Status", "Klien", "Waktu Pencatatan", "Foto", "Catatan", "Lokasi", "Kuantitas"].map((h) => (
                           <th
                             key={h}
                             className="px-6 py-4 text-left text-base font-medium text-dark dark:text-white border-r"
@@ -223,14 +227,14 @@ export default function Page() {
                     <tbody>
                       {record.map((rec, i) => {
                         const userLabel = users[String(rec.user_id)]?.full_name ?? rec.user_id;
-                        const clientLabel = clients[String(rec.client_id)]?.name ?? rec.client_id;
+                        const clientLabel = clients[String(rec.client_id)]?.name?.trim() || rec.client_id || "-";
                         return (
                           <tr key={i} className="bg-white dark:bg-gray-dark border-t border-stroke dark:border-dark-3">
                             <td className="px-6 py-4 text-dark dark:text-white">{userLabel}</td>
                             <td className="px-6 py-4 text-dark dark:text-white">{movementTypeToStatus(rec.movement_type)}</td>
                             <td className="px-6 py-4 text-dark dark:text-white">{clientLabel}</td>
                             <td className="px-6 py-4 text-dark dark:text-white">
-                              {rec.timestamp ? dayjs(rec.timestamp).format("MMM DD, YYYY - HH:mm") : "-"}
+                              {rec.timestamp ? dayjs(rec.timestamp).format("DD MMM, YYYY - HH:mm") : "-"}
                             </td>
                             <td className="px-6 py-4 text-dark dark:text-white">
                               {rec.photo ? (
@@ -241,7 +245,7 @@ export default function Page() {
                                   onClick={() => openPreview(rec.photo)}
                                 />
                               ) : (
-                                <div className="text-gray-400">No pictures available</div>
+                                <div className="text-gray-400">Foto tidak tersedia</div>
                               )}
                             </td>
                             <td className="px-6 py-4 text-dark dark:text-white">{rec.notes ?? "-"}</td>
@@ -253,7 +257,7 @@ export default function Page() {
                                 )}
                                 className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition whitespace-nowrap"
                               >
-                                Open with Google Maps
+                                Buka Google Maps
                               </button>
                             </td>
                             <td className="px-6 py-4 text-dark dark:text-white">{rec.quantity ?? "-"}</td>
@@ -282,27 +286,27 @@ export default function Page() {
                           <div className="text-sm text-dark dark:text-white">{movementTypeToStatus(rec.movement_type)}</div>
                         </div>
                       </div>
-                      <div className="mt-3 grid grid-cols-2 gap-3">
+                      <div className="flex items-center justify-between mt-3 grid-cols-2 gap-3">
                         <div>
                           <div className="text-xs text-gray-500">
-                            Client
+                            Klien
                           </div>
                           <div className="text-sm text-dark dark:text-white">
                             {clientLabel}
                           </div>
                         </div>
-                        <div>
+                        <div className="text-right ">
                           <div className="text-xs text-gray-500">
-                            Timestamp
+                            Waktu Pencatatan
                           </div>
                           <div className="text-sm text-dark dark:text-white">
-                            {rec.timestamp ? dayjs(rec.timestamp).format("MMM DD, YYYY - HH:mm") : "-"}
-                          </div>
+                            {rec.timestamp ? dayjs(rec.timestamp).format("DD MMM, YYYY - HH:mm") : "-"}
+                          </div>``
                         </div>
                       </div>
                       <div className="mt-3">
                         <div className="text-xs text-gray-500">
-                          Photo
+                          Foto
                         </div>
                         {rec.photo ? (
                           <img
@@ -312,11 +316,11 @@ export default function Page() {
                             onClick={() => openPreview(rec.photo)}
                           />
                         ) : ( 
-                          <div className="text-gray-400 mt-2">No pictures available</div> )}
+                          <div className="text-gray-400 mt-2">Foto tidak tersedia</div> )}
                       </div>
                       <div className="mt-3"> 
                         <div className="text-xs text-gray-500">
-                          Notes 
+                          Catatan 
                         </div>
                         <div className="text-sm text-dark dark:text-white">
                           {rec.notes ?? "-"}
@@ -326,13 +330,13 @@ export default function Page() {
                       <div className="mt-3 grid grid-cols-2 gap-3"> 
                         <div> 
                           <div className="text-xs text-gray-500">
-                            Location
+                            Lokasi
                           </div> 
                           <div className="text-sm text-dark dark:text-white">
                             <button 
                               onClick={ () => window.open(getGoogleMapsLink(Number(rec.latitude), Number(rec.longitude)), "_blank")}
                               className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition whitespace-nowrap" >
-                                Open with Google Maps
+                                Buka Google Maps
                             </button>
                           </div>
                         </div>
@@ -340,7 +344,7 @@ export default function Page() {
 
                       <div> 
                         <div className="text-xs text-gray-500">
-                          Quantity
+                          Kuantitas
                         </div>
                         <div className="text-sm text-dark dark:text-white">
                           {rec.quantity ?? "-"}

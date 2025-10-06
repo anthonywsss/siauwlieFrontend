@@ -167,7 +167,7 @@ useEffect(() => {
       <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
          <div className="flex items-center gap-3 w-full md:w-auto">
               <input
-                placeholder="Search ID"
+                placeholder="Cari dengan ID"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="h-10 rounded border px-3 py-2 w-full md:w-96"
@@ -184,7 +184,7 @@ useEffect(() => {
             disabled={actionLoading !== null}
           >
             <AddIcon />
-            <span className="ml-2">Add Asset Type</span>
+            <span className="ml-2">Tambahkan Tipe Aset Baru</span>
           </button>
         </div>
       </div>
@@ -195,10 +195,10 @@ useEffect(() => {
           <TableHeader>
             <TableRow className="border-none bg-[#F7F9FC] [&>th]:py-4 [&>th]:text-base">
               <TableHead className="min-w-[140px]">ID</TableHead>
-              <TableHead className="min-w-[220px]">Name</TableHead>
-              <TableHead className="min-w-[320px]">Description</TableHead>
-              <TableHead className="min-w-[200px]">Date Created</TableHead>
-              <TableHead className="text-right">Action</TableHead>
+              <TableHead className="min-w-[220px]">Nama</TableHead>
+              <TableHead className="min-w-[320px]">Deskripsi</TableHead>
+              <TableHead className="min-w-[200px]">Waktu</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -216,7 +216,7 @@ useEffect(() => {
             ) : items.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="px-4 py-6 text-center text-slate-500">
-                  Type not available
+                  Tipe Aset tidak tersedia.
                 </TableCell>
               </TableRow>
             ) : (
@@ -289,7 +289,7 @@ useEffect(() => {
                   </div>
 
                   <div className="text-right">
-                    <div className="text-sm text-gray-500">Tanggal Ditambahkan</div>
+                    <div className="text-sm text-gray-500">Waktu</div>
                     <div className="mt-1 font-medium">
                       {item.createdAt ? dayjs(item.createdAt).format("MMM DD, YYYY - HH:mm") : "-"}
                     </div>
@@ -358,7 +358,7 @@ useEffect(() => {
                       page * perPage,
                       total
                     )}`}{" "}
-                of {total}
+                dari {total}
               </div>
             </div>
 
@@ -376,7 +376,7 @@ useEffect(() => {
 
       <DeleteConfirmModal
         open={!!deletingRaw}                      
-        resourceName="Asset Type"                     
+        resourceName="Tipe Aset"                     
         resourceId={deletingRaw?.id}              
         resourceLabel={deletingRaw?.name}
         deleteUrl={`/asset-type/${deletingRaw?.id}`}

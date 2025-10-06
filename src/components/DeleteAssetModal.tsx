@@ -55,7 +55,7 @@ export default function DeleteAssetModal({ open, AllAsset, onClose, onDeleted }:
     setError(null);
 
     try {
-      console.log("Deleting asset with ID:", id);
+      console.log("Menghapus Aset dengan ID:", id);
       const res = await API.delete(`/asset/${id}`, { data: reason ? { reason } : {} });
       const result = res?.data;
       if (result === null || typeof result === "undefined") {
@@ -87,8 +87,8 @@ export default function DeleteAssetModal({ open, AllAsset, onClose, onDeleted }:
         <form onSubmit={handleDelete} className="space-y-4">
           {showInfo ? (
             <>
-              <p className="text-2xl font-semibold"> Successfully Delete {AllAsset?.id ?? "—"}</p>
-            <p className="text-sm text-gray-700  mt-2"> All associated data <span className="text-red-600">were removed</span> </p>
+              <p className="text-2xl font-semibold"> Berhasil Menghapus {AllAsset?.id ?? "—"}</p>
+            <p className="text-sm text-gray-700  mt-2"> Seluruh data <span className="text-red-600">berhasil dihapus</span> </p>
 
               <div className="mt-4 flex justify-end">
                 <button
@@ -100,7 +100,7 @@ export default function DeleteAssetModal({ open, AllAsset, onClose, onDeleted }:
                   }}
                   className="px-4 py-2 bg-gray-300 text-sm text-black rounded"
                 >
-                  Okay
+                  Oke
                 </button>
               </div>
 
@@ -108,20 +108,20 @@ export default function DeleteAssetModal({ open, AllAsset, onClose, onDeleted }:
         ) : (
           <>
           <div>
-            <h3 className="mb-3 text-2xl font-semibold">Deleting Asset</h3>
+            <h3 className="mb-3 text-2xl font-semibold">Menghapus Aset</h3>
             <p className="text-sm text-gray-700">
-              Are you sure you want to permanently delete <span className="text-red-600">{AllAsset?.id ?? "—"}</span> ? 
+              Apakah anda yakin ingin menghapus <span className="text-red-600">{AllAsset?.id ?? "—"}</span> secara permanen? 
             </p>
-            <p className="text-sm text-gray-700">This action cannot be undone.</p>
+            <p className="text-sm text-gray-700">Tindakan ini tidak dapat dibatalkan.</p>
           </div>
           <div>
-                <label className="block text-sm font-medium mb-1">Reason for Deletion</label>
+                <label className="block text-sm font-medium mb-1">Alasan Penghapusan</label>
                 <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   className="w-full border rounded p-2 text-sm"
                   rows={3}
-                  placeholder="Enter reason (e.g., Rejected Item)"
+                  placeholder="Masukkan alasan (misalnya: Barang Ditolak)"
                   disabled={submitting}
                 />
               </div>
@@ -134,7 +134,7 @@ export default function DeleteAssetModal({ open, AllAsset, onClose, onDeleted }:
               disabled={submitting}
               className="px-4 py-2 bg-red-600 text-white rounded"
             >
-              {submitting ? "Menghapus..." : "Delete"}
+              {submitting ? "Menghapus..." : "Hapus"}
             </button>
 
             <button
@@ -143,7 +143,7 @@ export default function DeleteAssetModal({ open, AllAsset, onClose, onDeleted }:
               className="px-4 py-2 border rounded"
               disabled={submitting}
             >
-              Cancel
+              Batal
             </button>
           </div>
             </>

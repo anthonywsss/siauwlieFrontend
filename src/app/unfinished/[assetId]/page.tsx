@@ -174,15 +174,15 @@ export default function Page() {
 
   switch (status.toLowerCase()) {
     case "outbound_to_client":
-      return "Perjalanan ke pelanggan";
+      return "Pengiriman ke Klien";
     case "inbound_at_client":
-      return "Di pelanggan";
+      return "Di Klien";
     case "outbound_to_factory":
-      return "Perjalanan ke pabrik";
+      return "Pengiriman ke pabrik";
     case "inbound_at_factory":
       return "Di pabrik";
     default:
-      return "Unknown";
+      return "-";
   }
 }
 
@@ -194,9 +194,9 @@ export default function Page() {
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
               <h1 className="text-[26px] font-bold leading-[30px] text-dark dark:text-white">
-                Pengiriman Belum Tuntas <span className="text-gray-600">[{assetId ?? "—"}]</span>
+                Sedang Dikirim <span className="text-gray-600">[{assetId ?? "—"}]</span>
               </h1>
-              <p className="mt-1 text-sm text-gray-500">Rincian pengiriman belum tuntas</p>
+              <p className="mt-1 text-sm text-gray-500">Rincian pengiriman yang belum tuntas</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -226,7 +226,7 @@ export default function Page() {
                   <table className="min-w-full table-fixed">
                     <thead>
                       <tr className="bg-[#F7F9FC] dark:bg-dark-2">
-                        {["User", "Status", "Klien", "Waktu Pencatatan", "Foto", "Catatan", "Lokasi", "Kuantitas"].map((h) => (
+                        {["Username", "Status", "Klien", "Waktu Pencatatan", "Foto", "Catatan", "Lokasi", "Kuantitas"].map((h) => (
                           <th
                             key={h}
                             className="px-6 py-4 text-left text-base font-medium text-dark dark:text-white border-r"
@@ -414,7 +414,7 @@ function PreviewModal({ open, src, onClose }: { open: boolean; src: string | nul
             className="px-3 py-1 rounded border text-sm inline-flex items-center gap-2"
           >
             <CloseIcon />
-            Close
+            Tutup
           </button>
         </div>
 

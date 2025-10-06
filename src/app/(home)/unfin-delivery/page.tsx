@@ -3,7 +3,7 @@ import UnfinDelivery from "@/components/Tables/unfin.client";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: " Pengiriman Belum Tuntas",
+  title: "Sedang Dikirim",
 };
 
 export default function Home() {

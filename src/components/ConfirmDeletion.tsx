@@ -79,12 +79,12 @@ export default function DeleteConfirmModal({
         {showInfo ? (
           <>
             <p className="text-2xl font-semibold">
-              Successfully deleted {resourceName}{" "}
+              Berhasil Menghapus {resourceName}{" "}
               {resourceLabel ?? "—"}
             </p>
             <p className="text-sm text-gray-700 mt-2">
-              All associated data{" "}
-              <span className="text-red-600">were removed</span>
+              Seluruh data {" "}
+              <span className="text-red-600">berhasil dihapus</span>
             </p>
 
             <div className="mt-4 flex justify-end">
@@ -96,7 +96,7 @@ export default function DeleteConfirmModal({
                 }}
                 className="px-4 py-2 bg-gray-300 text-sm text-black rounded"
               >
-                Okay
+                Oke
               </button>
             </div>
           </>
@@ -104,17 +104,17 @@ export default function DeleteConfirmModal({
           <form onSubmit={handleDelete} className="space-y-4">
             <div>
               <h3 className="mb-3 text-2xl font-semibold">
-                Deleting {resourceName}
+                Menghapus {resourceName}
               </h3>
               <p className="text-sm text-gray-700">
-                Are you sure you want to permanently delete{" "}
+                Apakah anda yakin ingin menghapus {" "}
                 <span className="text-red-600">
                   {resourceLabel ?? "—"}
                 </span>
                 ?
               </p>
               <p className="text-sm text-gray-700">
-                This action cannot be undone.
+                Tindakan ini tidak dapat dibatalkan.
               </p>
             </div>
             {error && <div className="text-red-600">{error}</div>}
@@ -124,7 +124,7 @@ export default function DeleteConfirmModal({
                 disabled={submitting}
                 className="px-4 py-2 bg-red-600 text-white rounded"
               >
-                {submitting ? "Deleting..." : "Delete"}
+                {submitting ? "Menghapus..." : "Hapus"}
               </button>
               <button
                 type="button"
@@ -132,7 +132,7 @@ export default function DeleteConfirmModal({
                 className="px-4 py-2 border rounded"
                 disabled={submitting}
               >
-                Cancel
+                Batal
               </button>
             </div>
           </form>

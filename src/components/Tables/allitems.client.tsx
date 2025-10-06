@@ -295,18 +295,18 @@ useEffect(() => {
 
   //status
   const STATUS_OPTIONS = [
-    { value: "outbound_to_client", label: "Perjalanan ke pelanggan" },
+    { value: "outbound_to_client", label: "Pengiriman ke pelanggan" },
     { value: "inbound_at_client", label: "Di pelanggan" },
-    { value: "outbound_to_factory", label: "Perjalanan ke pabrik" },
+    { value: "outbound_to_factory", label: "Pengiriman ke pabrik" },
     { value: "inbound_at_factory", label: "Di pabrik" },
   ];
 
   //renaming status
   const STATUS_LABELS: Record<string, string> = {
-    outbound_to_client: "In Transit to Client",
-    inbound_at_client: "At Customer",
-    outbound_to_factory: "In Transit to Factory",
-    inbound_at_factory: "At Factory",
+    outbound_to_client: "Pengiriman ke Pelanggan",
+    inbound_at_client: "Di Pelanggan",
+    outbound_to_factory: "Pengiriman ke Pabrik",
+    inbound_at_factory: "Di Pabrik",
   };
 
   // Normalize
@@ -371,7 +371,7 @@ useEffect(() => {
         
         if (res === null) {
           // Handle error case
-          setError("Failed to fetch asset types");
+          setError("Gagal menarik data tipe aset");
           setAllType([]);
         } else {
           const type: AssetType[] = res?.data ?? [];
@@ -379,7 +379,7 @@ useEffect(() => {
         }
       } catch (err: any) {
         if (!mounted) return;
-        setError(err?.message ?? "Failed to fetch asset types");
+        setError(err?.message ?? "Gagal menarik data tipe aset");
         setAllType([]);
       } finally {
         if (mounted) setLoading(false);
@@ -437,7 +437,7 @@ useEffect(() => {
         >
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-lg font-semibold">
-              {type === 'qr' ? 'QR Code Preview' : 'Photo Preview'}
+              {type === 'qr' ? 'Pratinjau QR Code' : 'Pratinjau Foto'}
             </h3>
             <button
               onClick={onClose}
@@ -447,24 +447,24 @@ useEffect(() => {
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
               </svg>
-              Close
+              Tutup
             </button>
           </div>
 
           <div className="flex justify-center">
             <img 
               src={src} 
-              alt={type === 'qr' ? 'QR Code' : 'Photo'} 
+              alt={type === 'qr' ? 'QR Code' : 'Foto'} 
               className="max-w-full max-h-[80vh] object-contain"
               onError={(e) => {
-                console.error('Image failed to load:', src);
+                console.error('Gagal memuat gambar:', src);
                 e.currentTarget.style.display = 'none';
                 e.currentTarget.nextElementSibling?.classList.remove('hidden');
               }}
             />
             <div className="hidden p-8 text-center text-gray-500">
-              <p>Failed to load {type === 'qr' ? 'QR code' : 'photo'}.</p>
-              <p className="text-sm mt-2">The image may be corrupted or the URL is invalid.</p>
+              <p>Gagal memuat {type === 'qr' ? 'QR code' : 'Foto'}.</p>
+              <p className="text-sm mt-2">Gagal memuat gambar atau URL tidak valid.</p>
             </div>
           </div>
         </div>
@@ -494,7 +494,7 @@ useEffect(() => {
                   <path d="M3 5h18M7 12h10M10 19h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
                 </svg>
                 <span className="truncate">
-                  {STATUS_LABELS[statusFilter] ?? "Status Filter"}
+                  {STATUS_LABELS[statusFilter] ?? "Filter Status"}
                 </span>
                 <svg className="w-3 h-3 ml-2" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -532,7 +532,7 @@ useEffect(() => {
                         setStatusOpen(false);
                       }}
                     >
-                      Clear
+                      Batal
                     </button>
                   </div>
                 </div>
@@ -549,7 +549,7 @@ useEffect(() => {
                 aria-expanded={assetOpen}
               >
                 <span className="truncate">
-                  {ASSET_TYPE_OPTIONS.find((o) => o.value === assetFilter)?.label ?? "Asset Type Filter"}
+                  {ASSET_TYPE_OPTIONS.find((o) => o.value === assetFilter)?.label ?? "Filter Tipe Aset"}
                 </span>
                 <svg className="w-3 h-3 ml-2" viewBox="0 0 20 20" fill="none">
                   <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -587,7 +587,7 @@ useEffect(() => {
                         setAssetOpen(false);
                       }}
                     >
-                      Clear
+                      Batal
                     </button>
                   </div>
                 </div>
@@ -597,7 +597,7 @@ useEffect(() => {
             {/* Search input */}
             <div className="flex items-center gap-3 w-full md:w-auto">
               <input
-                placeholder="Search ID"
+                placeholder="Cari dengan ID"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="h-10 rounded border px-3 py-2 w-full md:w-96"
@@ -608,7 +608,7 @@ useEffect(() => {
 
         {/* RIGHT: add + total */}
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} items`}</div>
+          <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Memuat..." : `${total} item`}</div>
           <button
             className="inline-flex items-center h-10 px-4 py-2 text-sm font-bold leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple w-full md:w-auto justify-center"
             type="button"
@@ -616,7 +616,7 @@ useEffect(() => {
             disabled={actionLoading !== null}
           >
             <AddIcon />
-            <span className="ml-2">Add New Asset</span>
+            <span className="ml-2">Tambahkan Aset Baru</span>
           </button>
         </div>
       </div>
@@ -627,11 +627,11 @@ useEffect(() => {
               <TableHead className="min-w-[110px]">Id</TableHead>
               <TableHead className="min-w-[120px]">QR Code</TableHead>
               <TableHead className="min-w-[150px]">Status</TableHead>
-              <TableHead className="min-w-[200px]">Client Name</TableHead>
-              <TableHead className="min-w-[120px]">Client ID</TableHead>
-              <TableHead className="min-w-[120px]">Photo</TableHead>
-              <TableHead className="min-w-[140px]">Asset Type</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="min-w-[200px]">Nama Klien</TableHead>
+              <TableHead className="min-w-[120px]">ID Klien</TableHead>
+              <TableHead className="min-w-[120px]">Foto</TableHead>
+              <TableHead className="min-w-[140px]">Tipe Aset</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -651,10 +651,10 @@ useEffect(() => {
                           className="text-primary hover:underline inline-flex items-center gap-2"
                         >
                           <PreviewIcon />
-                          <span>Preview QR</span>
+                          <span>Pratinjau QR</span>
                         </button>
                       ) : (
-                        <span className="text-gray-400">No QR Code</span>
+                        <span className="text-gray-400">QR Code Tidak Tersedia</span>
                       )}
                     </TableCell>
                     
@@ -682,10 +682,10 @@ useEffect(() => {
                           className="text-primary hover:underline inline-flex items-center gap-2"
                         >
                           <PreviewIcon />
-                          <span>Preview Photo</span>
+                          <span>Pratinjau Foto</span>
                         </button>
                       ) : (
-                        <span className="text-gray-400">No Photo</span>
+                        <span className="text-gray-400">Foto Tidak Tersedia</span>
                       )}
                     </TableCell>
 
@@ -703,7 +703,7 @@ useEffect(() => {
                             type="button"
                             onClick={() => goToDetail(item.id)} 
                             className="flex items-center justify-center w-fit px-4 py-2 text-md font-bold leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg active:bg-purple-600 hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple">
-                              History
+                              Riwayat
                             </button>
                         </Link>
                        {/* EDIT BUTTON */}
@@ -759,15 +759,15 @@ useEffect(() => {
                     </div>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="mt-3 grid-cols-2 flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-sm text-gray-500">Client</div>
+                      <div className="text-sm text-gray-500">Nama Klien</div>
                       <div className="font-medium">
                         {allClients.find((c) => c.id === item.current_client)?.name ?? "Unknown"}
                       </div>
                     </div>
-                    <div>
-                      <div className="text-sm text-gray-500">Type</div>
+                    <div className="text-right">
+                      <div className="text-sm text-gray-500">Tipe</div>
                       <div className="font-medium">{assetTypeMap[item.asset_type_id] ?? "Unknown"}</div>
                     </div>
                   </div>
@@ -780,33 +780,33 @@ useEffect(() => {
                         className="text-primary hover:underline inline-flex items-center gap-2 w-fit"
                       >
                         <PreviewIcon />
-                        <span>Preview QR</span>
+                        <span>Pratinjau QR</span>
                       </button>
                     ) : (
-                      <span className="text-gray-400">No QR Code</span>
+                      <span className="text-gray-400">QR Code Tidak Tersedia</span>
                     )}
 
-                    <div className="text-sm text-gray-500">Photo</div>
+                    <div className="text-sm text-gray-500">Foto</div>
                     {item.photo ? (
                       <button
                         onClick={() => openPreview(buildImageSrc(item.photo), 'photo')}
                         className="text-primary hover:underline inline-flex items-center gap-2 w-fit"
                       >
                         <PreviewIcon />
-                        <span>Preview Photo</span>
+                        <span>Pratinjau Foto</span>
                       </button>
                     ) : (
-                      <span className="text-gray-400">No Photo</span>
+                      <span className="text-gray-400">Foto Tidak Tersedia</span>
                     )}
 
                     <div className="flex gap-2 mt-2">
                       <button
                         onClick={() => router.push(`/history/${item.id}`)}
                         className="flex-1 bg-blue-500 text-white px-3 py-2 rounded-md text-sm">
-                        History
+                        Histori
                       </button>
                       <button className="p-2 border rounded-md" aria-label="Edit" onClick={() => handleEditOpen(item)}>Edit</button>
-                      <button className="p-2 border rounded-md text-red-600" aria-label="Delete" onClick={() => setDeletingRaw(item)}>Delete</button>
+                      <button className="p-2 border rounded-md text-red-600" aria-label="Delete" onClick={() => setDeletingRaw(item)}>Hapus</button>
                     </div>
                   </div>
                 </div>
@@ -859,7 +859,7 @@ useEffect(() => {
                           page * perPage,
                           total
                         )}`}{" "}
-                    of {total}
+                    dari {total}
                   </div>
                 </div>
 

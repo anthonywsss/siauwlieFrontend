@@ -115,7 +115,7 @@ export default function UnfinDelivery() {
           
           if (res === null) {
             // Handle error case
-            setError("Failed to fetch clients");
+            setError("Gagal memuat Klien.");
             setAllClients([]);
           } else {
             const clients = Array.isArray(res?.data) ? res.data : [];
@@ -123,7 +123,7 @@ export default function UnfinDelivery() {
           }
         } catch (err: any) {
           if (!mounted) return;
-          setError(err?.message ?? "Failed to fetch clients");
+          setError(err?.message ?? "Gagal memuat Klien.");
           setAllClients([]);
         } finally {
           if (mounted) setLoading(false);
@@ -147,7 +147,7 @@ export default function UnfinDelivery() {
             
             if (res === null) {
               // Handle error case
-              setError("Failed to fetch users");
+              setError("Gagal memuat User.");
               setAllUser([]);
             } else {
               const type: RawUser[] = res?.data ?? [];
@@ -155,7 +155,7 @@ export default function UnfinDelivery() {
             }
           } catch (err: any) {
             if (!mounted) return;
-            setError(err?.message ?? "Failed to fetch users");
+            setError(err?.message ?? "Gagal memuat User.");
             setAllUser([]);
           } finally {
             if (mounted) setLoading(false);
@@ -261,12 +261,12 @@ export default function UnfinDelivery() {
       <div className="hidden md:block rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:p-7.5">
         <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
           <h1 className="text-[26px] font-bold leading-[30px] text-dark">
-            Pengiriman Belum Tuntas
+            Sedang Dikirim
           </h1>
           
           <div className="flex items-center gap-3 w-full md:w-auto">
             <input
-              placeholder="Search Asset ID"
+              placeholder="Cari dengan ID Aset"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="h-10 rounded border px-3 py-2 w-full md:w-64"
@@ -281,11 +281,11 @@ export default function UnfinDelivery() {
         <Table>
           <TableHeader>
             <TableRow className="border-none bg-[#F7F9FC] dark:bg-dark-2 [&>th]:py-4 [&>th]:text-base [&>th]:text-dark [&>th]:dark:text-white">
-              <TableHead className="min-w-[155px] xl:pl-7.5">Asset ID</TableHead>
-              <TableHead>Nama Client</TableHead>
+              <TableHead className="min-w-[155px] xl:pl-7.5">ID</TableHead>
+              <TableHead>Nama Klien</TableHead>
               <TableHead>Foto</TableHead>
-              <TableHead>Timestamp</TableHead>
-              <TableHead>Nama User</TableHead>
+              <TableHead>Waktu Pencatatan</TableHead>
+              <TableHead>Username</TableHead>
               <TableHead>Aksi</TableHead>
             </TableRow>
           </TableHeader>
@@ -315,7 +315,7 @@ export default function UnfinDelivery() {
                       />
                     ) : (
                       <div className="w-24 h-24 bg-gray-50 border rounded flex items-center justify-center text-xs text-gray-400">
-                        No Photo
+                        Foto Tidak Tersedia.
                       </div>
                     )}
                   </div>
@@ -435,17 +435,17 @@ export default function UnfinDelivery() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs text-gray-500">Asset ID</div>
+                    <div className="text-xs text-gray-500">ID</div>
                     <div className="text-sm font-medium text-dark dark:text-white truncate">{item.asset_id}</div>
 
                     <div className="mt-2 grid grid-cols-2 gap-3">
                       <div>
-                        <div className="text-xs text-gray-500">Nama Client</div>
+                        <div className="text-xs text-gray-500">Nama Klien</div>
                         <div className="text-sm text-dark dark:text-white">{allClients.find((c) => c.id === item.client_id)?.name ?? "Unknown"}</div>
                       </div>
 
                       <div>
-                        <div className="text-xs text-gray-500">Nama User</div>
+                        <div className="text-xs text-gray-500">Username</div>
                         <div className="text-sm text-dark dark:text-white">
                           {alluser.find((c) => c.user_id === item.user_id)?.username ?? "Unknown"}
                         </div>
@@ -453,7 +453,7 @@ export default function UnfinDelivery() {
                     </div>
 
                     <div className="mt-2">
-                      <div className="text-xs text-gray-500">Timestamp</div>
+                      <div className="text-xs text-gray-500">Waktu Pencatatan</div>
                       <div className="text-sm text-dark dark:text-white">{item.timestamp ? dayjs(item.timestamp).format("MMM DD, YYYY HH:mm") : "-"}</div>
                     </div>
                   </div>
@@ -468,7 +468,7 @@ export default function UnfinDelivery() {
                       />
                     ) : (
                       <div className="w-24 h-24 bg-gray-50 border rounded flex items-center justify-center text-xs text-gray-400">
-                        No Photo
+                        Foto tidak tersedia.
                       </div>
                     )}
                   </div>
@@ -529,7 +529,7 @@ function PreviewModal({ open, src, onClose }: { open: boolean; src: string | nul
             className="px-3 py-1 rounded border text-sm inline-flex items-center gap-2"
           >
             <CloseIcon />
-            Close
+            Tutup
           </button>
         </div>
 

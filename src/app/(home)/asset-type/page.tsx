@@ -2,7 +2,7 @@ import AssetTypeList from "@/components/Tables/itemtype.client";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Asset Type",
+  title: "Tipe Aset",
 };
 
 export default function Home() {

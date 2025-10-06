@@ -3,7 +3,7 @@ import AllItemsClient from "@/components/Tables/allitems.client";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "All Asset",
+  title: "Seluruh Aset",
 };
 
 export default function Home() {

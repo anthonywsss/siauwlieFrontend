@@ -129,7 +129,7 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
     <div className="fixed inset-0 z-99 flex items-end md:items-center justify-center bg-black/40 p-4">
       <div className="z-99 w-full md:w-[640px] max-h-[95vh] overflow-auto rounded-t-lg md:rounded-lg bg-white p-5 md:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-2xl font-semibold">Add New User</h3>
+          <h3 className="text-2xl font-semibold">Tambahkan User Baru</h3>
           <button onClick={onClose} aria-label="Close" className="text-gray-600">✕</button>
         </div>
 
@@ -140,17 +140,17 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Full Name</label>
+            <label className="block text-sm text-gray-600 mb-1">Nama Lengkap</label>
             <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full rounded border px-3 py-2" />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Employee ID</label>
+            <label className="block text-sm text-gray-600 mb-1">ID Karyawan</label>
             <input value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="w-full rounded border px-3 py-2" />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Role</label>
+            <label className="block text-sm text-gray-600 mb-1">Peran</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
@@ -165,12 +165,12 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Password</label>
+            <label className="block text-sm text-gray-600 mb-1">Kata Sandi</label>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded border px-3 py-2" />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Confirm Password</label>
+            <label className="block text-sm text-gray-600 mb-1">Konfirmasi Sandi</label>
             <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full rounded border px-3 py-2" />
           </div>
 
@@ -178,10 +178,10 @@ export default function CreateUserModal({ open, onClose, onCreated }: Props) {
 
           <div className="flex items-center gap-3 mt-2">
             <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-600 text-white rounded">
-              {submitting ? "Creating..." : "Submit"}
+              {submitting ? "Menyimpan..." : "Kirim"}
             </button>
             <button type="button" onClick={onClose} className="px-4 py-2 border rounded">
-              Cancel
+              Batal
             </button>
           </div>
         </form>

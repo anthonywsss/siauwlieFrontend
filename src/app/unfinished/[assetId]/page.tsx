@@ -13,6 +13,7 @@ type UnfinishedDetail = {
   user_id?: number;
   timestamp?: string;
   photo?: string | null;
+  photos?: string[] | null;
   notes?: string | null;
   latitude?: number | string | null;
   longitude?: number | string | null;
@@ -34,6 +35,8 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [previewPhotos, setPreviewPhotos] = useState<string[]>([]);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
   // Normalize different photo formats (plain base64, data URL, or URL)
   function buildImageSrc(photo?: string | null): string | null {
@@ -53,24 +56,41 @@ export default function Page() {
     return `data:${mime};base64,${trimmed}`;
   }
 
-  const openPreview = (photo?: string | null) => {
-    const src = buildImageSrc(photo);
-    setPreviewSrc(src);
-    setIsOpen(true);
+  const openPreview = (photo?: string | null, allPhotos?: (string | null)[] | null, startIndex: number = 0) => {
+    if (allPhotos && allPhotos.length > 0) {
+      // Multiple photos - show gallery
+      const validPhotos = allPhotos.map(p => buildImageSrc(p)).filter(p => p !== null) as string[];
+      setPreviewPhotos(validPhotos);
+      setCurrentPhotoIndex(startIndex);
+      setIsOpen(true);
+    } else {
+      // Single photo
+      const src = buildImageSrc(photo);
+      setPreviewSrc(src);
+      setPreviewPhotos([]);
+      setCurrentPhotoIndex(0);
+      setIsOpen(true);
+    }
   };
 
-  // Close preview on Escape
+  // Close preview on Escape, navigate with arrow keys
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setIsOpen(false);
         setPreviewSrc(null);
+        setPreviewPhotos([]);
+        setCurrentPhotoIndex(0);
+      } else if (e.key === "ArrowLeft" && previewPhotos.length > 1) {
+        setCurrentPhotoIndex((prev) => (prev > 0 ? prev - 1 : previewPhotos.length - 1));
+      } else if (e.key === "ArrowRight" && previewPhotos.length > 1) {
+        setCurrentPhotoIndex((prev) => (prev < previewPhotos.length - 1 ? prev + 1 : 0));
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isOpen]);
+  }, [isOpen, previewPhotos.length]);
 
   const mapped = record.map((u, index) => ({
     id: String(u.asset_id ?? u.user_id ?? index),
@@ -78,6 +98,7 @@ export default function Page() {
     userId: u.user_id ?? "-",
     timestamp: u.timestamp ?? "-",
     photo: u.photo ?? null,
+    photos: u.photos ?? null,
     notes: u.notes ?? "-",
     latitude: u.latitude ?? "-",
     longitude: u.longitude ?? "-",
@@ -249,11 +270,28 @@ export default function Page() {
                               {rec.timestamp ? dayjs(rec.timestamp).format("MMM DD, YYYY - HH:mm") : "-"}
                             </td>
                             <td className="px-6 py-4 text-dark dark:text-white">
-                              {rec.photo ? (
+                              {rec.photos && Array.isArray(rec.photos) && rec.photos.length > 0 ? (
+                                <div className="flex gap-2 flex-wrap">
+                                  {rec.photos.slice(0, 3).map((photo, photoIndex) => (
+                                    <div key={photoIndex} className="relative group">
+                                      <img
+                                        src={buildImageSrc(photo) || ""}
+                                        loading="lazy"
+                                        alt={`photo-${rec.asset_id}-${photoIndex + 1}`}
+                                        className="w-[140px] h-[96px] object-cover rounded cursor-pointer border hover:opacity-80 transition-opacity"
+                                        onClick={() => openPreview(photo, rec.photos, photoIndex)}
+                                      />
+                                      <div className="absolute bottom-1 right-1 bg-blue-600 text-white text-xs px-2 py-0.5 rounded">
+                                        {photoIndex + 1}/{rec.photos?.length ?? 0}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : rec.photo ? (
                                 <img
                                   src={buildImageSrc(rec.photo) || ""}
                                   alt={`photo-${rec.asset_id}`}
-                                  className="w-[140px] h-[96px] object-cover rounded cursor-pointer border"
+                                  className="w-[140px] h-[96px] object-cover rounded cursor-pointer border hover:opacity-80 transition-opacity"
                                   onClick={() => openPreview(rec.photo)}
                                 />
                               ) : (
@@ -320,11 +358,28 @@ export default function Page() {
                         <div className="text-xs text-gray-500">
                           Foto
                         </div>
-                        {rec.photo ? (
+                        {rec.photos && Array.isArray(rec.photos) && rec.photos.length > 0 ? (
+                          <div className="mt-2 grid grid-cols-2 gap-2">
+                                  {rec.photos.slice(0, 3).map((photo, photoIndex) => (
+                                    <div key={photoIndex} className="relative group">
+                                      <img
+                                        src={buildImageSrc(photo) || ""}
+                                        loading="lazy"
+                                  alt={`photo-${rec.asset_id}-${photoIndex + 1}`}
+                                  className="w-full h-32 object-cover rounded cursor-pointer border hover:opacity-80 transition-opacity"
+                                  onClick={() => openPreview(photo, rec.photos, photoIndex)}
+                                />
+                                <div className="absolute bottom-1 right-1 bg-blue-600 text-white text-xs px-2 py-0.5 rounded">
+                                  {photoIndex + 1}/{rec.photos?.length ?? 0}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : rec.photo ? (
                           <img
                             src={buildImageSrc(rec.photo) || ""}
                             alt={`photo-${rec.asset_id}`}
-                            className="mt-2 w-full h-44 object-cover rounded cursor-pointer border"
+                            className="mt-2 w-full h-44 object-cover rounded cursor-pointer border hover:opacity-80 transition-opacity"
                             onClick={() => openPreview(rec.photo)}
                           />
                         ) : ( 
@@ -381,21 +436,55 @@ export default function Page() {
 
         <PreviewModal 
           open={isOpen} 
-          src={previewSrc} 
+          src={previewSrc}
+          photos={previewPhotos}
+          currentIndex={currentPhotoIndex}
           onClose={() => {
             setIsOpen(false);
             setPreviewSrc(null);
-          }} 
+            setPreviewPhotos([]);
+            setCurrentPhotoIndex(0);
+          }}
+          onNavigate={(newIndex) => setCurrentPhotoIndex(newIndex)}
         />
       </div>
 
     );
 }
 
-function PreviewModal({ open, src, onClose }: { open: boolean; src: string | null; onClose: () => void }) {
+function PreviewModal({ 
+  open, 
+  src, 
+  photos = [],
+  currentIndex = 0,
+  onClose,
+  onNavigate
+}: { 
+  open: boolean; 
+  src: string | null; 
+  photos?: string[];
+  currentIndex?: number;
+  onClose: () => void;
+  onNavigate?: (index: number) => void;
+}) {
   useModalWatch(open);
 
   if (!open) return null;
+
+  const hasMultiplePhotos = photos.length > 1;
+  const displaySrc = photos.length > 0 ? photos[currentIndex] : src;
+
+  const handlePrevious = () => {
+    if (onNavigate && hasMultiplePhotos) {
+      onNavigate(currentIndex > 0 ? currentIndex - 1 : photos.length - 1);
+    }
+  };
+
+  const handleNext = () => {
+    if (onNavigate && hasMultiplePhotos) {
+      onNavigate(currentIndex < photos.length - 1 ? currentIndex + 1 : 0);
+    }
+  };
 
   return (
     <div
@@ -405,26 +494,79 @@ function PreviewModal({ open, src, onClose }: { open: boolean; src: string | nul
       onClick={onClose}
     >
       <div
-        className="max-w-[98vw] max-h-[96vh] overflow-auto bg-white rounded shadow-lg p-3"
+        className="max-w-[98vw] max-h-[96vh] overflow-auto bg-white rounded shadow-lg p-3 relative"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center mb-3">
+          {hasMultiplePhotos && (
+            <div className="text-sm font-medium text-gray-700">
+              Foto {currentIndex + 1} dari {photos.length}
+            </div>
+          )}
           <button
             onClick={onClose}
-            className="px-3 py-1 rounded border text-sm inline-flex items-center gap-2"
+            className="px-3 py-1 rounded border text-sm inline-flex items-center gap-2 ml-auto"
           >
             <CloseIcon />
             Tutup
           </button>
         </div>
 
-        <div className="mt-3">
-          {src ? (
-            <img src={src} alt="preview" className="max-w-full max-h-[80vh] object-contain mx-auto" />
+        <div className="relative">
+          {displaySrc ? (
+            <img src={displaySrc} alt={`preview ${currentIndex + 1}`} className="max-w-full max-h-[80vh] object-contain mx-auto" />
           ) : (
             <div className="p-8 text-center text-gray-500">Tidak ada gambar tersedia untuk item ini.</div>
           )}
+
+          {/* Navigation arrows for multiple photos */}
+          {hasMultiplePhotos && (
+            <>
+              <button
+                onClick={handlePrevious}
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110"
+                title="Foto sebelumnya (←)"
+              >
+                <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                onClick={handleNext}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110"
+                title="Foto selanjutnya (→)"
+              >
+                <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </>
+          )}
         </div>
+
+        {/* Thumbnail navigation for multiple photos */}
+        {hasMultiplePhotos && (
+          <div className="flex gap-2 justify-center mt-4 flex-wrap">
+            {photos.map((photo, index) => (
+              <button
+                key={index}
+                onClick={() => onNavigate && onNavigate(index)}
+                className={`w-16 h-16 rounded border-2 overflow-hidden transition-all ${
+                  index === currentIndex 
+                    ? 'border-blue-500 ring-2 ring-blue-300' 
+                    : 'border-gray-300 hover:border-blue-400'
+                }`}
+                title={`Foto ${index + 1}`}
+              >
+                <img 
+                  src={photo} 
+                  alt={`thumbnail ${index + 1}`} 
+                  className="w-full h-full object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

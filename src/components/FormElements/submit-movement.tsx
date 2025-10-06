@@ -119,16 +119,15 @@ type MovementConfig = {
   label: string;
   icon: string;
   requiresQuantity: boolean;
+  requiresReturnQuantity: boolean;
   clientPolicy: "required" | "forbidden" | "optional";
 };
 
 const MOVEMENT_TYPES: MovementConfig[] = [
-  { value: "outbound_from_client", label: "Perjalanan ke Pelanggan", icon: "📤", requiresQuantity: true, clientPolicy: "required" },
-  { value: "outbound_to_client", label: "Perjalanan ke Pelanggan", icon: "📤", requiresQuantity: true, clientPolicy: "required" },
-  { value: "inbound_at_client",  label: "Digunakan Pelanggan",  icon: "📥", requiresQuantity: true, clientPolicy: "required" },
-  { value: "outbound_to_factory", label: "Perjalanan Ke Pabrik", icon: "🏭", requiresQuantity: false, clientPolicy: "optional" },
-  { value: "outbound_from_factory", label: "Perjalanan Ke Pabrik", icon: "🏭", requiresQuantity: false, clientPolicy: "optional" },
-  { value: "inbound_at_factory", label: "Di Pabrik", icon: "🏭", requiresQuantity: false, clientPolicy: "optional" },
+  { value: "outbound_to_client", label: "Perjalanan ke Pelanggan", icon: "📤", requiresQuantity: true, requiresReturnQuantity: false, clientPolicy: "required" },
+  { value: "inbound_at_client",  label: "Digunakan Pelanggan",  icon: "📥", requiresQuantity: true, requiresReturnQuantity: false, clientPolicy: "required" },
+  { value: "outbound_to_factory", label: "Perjalanan Ke Pabrik", icon: "🏭", requiresQuantity: false, requiresReturnQuantity: true, clientPolicy: "forbidden" },
+  { value: "inbound_at_factory", label: "Di Pabrik", icon: "🏭", requiresQuantity: false, requiresReturnQuantity: false, clientPolicy: "forbidden" },
 ];
 const USE_PLACEHOLDER_FOR_NON_REQUIRED_CLIENT = false;
 const CLIENT_PLACEHOLDER = "-";
@@ -205,8 +204,10 @@ export default function SubmitMovement() {
   const [movementType, setMovementType] = useState<string | null>(null);
   const [clientId, setClientId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState<number>(0);
+  const [returnQuantity, setReturnQuantity] = useState<number>(0);
   const [notes, setNotes] = useState("");
   const [photoBase64, setPhotoBase64] = useState("");
+  const [photos, setPhotos] = useState<string[]>([]);
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
@@ -465,6 +466,11 @@ export default function SubmitMovement() {
 
   const capturePhoto = async () => {
     try {
+      if (photos.length >= 3) {
+        setError('Maksimal 3 foto. Hapus foto yang ada untuk menambah foto baru.');
+        return;
+      }
+
       const video = photoVideoRef.current;
       const canvas = photoCanvasRef.current;
       if (!video || !canvas) return;
@@ -488,15 +494,15 @@ export default function SubmitMovement() {
           // Convert blob to file for compression
           const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
           const compressedBase64 = await compressImage(file);
-          setPhotoBase64(compressedBase64);
-          setSuccess('Foto berhasil diambil dan dikompres!');
+          setPhotos(prev => [...prev, compressedBase64]);
+          setSuccess(`Foto ${photos.length + 1} berhasil diambil dan dikompres!`);
           stopPhotoCamera();
         } catch (err: any) {
           console.error('Compress photo error:', err);
           // Fallback to uncompressed if compression fails
           const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          setPhotoBase64(dataUrl);
-          setSuccess('Foto berhasil diambil!');
+          setPhotos(prev => [...prev, dataUrl]);
+          setSuccess(`Foto ${photos.length + 1} berhasil diambil!`);
           stopPhotoCamera();
         }
       }, 'image/jpeg', 0.92);
@@ -504,6 +510,11 @@ export default function SubmitMovement() {
       console.error('Capture photo error:', err);
       setError('Gagal mengambil foto. Coba lagi.');
     }
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+    setSuccess('Foto berhasil dihapus');
   };
 
   const startScanLoop = useCallback(() => {
@@ -661,14 +672,10 @@ export default function SubmitMovement() {
     switch (status) {
       case "inbound_at_factory":
         return "outbound_to_client";
-      case "outbound_from_client":
-        return "inbound_at_client";
       case "outbound_to_client":
         return "inbound_at_client";
       case "inbound_at_client":
         return "outbound_to_factory";
-      case "outbound_from_factory":
-        return "inbound_at_factory";
       case "outbound_to_factory":
         return "inbound_at_factory";
       default:
@@ -870,9 +877,14 @@ export default function SubmitMovement() {
           return false;
         }
 
+        if (config?.requiresReturnQuantity && returnQuantity < 0) {
+          setError("Return quantity must be at least 0");
+          return false;
+        }
+
         // Validate photo
-        if (!photoBase64.trim()) {
-          setWarningModalMessage("Foto bukti wajib diupload sebelum melanjutkan");
+        if (photos.length === 0) {
+          setWarningModalMessage("Minimal 1 foto bukti wajib diupload sebelum melanjutkan");
           setShowWarningModal(true);
           return false;
         }
@@ -923,6 +935,9 @@ export default function SubmitMovement() {
       setError(null);
       setSuccess(null);
       setWarning(null);
+      setPhotos([]);
+      setQuantity(0);
+      setReturnQuantity(0);
     }
   };
 
@@ -950,10 +965,13 @@ export default function SubmitMovement() {
         finalLongitude = locationResult.longitude!;
       }
 
-      let finalPhoto = photoBase64;
-      if (finalPhoto.startsWith("data:image")) {
-        finalPhoto = finalPhoto.split(",")[1];
-      }
+      // Process photos - convert to base64 strings without data URI prefix
+      const processedPhotos = photos.map(photo => {
+        if (photo.startsWith("data:image")) {
+          return photo.split(",")[1];
+        }
+        return photo;
+      });
 
       const config = getCurrentMovementConfig();
 
@@ -968,12 +986,16 @@ export default function SubmitMovement() {
         movement_type: movementType,
         ...(Number.isFinite(Number(finalLatitude)) ? { latitude: clamp(Number(finalLatitude), -90, 90) } : {}),
         ...(Number.isFinite(Number(finalLongitude)) ? { longitude: clamp(Number(finalLongitude), -180, 180) } : {}),
-        photo: finalPhoto || "",
+        photos: processedPhotos,
+        photo: processedPhotos.length > 0 ? processedPhotos[0] : "",
         notes: notes.trim() || ""
       };
 
       if (config?.requiresQuantity) {
         body.quantity = clamp(Math.trunc(Number(quantity) || 0), 0, 32767);
+      }
+      if (config?.requiresReturnQuantity) {
+        body.return_quantity = clamp(Math.trunc(Number(returnQuantity) || 0), 0, 32767);
       }
       if (config?.clientPolicy === "required") {
         if (typeof clientId === 'number' && Number.isFinite(clientId)) {
@@ -1007,9 +1029,11 @@ export default function SubmitMovement() {
       setMovementType(null);
       setClientId(null);
       setQuantity(0);
+      setReturnQuantity(0);
       setLatitude(null);
       setLongitude(null);
       setPhotoBase64("");
+      setPhotos([]);
       setNotes("");
       setStep(0);
 
@@ -1372,11 +1396,11 @@ export default function SubmitMovement() {
                   </div>
                 )}
 
-                {/* Quantity*/}
+                {/* Quantity from Factory */}
                 {currentConfig?.requiresQuantity && (
                   <div>
                     <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
-                      Kuantitas
+                      Kuantitas dari Pabrik <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -1390,6 +1414,31 @@ export default function SubmitMovement() {
                         } else {
                           const numValue = parseInt(value, 10);
                           setQuantity(isNaN(numValue) ? 0 : numValue);
+                        }
+                      }}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
+                    />
+                  </div>
+                )}
+
+                {/* Return Quantity from Client */}
+                {currentConfig?.requiresReturnQuantity && (
+                  <div>
+                    <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                      Kuantitas dari Klien <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={returnQuantity === 0 ? "" : returnQuantity}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === "" || value === "-") {
+                          setReturnQuantity(0);
+                        } else {
+                          const numValue = parseInt(value, 10);
+                          setReturnQuantity(isNaN(numValue) ? 0 : numValue);
                         }
                       }}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
@@ -1414,7 +1463,7 @@ export default function SubmitMovement() {
                 {/* Photo Capture */}
                 <div className={`md:col-span-2 ${showPhotoCamera ? '-mx-4 sm:-mx-6' : ''}`}>
                   <label className={`block text-base sm:text-lg font-medium text-gray-700 mb-2 ${showPhotoCamera ? 'mx-4 sm:mx-6' : ''}`}>
-                    Bukti Foto <span className="text-red-500">*</span>
+                    Bukti Foto <span className="text-red-500">*</span> (Maks 3 foto)
                   </label>
 
                   {showPhotoCamera ? (
@@ -1476,42 +1525,58 @@ export default function SubmitMovement() {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col sm:flex-row sm:items-start space-y-4 sm:space-y-0 sm:space-x-4">
-                      <button
-                        type="button"
-                        onClick={startPhotoCamera}
-                        className={`flex-1 border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${
-                          photoBase64 
-                            ? 'border-green-300 bg-green-50 hover:border-green-400' 
-                            : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
-                        }`}
-                      >
-                        <Camera className={`w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 transition-colors ${
-                          photoBase64 ? 'text-green-500' : 'text-gray-400'
-                        }`} />
-                        <div className={`text-sm sm:text-base transition-colors ${
-                          photoBase64 ? 'text-green-700' : 'text-gray-600'
-                        }`}>
-                          {photoBase64 ? 'Ambil Ulang Foto' : 'Ambil Foto *'}
+                    <div className="space-y-4">
+                      {/* Photo Grid */}
+                      {photos.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                          {photos.map((photo, index) => (
+                            <div key={index} className="relative group">
+                              <img
+                                src={photo}
+                                alt={`Foto ${index + 1}`}
+                                className="w-full h-40 object-cover rounded-lg border shadow-sm"
+                              />
+                              <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                                Foto {index + 1}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removePhoto(index)}
+                                className="absolute top-2 right-2 w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700 transition-colors opacity-0 group-hover:opacity-100"
+                                title="Hapus foto"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
                         </div>
-                      </button>
+                      )}
 
-                      {photoBase64 && (
-                        <div className="flex-1">
-                          <img
-                            src={photoBase64}
-                            alt="Preview"
-                            className="w-full h-32 object-cover rounded-lg border shadow-sm"
-                          />
-                          <div className="mt-2">
-                            <button
-                              type="button"
-                              onClick={startPhotoCamera}
-                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                            >
-                              Ambil Ulang
-                            </button>
+                      {/* Add Photo Button */}
+                      {photos.length < 3 && (
+                        <button
+                          type="button"
+                          onClick={startPhotoCamera}
+                          className={`w-full border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${
+                            photos.length > 0
+                              ? 'border-green-300 bg-green-50 hover:border-green-400' 
+                              : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
+                          }`}
+                        >
+                          <Camera className={`w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 transition-colors ${
+                            photos.length > 0 ? 'text-green-500' : 'text-gray-400'
+                          }`} />
+                          <div className={`text-sm sm:text-base transition-colors ${
+                            photos.length > 0 ? 'text-green-700' : 'text-gray-600'
+                          }`}>
+                            {photos.length > 0 ? `Tambah Foto (${photos.length}/3)` : 'Ambil Foto *'}
                           </div>
+                        </button>
+                      )}
+
+                      {photos.length >= 3 && (
+                        <div className="text-center text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                          Maksimal 3 foto telah tercapai. Hapus foto untuk menambah yang baru.
                         </div>
                       )}
                     </div>
@@ -1569,8 +1634,14 @@ export default function SubmitMovement() {
                   )}
                   {currentConfig?.requiresQuantity && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600 text-base sm:text-lg">Kuantitas:</span>
+                      <span className="text-gray-600 text-base sm:text-lg">Kuantitas dari Pabrik:</span>
                       <span className="font-medium text-base sm:text-lg">{quantity}</span>
+                    </div>
+                  )}
+                  {currentConfig?.requiresReturnQuantity && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 text-base sm:text-lg">Kuantitas dari Klien:</span>
+                      <span className="font-medium text-base sm:text-lg">{returnQuantity}</span>
                     </div>
                   )}
                   {notes && (
@@ -1591,14 +1662,23 @@ export default function SubmitMovement() {
               </div>
 
               {/* Photo Preview */}
-              {photoBase64 && (
+              {photos.length > 0 && (
                 <div>
-                  <h3 className="font-medium text-xl mb-3 sm:mb-4">Bukti Foto</h3>
-                  <img
-                    src={photoBase64}
-                    alt="Movement evidence"
-                    className="w-full max-w-md rounded-lg border"
-                  />
+                  <h3 className="font-medium text-xl mb-3 sm:mb-4">Bukti Foto ({photos.length})</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {photos.map((photo, index) => (
+                      <div key={index} className="relative">
+                        <img
+                          src={photo}
+                          alt={`Foto ${index + 1}`}
+                          className="w-full h-48 object-cover rounded-lg border shadow-sm"
+                        />
+                        <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                          Foto {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

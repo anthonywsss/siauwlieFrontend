@@ -965,7 +965,6 @@ export default function SubmitMovement() {
         finalLongitude = locationResult.longitude!;
       }
 
-      // Process photos - convert to base64 strings without data URI prefix
       const processedPhotos = photos.map(photo => {
         if (photo.startsWith("data:image")) {
           return photo.split(",")[1];
@@ -986,7 +985,6 @@ export default function SubmitMovement() {
         movement_type: movementType,
         ...(Number.isFinite(Number(finalLatitude)) ? { latitude: clamp(Number(finalLatitude), -90, 90) } : {}),
         ...(Number.isFinite(Number(finalLongitude)) ? { longitude: clamp(Number(finalLongitude), -180, 180) } : {}),
-        photos: processedPhotos,
         photo: processedPhotos.length > 0 ? processedPhotos[0] : "",
         notes: notes.trim() || ""
       };

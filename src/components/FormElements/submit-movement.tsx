@@ -224,6 +224,7 @@ export default function SubmitMovement() {
   const [assetCurrentStatus, setAssetCurrentStatus] = useState<string | null>(null);
   const [fetchingAssetStatus, setFetchingAssetStatus] = useState(false);
   const [assetValid, setAssetValid] = useState(false);
+  const [lastMovementData, setLastMovementData] = useState<any>(null);
 
   // Access control
   const [showAccessDeniedModal, setShowAccessDeniedModal] = useState(false);
@@ -727,6 +728,10 @@ export default function SubmitMovement() {
       setAssetCurrentStatus(null);
       setMovementType(null);
       setAssetValid(false);
+      setLastMovementData(null);
+      setQuantity(0);
+      setReturnQuantity(0);
+      setClientId(null);
       return;
     }
 
@@ -741,24 +746,14 @@ export default function SubmitMovement() {
         let currentStatus: string | null = null;
         let found = false;
 
+        // Check status using POST with body
         try {
-          const resA = await safeGet<{ data: { status: string } }>(`/check-status?asset_id=${encodeURIComponent(rawId)}`);
-          currentStatus = resA?.data?.status ?? null;
+          const resStatus = await safePost<{ data: { status: string } }>(`/check-status`, { asset_id: rawId });
+          currentStatus = resStatus?.data?.status ?? null;
           found = true;
-        } catch (_eA: any) {
-          try {
-            const resB = await safeGet<{ data: { status: string } }>(`/check-status?id=${encodeURIComponent(rawId)}`);
-            currentStatus = resB?.data?.status ?? null;
-            found = true;
-          } catch (_eB: any) {
-            try {
-              const resC = await safePost<{ data: { status: string } }>(`/check-status`, { asset_id: rawId });
-              currentStatus = resC?.data?.status ?? null;
-              found = true;
-            } catch (_eC: any) {
-              // will fallback to asset lookup next
-            }
-          }
+        } catch (_eStatus: any) {
+          console.log("check-status failed, will try asset lookup:", _eStatus);
+          // will fallback to asset lookup next
         }
 
         // Fallback: fetch asset and read status
@@ -806,6 +801,51 @@ export default function SubmitMovement() {
           setAssetValid(false);
           setAssetId(""); // Clear the scanned asset ID
           return;
+        }
+
+        // Fetch last movement data to populate fields
+        try {
+          // Try to get movements for this asset
+          const movementRes = await safeGet<{ data: any[] }>(`/movements?asset_id=${encodeURIComponent(rawId)}`);
+          const movements = movementRes?.data;
+          
+          if (movements && Array.isArray(movements) && movements.length > 0) {
+            // Get the most recent movement (last one in the array)
+            const lastMovement = movements[movements.length - 1];
+            console.log("=== MOVEMENT DATA DEBUG ===");
+            console.log("Full movement object:", JSON.stringify(lastMovement, null, 2));
+            console.log("Available keys:", Object.keys(lastMovement));
+            console.log("quantity value:", lastMovement.quantity);
+            console.log("return_quantity value:", lastMovement.return_quantity);
+            console.log("client_id value:", lastMovement.client_id);
+            setLastMovementData(lastMovement);
+            
+            // Try multiple possible field names
+            const qtyValue = lastMovement.quantity ?? lastMovement.Quantity ?? 0;
+            const returnQtyValue = lastMovement.return_quantity ?? lastMovement.returnQuantity ?? lastMovement.returned_quantity ?? 0;
+            const clientValue = lastMovement.client_id ?? lastMovement.clientId ?? lastMovement.ClientId ?? null;
+            
+            console.log("Extracted values:", { qtyValue, returnQtyValue, clientValue });
+            
+            // Populate fields
+            if (qtyValue != null && qtyValue !== 0) {
+              console.log("Setting quantity to:", qtyValue);
+              setQuantity(Number(qtyValue));
+            }
+            if (returnQtyValue != null && returnQtyValue !== 0) {
+              console.log("Setting return_quantity to:", returnQtyValue);
+              setReturnQuantity(Number(returnQtyValue));
+            }
+            if (clientValue != null) {
+              console.log("Setting client_id to:", clientValue);
+              setClientId(Number(clientValue));
+            }
+          } else {
+            console.log("No movements found or empty array");
+          }
+        } catch (movementErr: any) {
+          console.log("Could not fetch movement data:", movementErr);
+          // Not a critical error, continue without last movement data
         }
         
         setMovementType(derived);
@@ -989,10 +1029,13 @@ export default function SubmitMovement() {
         notes: notes.trim() || ""
       };
 
-      if (config?.requiresQuantity) {
+      // Always send both quantity and return_quantity if they have values
+      // quantity = quantity from factory
+      // return_quantity = quantity from client
+      if (quantity > 0 || movementType === "outbound_to_client") {
         body.quantity = clamp(Math.trunc(Number(quantity) || 0), 0, 32767);
       }
-      if (config?.requiresReturnQuantity) {
+      if (returnQuantity > 0 || movementType === "inbound_at_client") {
         body.return_quantity = clamp(Math.trunc(Number(returnQuantity) || 0), 0, 32767);
       }
       if (config?.clientPolicy === "required") {
@@ -1312,8 +1355,8 @@ export default function SubmitMovement() {
                   </div>
                 </div>
 
-                {/* Client Dropdown - Searchable */}
-                {(movementType === "outbound_to_client" || movementType === "inbound_at_client") && (
+                {/* Client Dropdown - Searchable - Only for outbound_to_client (at factory) */}
+                {movementType === "outbound_to_client" && (
                   <div className="md:col-span-2">
                     <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
                       Pilih Klien <span className="text-red-500">*</span>
@@ -1394,33 +1437,62 @@ export default function SubmitMovement() {
                   </div>
                 )}
 
-                {/* Quantity from Factory */}
-                {currentConfig?.requiresQuantity && (
-                  <div>
-                    <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
-                      Kuantitas dari Pabrik <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={quantity === 0 ? "" : quantity}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === "" || value === "-") {
-                          setQuantity(0);
-                        } else {
-                          const numValue = parseInt(value, 10);
-                          setQuantity(isNaN(numValue) ? 0 : numValue);
-                        }
-                      }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
-                    />
-                  </div>
+                {/* Show Client and Quantity from Factory - for outbound_to_client and inbound_at_client */}
+                {(movementType === "outbound_to_client" || movementType === "inbound_at_client") && (
+                  <>
+                    {/* Show Client (read-only for inbound_at_client) */}
+                    {movementType === "inbound_at_client" && clientId && (
+                      <div className="md:col-span-2">
+                        <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                          Klien
+                        </label>
+                        <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                          {clients.find(c => c.id === clientId)?.name || "N/A"}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Show Quantity from Factory (read-only for inbound_at_client) */}
+                    {movementType === "inbound_at_client" && (
+                      <div>
+                        <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                          Kuantitas dari Pabrik
+                        </label>
+                        <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                          {quantity || 0}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Submit Quantity from Factory - only for outbound_to_client */}
+                    {movementType === "outbound_to_client" && (
+                      <div>
+                        <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                          Kuantitas dari Pabrik <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={quantity === 0 ? "" : quantity}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === "" || value === "-") {
+                              setQuantity(0);
+                            } else {
+                              const numValue = parseInt(value, 10);
+                              setQuantity(isNaN(numValue) ? 0 : numValue);
+                            }
+                          }}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
 
-                {/* Return Quantity from Client */}
-                {currentConfig?.requiresReturnQuantity && (
+                {/* Submit Quantity from Client - only for inbound_at_client */}
+                {movementType === "inbound_at_client" && (
                   <div>
                     <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
                       Kuantitas dari Klien <span className="text-red-500">*</span>
@@ -1442,6 +1514,28 @@ export default function SubmitMovement() {
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
                     />
                   </div>
+                )}
+
+                {/* Show both quantities for outbound_to_factory */}
+                {movementType === "outbound_to_factory" && (
+                  <>
+                    <div>
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Kuantitas dari Pabrik
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {quantity || 0}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Kuantitas dari Klien
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {returnQuantity || 0}
+                      </div>
+                    </div>
+                  </>
                 )}
 
                 {/* Notes */}

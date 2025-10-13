@@ -1417,7 +1417,7 @@ useEffect(() => {
                 {/* Case 4: Asset is ON THE WAY TO FACTORY. User just needs to SHOW quantities and client. */}
                 {assetCurrentStatus === "outbound_to_factory" && (
                   <>
-                    {/* Quantity from Factory - Read-only */}
+                    {/* Quantity from Factory - Read-only
                     <div>
                       <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
                         Kuantitas dari Pabrik
@@ -1425,7 +1425,7 @@ useEffect(() => {
                       <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
                         {quantity || 0}
                       </div>
-                    </div>
+                    </div> */}
 
                     {/* Return Quantity from Client - Read-only */}
                     <div>

@@ -125,8 +125,8 @@ type MovementConfig = {
 const MOVEMENT_TYPES: MovementConfig[] = [
   { value: "outbound_to_client", label: "Perjalanan ke Pelanggan", icon: "📤", requiresQuantity: true, requiresReturnQuantity: false, clientPolicy: "required" },
   { value: "inbound_at_client",  label: "Digunakan Pelanggan",  icon: "📥", requiresQuantity: true, requiresReturnQuantity: false, clientPolicy: "required" },
-  { value: "outbound_to_factory", label: "Perjalanan Ke Pabrik", icon: "🏭", requiresQuantity: false, requiresReturnQuantity: true, clientPolicy: "forbidden" },
-  { value: "inbound_at_factory", label: "Di Pabrik", icon: "🏭", requiresQuantity: false, requiresReturnQuantity: false, clientPolicy: "forbidden" },
+  { value: "outbound_to_factory", label: "Perjalanan Ke Pabrik", icon: "🏭", requiresQuantity: true, requiresReturnQuantity: true, clientPolicy: "required" },
+  { value: "inbound_at_factory", label: "Di Pabrik", icon: "🏭", requiresQuantity: true, requiresReturnQuantity: true, clientPolicy: "required" },
 ];
 const USE_PLACEHOLDER_FOR_NON_REQUIRED_CLIENT = false;
 const CLIENT_PLACEHOLDER = "-";
@@ -211,8 +211,8 @@ export default function SubmitMovement() {
 
   // States for form inputs
   const [clientId, setClientId] = useState<number | null>(null);
-  const [quantity, setQuantity] = useState<number>(0);
-  const [returnQuantity, setReturnQuantity] = useState<number>(0);
+  const [quantity, setQuantity] = useState<number | null>(null);
+  const [returnQuantity, setReturnQuantity] = useState<number | null>(null);
 
   const [notes, setNotes] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
@@ -696,8 +696,8 @@ useEffect(() => {
     setAssetCurrentStatus(null);
     setMovementType(null);
     setAssetValid(false);
-    setQuantity(0);
-    setReturnQuantity(0);
+    setQuantity(null);
+    setReturnQuantity(null);
     setClientId(null);
     setFetchedAssetData(null);
     return;
@@ -750,42 +750,44 @@ useEffect(() => {
       setMovementType(derivedMovement);
       setAssetValid(true);
 
-      // --- FIX: Only populate fields based on the CURRENT status, not movement type ---
-      // This ensures we show the correct data for the asset's current state
+      // PERBAIKAN: Konsisten dalam pengaturan form fields berdasarkan status saat ini
       switch (status) {
         case "inbound_at_factory":
-          // Asset at factory - reset quantities for new cycle
-          setQuantity(0);
-          setReturnQuantity(0);
-          setClientId(null); // No client when at factory
+          // Asset di pabrik - reset semua untuk siklus baru
+          setQuantity(null);
+          setReturnQuantity(null);
+          setClientId(null);
           break;
         
         case "outbound_to_client":
-          // Asset in transit to client - show factory quantities
+          // Asset dalam perjalanan ke klien - tampilkan data dari pabrik
           setQuantity(assetData.quantity);
-          setReturnQuantity(0);
-          setClientId(assetData.client_id);
+          setReturnQuantity(null);
+          // Pastikan client_id ada sebelum diset
+          setClientId(assetData.client_id && assetData.client_id > 0 ? assetData.client_id : null);
           break;
         
         case "inbound_at_client":
-          // Asset at client - show current quantities
+          // Asset di klien - tampilkan semua data saat ini
           setQuantity(assetData.quantity);
           setReturnQuantity(assetData.return_quantity);
-          setClientId(assetData.client_id);
+          // Pastikan client_id ada sebelum diset
+          setClientId(assetData.client_id && assetData.client_id > 0 ? assetData.client_id : null);
           break;
         
         case "outbound_to_factory":
-          // Asset returning to factory - show all quantities
+          // Asset di klien - tampilkan semua data saat ini
           setQuantity(assetData.quantity);
           setReturnQuantity(assetData.return_quantity);
-          setClientId(assetData.client_id);
+          // Pastikan client_id ada sebelum diset
+          setClientId(assetData.client_id && assetData.client_id > 0 ? assetData.client_id : null);
           break;
         
         default:
-          // Fallback - use API data but allow overrides
+          // Fallback - gunakan data dari API
           setQuantity(assetData.quantity);
           setReturnQuantity(assetData.return_quantity);
-          setClientId(assetData.client_id);
+          setClientId(assetData.client_id && assetData.client_id > 0 ? assetData.client_id : null);
       }
 
       console.log("Stored data from /check-status:", { status, ...assetData });
@@ -852,12 +854,12 @@ useEffect(() => {
           }
         }
 
-        if (config?.requiresQuantity && quantity < 0) {
+        if (config?.requiresQuantity && (quantity === null || quantity < 0)) {
           setError("Quantity must be at least 0");
           return false;
         }
 
-        if (config?.requiresReturnQuantity && returnQuantity < 0) {
+        if (config?.requiresReturnQuantity && (returnQuantity === null || returnQuantity < 0)) {
           setError("Return quantity must be at least 0");
           return false;
         }
@@ -914,8 +916,8 @@ useEffect(() => {
       setSuccess(null);
       setWarning(null);
       setPhotos([]);
-      setQuantity(0);
-      setReturnQuantity(0);
+      setQuantity(null);
+      setReturnQuantity(null);
       // --- CHANGE 6: Reset the stored data when going back to the scan step ---
       setFetchedAssetData(null);
     }
@@ -981,7 +983,6 @@ useEffect(() => {
   
         case 'inbound_at_factory':
           // Rule: client_id=F, quantity=F, return_quantity=F
-          // No additional fields should be sent.
           break;
   
         default:
@@ -998,8 +999,8 @@ useEffect(() => {
       setAssetId("");
       setMovementType(null);
       setClientId(null);
-      setQuantity(0);
-      setReturnQuantity(0);
+      setQuantity(null);
+      setReturnQuantity(null);
       setLatitude(null);
       setLongitude(null);
       setPhotos([]);
@@ -1337,7 +1338,7 @@ useEffect(() => {
                         type="number"
                         min="0"
                         placeholder="0"
-                        value={quantity === 0 ? "" : quantity}
+                        value={quantity === null ? "" : quantity}
                         onChange={(e) => {
                           const value = e.target.value;
                           setQuantity(value ? parseInt(value, 10) : 0);
@@ -1402,7 +1403,7 @@ useEffect(() => {
                         type="number"
                         min="0"
                         placeholder="0"
-                        value={returnQuantity === 0 ? "" : returnQuantity}
+                        value={returnQuantity === null ? "" : returnQuantity}
                         onChange={(e) => {
                           const value = e.target.value;
                           setReturnQuantity(value ? parseInt(value, 10) : 0);
@@ -1416,16 +1417,30 @@ useEffect(() => {
                 {/* Case 4: Asset is ON THE WAY TO FACTORY. User just needs to SHOW quantities and client. */}
                 {assetCurrentStatus === "outbound_to_factory" && (
                   <>
-                    {/* NEW: Client - Read-only */}
-                    <div className="md:col-span-2">
+                    {/* Quantity from Factory - Read-only */}
+                    <div>
                       <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
-                        Klien
+                        Kuantitas dari Pabrik
                       </label>
                       <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
-                        {clients.find(c => c.id === clientId)?.name || "N/A"}
+                        {quantity || 0}
                       </div>
                     </div>
 
+                    {/* Return Quantity from Client - Read-only */}
+                    <div>
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Kuantitas dari Klien (Return)
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {returnQuantity || 0}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {assetCurrentStatus === "outbound_from_factory" && (
+                  <>
                     {/* Quantity from Factory - Read-only */}
                     <div>
                       <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">

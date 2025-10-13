@@ -22,7 +22,6 @@ export function BerhasilModal({ open, onClose, onCreated, message = "Berhasil di
       try {
         onCreated();
       } catch (err) {
-
         console.error("BerhasilModal.onCreated error:", err);
       }
     }
@@ -195,6 +194,13 @@ const WarningModal = ({ open, onClose, message }: { open: boolean; onClose: () =
   );
 };
 
+// --- CHANGE 1: Define a type for the data we fetch and store ---
+type FetchedAssetData = {
+  quantity: number;
+  return_quantity: number;
+  client_id: number;
+};
+
 export default function SubmitMovement() {
   const { user } = useAuth();
   const router = useRouter();
@@ -202,11 +208,13 @@ export default function SubmitMovement() {
   const [step, setStep] = useState(0);
   const [assetId, setAssetId] = useState("");
   const [movementType, setMovementType] = useState<string | null>(null);
+
+  // States for form inputs
   const [clientId, setClientId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState<number>(0);
   const [returnQuantity, setReturnQuantity] = useState<number>(0);
+
   const [notes, setNotes] = useState("");
-  const [photoBase64, setPhotoBase64] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
@@ -221,10 +229,15 @@ export default function SubmitMovement() {
   const [warningModalMessage, setWarningModalMessage] = useState("");
   const scanningRef = useRef(false);
 
+  // States for asset status validation
   const [assetCurrentStatus, setAssetCurrentStatus] = useState<string | null>(null);
   const [fetchingAssetStatus, setFetchingAssetStatus] = useState(false);
   const [assetValid, setAssetValid] = useState(false);
-  const [lastMovementData, setLastMovementData] = useState<any>(null);
+
+  // --- CHANGE 2: Create a state to explicitly STORE the fetched asset data ---
+  // This object holds the data from the API for the currently scanned asset.
+  const [fetchedAssetData, setFetchedAssetData] = useState<FetchedAssetData | null>(null);
+
 
   // Access control
   const [showAccessDeniedModal, setShowAccessDeniedModal] = useState(false);
@@ -241,7 +254,7 @@ export default function SubmitMovement() {
   const lastScanTimeRef = useRef<number>(0);
   const scanStartTimeRef = useRef<number | null>(null);
 
-  // Photo captur
+  // Photo capture
   const photoVideoRef = useRef<HTMLVideoElement | null>(null);
   const photoCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [showPhotoCamera, setShowPhotoCamera] = useState(false);
@@ -298,14 +311,12 @@ export default function SubmitMovement() {
       if (!clientId || !clients.some(c => c.id === clientId)) {
         if (clients[0]) setClientId(clients[0].id);
       }
-    } else if (cfg.clientPolicy === "forbidden") {
-      if (clientId !== null) setClientId(null);
     }
   }, [movementType, clients]);
 
   const compressImage = useCallback((file: File): Promise<string> =>
     new Promise((resolve, reject) => {
-      if (file.size > 10 * 1024 * 1024) { 
+      if (file.size > 10 * 1024 * 1024) {  
         reject(new Error("File terlalu besar (max 10MB)"));
         return;
       }
@@ -322,7 +333,7 @@ export default function SubmitMovement() {
               file,
               img.width,
               img.height,
-              "JPEG", 
+              "JPEG",  
               55, // quality
               0,
               (uri) => {
@@ -346,35 +357,6 @@ export default function SubmitMovement() {
       
       reader.readAsDataURL(file);
     }), []);
-
-  const fileToBase64 = useCallback((file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      if (file.size > 10 * 1024 * 1024) { 
-        reject(new Error("File terlalu besar (max 10MB)"));
-        return;
-      }
-      
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(new Error("gagal baca file"));
-      reader.readAsDataURL(file);
-    }), []);
-
-
-  const onPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    if (file) {
-      try {
-        const base64 = await compressImage(file);
-        setPhotoBase64(base64);
-        setSuccess("Foto berhasil diupload dan dikompres!");
-      } catch (err: any) {
-        setError(err.message || "Foto gagal diupload");
-      }
-    } else {
-      setPhotoBase64("");
-    }
-  };
 
   const startScanner = async () => {
     setScanError(null);
@@ -543,10 +525,8 @@ export default function SubmitMovement() {
         return;
       }
 
-      // Record scan start time when we first start actively scanning
       if (!scanStartTimeRef.current) {
         scanStartTimeRef.current = Date.now();
-        console.log("QR Scan detection started at:", new Date(scanStartTimeRef.current).toISOString());
       }
 
       const scale = 0.5;
@@ -567,18 +547,6 @@ export default function SubmitMovement() {
         overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
 
         if (code && code.data) {
-          if (scanStartTimeRef.current) {
-            const scanEndTime = Date.now();
-            const scanDuration = scanEndTime - scanStartTimeRef.current;
-            const scanDurationSeconds = (scanDuration / 1000).toFixed(3);
-            
-            console.log("QR Code Successfully Detected!");
-            console.log(`Detection Speed: ${scanDuration}ms (${scanDurationSeconds} seconds)`);
-            console.log(`QR Code Data: ${code.data}`);
-
-            scanStartTimeRef.current = null;
-          }
-
           const scaleUp = 1 / scale;
           
           overlayCtx.strokeStyle = "#00ff00";
@@ -723,152 +691,124 @@ export default function SubmitMovement() {
     return { allowed: true };
   };
 
-  useEffect(() => {
-    if (!assetId || assetId.trim() === "") {
+useEffect(() => {
+  if (!assetId || assetId.trim() === "") {
+    setAssetCurrentStatus(null);
+    setMovementType(null);
+    setAssetValid(false);
+    setQuantity(0);
+    setReturnQuantity(0);
+    setClientId(null);
+    setFetchedAssetData(null);
+    return;
+  }
+
+  let mounted = true;
+  (async () => {
+    setFetchingAssetStatus(true);
+    setError(null);
+    try {
+      const rawId = String(assetId).trim();
+
+      const res = await safePost<{ 
+        data: { 
+          status: string;
+          quantity?: number;
+          return_quantity?: number;
+          client_id?: number;
+        } 
+      }>(`/check-status`, { asset_id: rawId });
+      
+      if (!mounted) return;
+
+      if (!res?.data) {
+        throw new Error("Asset not found or invalid response from server.");
+      }
+
+      const { status, quantity, return_quantity, client_id } = res.data;
+      
+      // STORE the fetched data
+      const assetData: FetchedAssetData = {
+        quantity: Number(quantity || 0),
+        return_quantity: Number(return_quantity || 0),
+        client_id: Number(client_id || 0),
+      };
+      setFetchedAssetData(assetData);
+      setAssetCurrentStatus(status ?? null);
+      const derivedMovement = deriveMovementFromCurrentStatus(status ?? null);
+
+      // Check role-based access
+      const accessCheck = checkRoleAccess(user?.role, derivedMovement);
+      if (!accessCheck.allowed) {
+        setAccessDeniedMessage(accessCheck.message || "Akses ditolak");
+        setShowAccessDeniedModal(true);
+        setAssetValid(false);
+        setAssetId("");
+        return;
+      }
+      
+      setMovementType(derivedMovement);
+      setAssetValid(true);
+
+      // --- FIX: Only populate fields based on the CURRENT status, not movement type ---
+      // This ensures we show the correct data for the asset's current state
+      switch (status) {
+        case "inbound_at_factory":
+          // Asset at factory - reset quantities for new cycle
+          setQuantity(0);
+          setReturnQuantity(0);
+          setClientId(null); // No client when at factory
+          break;
+        
+        case "outbound_to_client":
+          // Asset in transit to client - show factory quantities
+          setQuantity(assetData.quantity);
+          setReturnQuantity(0);
+          setClientId(assetData.client_id);
+          break;
+        
+        case "inbound_at_client":
+          // Asset at client - show current quantities
+          setQuantity(assetData.quantity);
+          setReturnQuantity(assetData.return_quantity);
+          setClientId(assetData.client_id);
+          break;
+        
+        case "outbound_to_factory":
+          // Asset returning to factory - show all quantities
+          setQuantity(assetData.quantity);
+          setReturnQuantity(assetData.return_quantity);
+          setClientId(assetData.client_id);
+          break;
+        
+        default:
+          // Fallback - use API data but allow overrides
+          setQuantity(assetData.quantity);
+          setReturnQuantity(assetData.return_quantity);
+          setClientId(assetData.client_id);
+      }
+
+      console.log("Stored data from /check-status:", { status, ...assetData });
+      setStep(1);
+
+    } catch (err: any) {
+      console.error("Failed to fetch asset status via POST:", err);
+      const msg = err?.response?.data?.meta?.message ?? err?.response?.data?.message ?? err?.message ?? "Failed to fetch asset status";
+      const statusCode = err?.response?.status;
+      const isInvalid = statusCode === 404 || statusCode === 400 || /not\s*found/i.test(String(msg));
+      
+      setError(isInvalid ? "QR Tidak Valid" : msg);
       setAssetCurrentStatus(null);
       setMovementType(null);
       setAssetValid(false);
-      setLastMovementData(null);
-      setQuantity(0);
-      setReturnQuantity(0);
-      setClientId(null);
-      return;
+    } finally {
+      if (mounted) setFetchingAssetStatus(false);
     }
+  })();
 
-    let mounted = true;
-    (async () => {
-      setFetchingAssetStatus(true);
-      setError(null);
-      try {
-        const rawId = String(assetId).trim();
-        const id = encodeURIComponent(rawId);
+  return () => { mounted = false; };
+}, [assetId, user?.role]);
 
-        let currentStatus: string | null = null;
-        let found = false;
-
-        // Check status using POST with body
-        try {
-          const resStatus = await safePost<{ data: { status: string } }>(`/check-status`, { asset_id: rawId });
-          currentStatus = resStatus?.data?.status ?? null;
-          found = true;
-        } catch (_eStatus: any) {
-          console.log("check-status failed, will try asset lookup:", _eStatus);
-          // will fallback to asset lookup next
-        }
-
-        // Fallback: fetch asset and read status
-        if (currentStatus == null) {
-          let asset: any = null;
-          try {
-            const res1 = await safeGet<{ data: any }>(`/assets/${id}`);
-            asset = res1?.data ?? null;
-          } catch (e1: any) {
-            try {
-              const res2 = await safeGet<{ data: any }>(`/asset/${id}`);
-              asset = res2?.data ?? null;
-            } catch (e2: any) {
-              try {
-                const res3 = await safeGet<{ data: any[] }>(`/assets?id=${encodeURIComponent(rawId)}`);
-                const list = res3?.data;
-                asset = Array.isArray(list) ? list.find((a: any) => a?.id === rawId) ?? list[0] ?? null : null;
-              } catch (e3: any) {
-                // ignore; keep currentStatus null
-              }
-            }
-          }
-          if (asset) found = true;
-          currentStatus = asset?.status ?? null;
-        }
-
-        if (!mounted) return;
-        if (!found) {
-          setError("QR Tidak Valid");
-          setAssetCurrentStatus(null);
-          setMovementType(null);
-          setAssetValid(false);
-          return;
-        }
-        setAssetCurrentStatus(currentStatus);
-        const derived = deriveMovementFromCurrentStatus(currentStatus ?? null);
-        
-        // Check role-based access control
-        const accessCheck = checkRoleAccess(user?.role, derived);
-        if (!accessCheck.allowed) {
-          setAccessDeniedMessage(accessCheck.message || "Akses ditolak");
-          setShowAccessDeniedModal(true);
-          setAssetCurrentStatus(null);
-          setMovementType(null);
-          setAssetValid(false);
-          setAssetId(""); // Clear the scanned asset ID
-          return;
-        }
-
-        // Fetch last movement data to populate fields
-        try {
-          // Try to get movements for this asset
-          const movementRes = await safeGet<{ data: any[] }>(`/movements?asset_id=${encodeURIComponent(rawId)}`);
-          const movements = movementRes?.data;
-          
-          if (movements && Array.isArray(movements) && movements.length > 0) {
-            // Get the most recent movement (last one in the array)
-            const lastMovement = movements[movements.length - 1];
-            console.log("=== MOVEMENT DATA DEBUG ===");
-            console.log("Full movement object:", JSON.stringify(lastMovement, null, 2));
-            console.log("Available keys:", Object.keys(lastMovement));
-            console.log("quantity value:", lastMovement.quantity);
-            console.log("return_quantity value:", lastMovement.return_quantity);
-            console.log("client_id value:", lastMovement.client_id);
-            setLastMovementData(lastMovement);
-            
-            // Try multiple possible field names
-            const qtyValue = lastMovement.quantity ?? lastMovement.Quantity ?? 0;
-            const returnQtyValue = lastMovement.return_quantity ?? lastMovement.returnQuantity ?? lastMovement.returned_quantity ?? 0;
-            const clientValue = lastMovement.client_id ?? lastMovement.clientId ?? lastMovement.ClientId ?? null;
-            
-            console.log("Extracted values:", { qtyValue, returnQtyValue, clientValue });
-            
-            // Populate fields
-            if (qtyValue != null && qtyValue !== 0) {
-              console.log("Setting quantity to:", qtyValue);
-              setQuantity(Number(qtyValue));
-            }
-            if (returnQtyValue != null && returnQtyValue !== 0) {
-              console.log("Setting return_quantity to:", returnQtyValue);
-              setReturnQuantity(Number(returnQtyValue));
-            }
-            if (clientValue != null) {
-              console.log("Setting client_id to:", clientValue);
-              setClientId(Number(clientValue));
-            }
-          } else {
-            console.log("No movements found or empty array");
-          }
-        } catch (movementErr: any) {
-          console.log("Could not fetch movement data:", movementErr);
-          // Not a critical error, continue without last movement data
-        }
-        
-        setMovementType(derived);
-        setAssetValid(true);
-        setStep(1);
-
-      } catch (err: any) {
-        console.error("Failed to fetch asset status:", err);
-        // If the API responded with 404/invalid, show a helpful message
-        const msg = err?.response?.data?.meta?.message ?? err?.response?.data?.message ?? err?.message ?? "Failed to fetch asset status";
-        const statusCode = err?.response?.status;
-        const isInvalid = statusCode === 404 || statusCode === 400 || /not\s*found/i.test(String(msg));
-        setError(isInvalid ? "QR Tidak Valid" : msg);
-        setAssetCurrentStatus(null);
-        setMovementType(null);
-        setAssetValid(false);
-      } finally {
-        if (mounted) setFetchingAssetStatus(false);
-      }
-    })();
-
-    return () => { mounted = false; };
-  }, [assetId]);
 
   useEffect(() => {
     if (!assetCurrentStatus) {
@@ -922,14 +862,12 @@ export default function SubmitMovement() {
           return false;
         }
 
-        // Validate photo
         if (photos.length === 0) {
           setWarningModalMessage("Minimal 1 foto bukti wajib diupload sebelum melanjutkan");
           setShowWarningModal(true);
           return false;
         }
 
-        // Location will be fetched automatically when submitting, so no need to validate here
         break;
       }
 
@@ -978,94 +916,85 @@ export default function SubmitMovement() {
       setPhotos([]);
       setQuantity(0);
       setReturnQuantity(0);
+      // --- CHANGE 6: Reset the stored data when going back to the scan step ---
+      setFetchedAssetData(null);
     }
   };
 
   const handleSubmit = async () => {
     if (!validateStep(1)) return;
-
+  
     setBusy(true);
     setError(null);
-
+  
     try {
-      // Determine which location values to use
+      // 1. Get Location (Required for all submissions)
       let finalLatitude = latitude;
       let finalLongitude = longitude;
-
-      // First, fetch location if not already available
       if (!finalLatitude || !finalLongitude) {
         const locationResult = await takeLocation();
         if (!locationResult.success) {
-          setError(`Location is required. ${locationResult.error || 'Please enable location services and try again.'}`);
-          setBusy(false);
-          return;
+          throw new Error(`Location is required. ${locationResult.error || 'Please enable location services.'}`);
         }
-        // Use the location values returned from takeLocation
         finalLatitude = locationResult.latitude!;
         finalLongitude = locationResult.longitude!;
       }
-
-      const processedPhotos = photos.map(photo => {
-        if (photo.startsWith("data:image")) {
-          return photo.split(",")[1];
-        }
-        return photo;
-      });
-
-      const config = getCurrentMovementConfig();
-
-      if (config?.clientPolicy === "required" && !(typeof clientId === 'number' && Number.isFinite(clientId) && clients.some(c => c.id === clientId))) {
-        setError("Client selection is required for this movement type");
-        setBusy(false);
-        return;
+  
+      // 2. Process Photos
+      if (photos.length === 0) {
+        throw new Error("At least one photo is required for submission.");
       }
-
+      const processedPhotos = photos.map(photo => {
+        return photo.startsWith("data:image") ? photo.split(",")[1] : photo;
+      });
+  
+      // 3. Build the core submission payload
       const body: any = {
         asset_id: assetId.trim(),
         movement_type: movementType,
-        ...(Number.isFinite(Number(finalLatitude)) ? { latitude: clamp(Number(finalLatitude), -90, 90) } : {}),
-        ...(Number.isFinite(Number(finalLongitude)) ? { longitude: clamp(Number(finalLongitude), -180, 180) } : {}),
-        photo: processedPhotos.length > 0 ? processedPhotos[0] : "",
-        notes: notes.trim() || ""
+        latitude: clamp(Number(finalLatitude), -90, 90),
+        longitude: clamp(Number(finalLongitude), -180, 180),
+        notes: notes.trim() || "",
+        photo: processedPhotos[0],
       };
-
-      // Always send both quantity and return_quantity if they have values
-      // quantity = quantity from factory
-      // return_quantity = quantity from client
-      if (quantity > 0 || movementType === "outbound_to_client") {
-        body.quantity = clamp(Math.trunc(Number(quantity) || 0), 0, 32767);
+  
+      // 4. Add fields EXACTLY as per the validation rules
+      switch (movementType) {
+        case 'outbound_to_client':
+          // Rule: client_id=R, quantity=R, return_quantity=F
+          if (!clientId) throw new Error("Client selection is required.");
+          body.client_id = Number(clientId);
+          body.quantity = clamp(Math.trunc(Number(quantity) || 0), 0, 32767);
+          break;
+  
+        case 'inbound_at_client':
+          // Rule: client_id=R, quantity=R, return_quantity=F
+          if (!clientId) throw new Error("Client information is missing.");
+          body.client_id = Number(clientId);
+          body.quantity = clamp(Math.trunc(Number(quantity) || 0), 0, 32767);
+          break;
+  
+        case 'outbound_to_factory':
+          // Rule: client_id=F, quantity=F, return_quantity=R
+          body.return_quantity = clamp(Math.trunc(Number(returnQuantity) || 0), 0, 32767);
+          break;
+  
+        case 'inbound_at_factory':
+          // Rule: client_id=F, quantity=F, return_quantity=F
+          // No additional fields should be sent.
+          break;
+  
+        default:
+          throw new Error(`Invalid movement type: ${movementType}`);
       }
-      if (returnQuantity > 0 || movementType === "inbound_at_client") {
-        body.return_quantity = clamp(Math.trunc(Number(returnQuantity) || 0), 0, 32767);
-      }
-      if (config?.clientPolicy === "required") {
-        if (typeof clientId === 'number' && Number.isFinite(clientId)) {
-          body.client_id = clientId;
-          if (movementType === 'inbound_at_factory') {
-            (body as any).factory_id = body.client_id;
-          }
-        } else {
-          throw new Error("Client is required but missing");
-        }
-      } else {
-        if (USE_PLACEHOLDER_FOR_NON_REQUIRED_CLIENT) {
-          body.client_id = CLIENT_PLACEHOLDER;
-        } else {
-          if ('client_id' in body) delete (body as any).client_id;
-        }
-      }
-
-      if (body.client_id == null || body.client_id === "") {
-        delete (body as any).client_id;
-      }
-
-      console.log("Submitting movement (payload):", JSON.stringify(body));
-      const res = await safePost<{ data: any }>("/movements", body);
-
-      // Show success popup
+  
+      // 5. Submit the data
+      console.log("Submitting movement (payload):", JSON.stringify(body, null, 2));
+      await safePost<{ data: any }>("/movements", body);
+      
       setShowSuccessPopup(true);
-
-      // Reset form
+  
+      // 6. Reset the form
       setAssetId("");
       setMovementType(null);
       setClientId(null);
@@ -1073,29 +1002,17 @@ export default function SubmitMovement() {
       setReturnQuantity(0);
       setLatitude(null);
       setLongitude(null);
-      setPhotoBase64("");
       setPhotos([]);
       setNotes("");
       setStep(0);
-
+  
     } catch (err: any) {
-      console.error("Submit error details:", {
-        response: err.response?.data,
-        status: err.response?.status,
-        message: err.message
-      });
-
-      const msg = err?.response?.data?.error ||
-                  err?.response?.data?.message ||
-                  err?.response?.data?.meta?.message ||
-                  err?.message ||
-                  "Submission failed";
+      const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || "Submission failed";
       setError(msg);
     } finally {
       setBusy(false);
     }
   };
-
 
   if (!user) return null;
 
@@ -1224,13 +1141,13 @@ export default function SubmitMovement() {
                         {/* Scanner frame overlay */}
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                           <div className="w-48 h-48 xsm:w-56 xsm:h-56 sm:w-64 sm:h-64 md:w-72 md:h-72 lg:w-80 lg:h-80 border-4 sm:border-[5px] border-blue-500 rounded-2xl sm:rounded-3xl relative animate-scannerFrame shadow-2xl">
-                            {/* Corner accents - larger and more visible on mobile */}
+                            {/* Corner accents */}
                             <div className="absolute -top-2 -left-2 sm:-top-3 sm:-left-3 w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 border-t-[5px] border-l-[5px] sm:border-t-[6px] sm:border-l-[6px] border-blue-400 animate-cornerPulse rounded-tl-xl"></div>
                             <div className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 border-t-[5px] border-r-[5px] sm:border-t-[6px] sm:border-r-[6px] border-blue-400 animate-cornerPulse rounded-tr-xl"></div>
                             <div className="absolute -bottom-2 -left-2 sm:-bottom-3 sm:-left-3 w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 border-b-[5px] border-l-[5px] sm:border-b-[6px] sm:border-l-[6px] border-blue-400 animate-cornerPulse rounded-bl-xl"></div>
                             <div className="absolute -bottom-2 -right-2 sm:-bottom-3 sm:-right-3 w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 border-b-[5px] border-r-[5px] sm:border-b-[6px] sm:border-r-[6px] border-blue-400 animate-cornerPulse rounded-br-xl"></div>
                             
-                            {/* Scanning line - more prominent on mobile */}
+                            {/* Scanning line */}
                             <div className="absolute top-0 left-0 right-0 h-1 sm:h-1.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent animate-scanMobile rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
                             
                             {/* Scanning grid overlay */}
@@ -1238,12 +1155,9 @@ export default function SubmitMovement() {
                             <div className="absolute inset-6 sm:inset-8 border border-blue-200 rounded-lg opacity-20 animate-gridPulse" style={{animationDelay: '0.5s'}}></div>
                           </div>
                         </div>
-                        
-                        
                       </div>
                       
                       <div className="absolute bottom-4 sm:bottom-6 left-0 right-0 flex items-center justify-center gap-4 sm:gap-6 px-4">
-                        {/* Dismiss button */}
                         <button
                           onClick={stopScanner}
                           className="w-14 h-14 sm:w-12 sm:h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95 touch-manipulation"
@@ -1251,7 +1165,6 @@ export default function SubmitMovement() {
                           <X className="w-6 h-6 sm:w-5 sm:h-5 text-gray-700" />
                         </button>
                         
-                        {/* Flip camera button */}
                         <button
                           onClick={toggleCamera}
                           className="w-14 h-14 sm:w-12 sm:h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95 touch-manipulation"
@@ -1270,8 +1183,6 @@ export default function SubmitMovement() {
                       </div>
                       <h3 className="font-semibold text-base sm:text-lg md:text-xl mb-2 sm:mb-3 text-gray-800">Pindai kode QR</h3>
                       <p className="text-xs sm:text-sm md:text-base text-gray-600 mb-3 sm:mb-4 leading-relaxed">Gunakan kamera untuk memindai kode QR asset</p>
-                      <div className="text-xs text-gray-500 flex items-center justify-center">
-                      </div>
                     </div>
                   )}
                 </div>
@@ -1315,20 +1226,16 @@ export default function SubmitMovement() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                {/* MOVEMENT TYPE */}
+                {/* MOVEMENT TYPE DISPLAY (READ-ONLY) */}
                 <div className="md:col-span-2">
                   <label className="block text-base sm:text-lg font-medium text-gray-700 mb-3">
                     Pergerakan (Sistem Otomatis)
                   </label>
-
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    {/* Current status card */}
                     <div className="p-3 rounded-lg border border-gray-200 bg-gray-50 min-w-0 flex-1">
                       <div className="text-sm text-gray-500">Status Pergerakan Saat ini</div>
                       <div className="font-medium text-base mt-1">{formatStatus(assetCurrentStatus)}</div>
                     </div>
-
-                    {/* Arrow between cards */}
                     <div className="flex items-center justify-center">
                       <div
                         className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm transform md:rotate-0 rotate-90"
@@ -1338,8 +1245,6 @@ export default function SubmitMovement() {
                         <ArrowRight className="w-5 h-5 text-blue-600" />
                       </div>
                     </div>
-
-                    {/* Next status card */}
                     <div className="p-3 rounded-lg border border-blue-200 bg-blue-50 min-w-0 flex-1">
                       <div className="text-sm text-blue-700">Status Pergerakan Selanjutnya</div>
                       <div className="font-medium text-base mt-1">
@@ -1348,177 +1253,114 @@ export default function SubmitMovement() {
                       {fetchingAssetStatus && <div className="text-sm text-gray-500 mt-1">Please wait — fetching asset info...</div>}
                     </div>
                   </div>
-
-
                   <div className="text-sm text-gray-500 mt-2">
                     Status pergerakan ini diisi oleh sistem secara otomatis.
                   </div>
                 </div>
 
-                {/* Client Dropdown - Searchable - Only for outbound_to_client (at factory) */}
-                {movementType === "outbound_to_client" && (
-                  <div className="md:col-span-2">
-                    <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
-                      Pilih Klien <span className="text-red-500">*</span>
-                    </label>
-                    {loadingClients ? (
-                      <div className="w-full px-4 py-3 border border-white-300 rounded-lg bg-white text-gray-500">
-                        Loading clients...
-                      </div>
-                    ) : (
-                      <div className="relative" ref={clientDropdownRef}>
-                        {/* Dropdown trigger button */}
-                        <button
-                          type="button"
-                          onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg bg-white text-left flex items-center justify-between hover:border-gray-400 transition-colors"
-                        >
-                          <span className={clientId ? "text-gray-900" : "text-gray-500"}>
-                            {clientId ? clients.find(c => c.id === clientId)?.name : "-- Pilih Klien --"}
-                          </span>
-                          <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isClientDropdownOpen ? 'transform rotate-180' : ''}`} />
-                        </button>
-
-                        {/* Dropdown menu */}
-                        {isClientDropdownOpen && (
-                          <div className="absolute z-[9999] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-hidden">
-                            {/* Search input */}
-                            <div className="p-2 border-b border-gray-200 relative bg-white">
-                              <div className="relative">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <input
-                                  type="text"
-                                  value={clientSearchQuery}
-                                  onChange={(e) => setClientSearchQuery(e.target.value)}
-                                  placeholder="Cari klien..."
-                                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
-                                  onClick={(e) => e.stopPropagation()}
-                                />
+                {/* Case 1: Asset is AT THE FACTORY. User needs to SUBMIT Client and Quantity. */}
+                {assetCurrentStatus === "inbound_at_factory" && (
+                  <>
+                    {/* Client Dropdown - Searchable and Editable */}
+                    <div className="md:col-span-2">
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Pilih Klien <span className="text-red-500">*</span>
+                      </label>
+                      {loadingClients ? (
+                        <div className="w-full px-4 py-3 border border-white-300 rounded-lg bg-white text-gray-500">
+                          Loading clients...
+                        </div>
+                      ) : (
+                        <div className="relative" ref={clientDropdownRef}>
+                          <button
+                            type="button"
+                            onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg bg-white text-left flex items-center justify-between hover:border-gray-400 transition-colors"
+                          >
+                            <span className={clientId ? "text-gray-900" : "text-gray-500"}>
+                              {clientId ? clients.find(c => c.id === clientId)?.name : "-- Pilih Klien --"}
+                            </span>
+                            <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isClientDropdownOpen ? 'transform rotate-180' : ''}`} />
+                          </button>
+                          {isClientDropdownOpen && (
+                            <div className="absolute z-[9999] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-hidden">
+                              <div className="p-2 border-b border-gray-200 relative bg-white">
+                                <div className="relative">
+                                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                  <input
+                                    type="text"
+                                    value={clientSearchQuery}
+                                    onChange={(e) => setClientSearchQuery(e.target.value)}
+                                    placeholder="Cari klien..."
+                                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </div>
+                              </div>
+                              <div className="max-h-48 overflow-y-auto">
+                                {filteredClients.length > 0 ? (
+                                  filteredClients.map((client) => (
+                                    <button
+                                      key={client.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setClientId(client.id);
+                                        setIsClientDropdownOpen(false);
+                                        setClientSearchQuery("");
+                                      }}
+                                      className={`w-full px-4 py-2 text-left hover:bg-blue-50 transition-colors ${clientId === client.id ? 'bg-blue-100 text-blue-900 font-medium' : 'text-gray-900'}`}
+                                    >
+                                      {client.name}
+                                      {clientId === client.id && (
+                                        <Check className="inline-block w-4 h-4 ml-2 text-blue-600" />
+                                      )}
+                                    </button>
+                                  ))
+                                ) : (
+                                  <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                                    Tidak ada klien yang cocok
+                                  </div>
+                                )}
                               </div>
                             </div>
-
-                            {/* Options list */}
-                            <div className="max-h-48 overflow-y-auto">
-                              {filteredClients.length > 0 ? (
-                                filteredClients.map((client) => (
-                                  <button
-                                    key={client.id}
-                                    type="button"
-                                    onClick={() => {
-                                      setClientId(client.id);
-                                      setIsClientDropdownOpen(false);
-                                      setClientSearchQuery("");
-                                    }}
-                                    className={`w-full px-4 py-2 text-left hover:bg-blue-50 transition-colors ${
-                                      clientId === client.id ? 'bg-blue-100 text-blue-900 font-medium' : 'text-gray-900'
-                                    }`}
-                                  >
-                                    {client.name}
-                                    {clientId === client.id && (
-                                      <Check className="inline-block w-4 h-4 ml-2 text-blue-600" />
-                                    )}
-                                  </button>
-                                ))
-                              ) : (
-                                <div className="px-4 py-3 text-sm text-gray-500 text-center">
-                                  Tidak ada klien yang cocok
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {clients.length === 0 && !loadingClients && (
-                      <div className="text-sm text-gray-500 mt-1">
-                        Tidak ada client.
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Show Client and Quantity from Factory - for outbound_to_client and inbound_at_client */}
-                {(movementType === "outbound_to_client" || movementType === "inbound_at_client") && (
-                  <>
-                    {/* Show Client (read-only for inbound_at_client) */}
-                    {movementType === "inbound_at_client" && clientId && (
-                      <div className="md:col-span-2">
-                        <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
-                          Klien
-                        </label>
-                        <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
-                          {clients.find(c => c.id === clientId)?.name || "N/A"}
+                          )}
                         </div>
-                      </div>
-                    )}
-                    
-                    {/* Show Quantity from Factory (read-only for inbound_at_client) */}
-                    {movementType === "inbound_at_client" && (
-                      <div>
-                        <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
-                          Kuantitas dari Pabrik
-                        </label>
-                        <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
-                          {quantity || 0}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Submit Quantity from Factory - only for outbound_to_client */}
-                    {movementType === "outbound_to_client" && (
-                      <div>
-                        <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
-                          Kuantitas dari Pabrik <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          placeholder="0"
-                          value={quantity === 0 ? "" : quantity}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (value === "" || value === "-") {
-                              setQuantity(0);
-                            } else {
-                              const numValue = parseInt(value, 10);
-                              setQuantity(isNaN(numValue) ? 0 : numValue);
-                            }
-                          }}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
-                        />
-                      </div>
-                    )}
+                      )}
+                    </div>
+
+                    {/* Submit Quantity from Factory - Editable */}
+                    <div>
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Kuantitas dari Pabrik <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={quantity === 0 ? "" : quantity}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setQuantity(value ? parseInt(value, 10) : 0);
+                        }}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
+                      />
+                    </div>
                   </>
                 )}
 
-                {/* Submit Quantity from Client - only for inbound_at_client */}
-                {movementType === "inbound_at_client" && (
-                  <div>
-                    <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
-                      Kuantitas dari Klien <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={returnQuantity === 0 ? "" : returnQuantity}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === "" || value === "-") {
-                          setReturnQuantity(0);
-                        } else {
-                          const numValue = parseInt(value, 10);
-                          setReturnQuantity(isNaN(numValue) ? 0 : numValue);
-                        }
-                      }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
-                    />
-                  </div>
-                )}
-
-                {/* Show both quantities for outbound_to_factory */}
-                {movementType === "outbound_to_factory" && (
+                {/* Case 2: Asset is ON THE WAY TO CLIENT. User just needs to SHOW Client and Quantity. */}
+                {assetCurrentStatus === "outbound_to_client" && (
                   <>
+                    {/* Client - Read-only */}
+                    <div className="md:col-span-2">
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Klien
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {clients.find(c => c.id == clientId)?.name || "N/A"}
+                      </div>
+                    </div>
+                    {/* Quantity from Factory - Read-only */}
                     <div>
                       <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
                         Kuantitas dari Pabrik
@@ -1527,9 +1369,77 @@ export default function SubmitMovement() {
                         {quantity || 0}
                       </div>
                     </div>
+                  </>
+                )}
+
+                {/* Case 3: Asset is AT THE CLIENT. User needs to SHOW Client/Quantity and SUBMIT Return Quantity. */}
+                {assetCurrentStatus === "inbound_at_client" && (
+                  <>
+                    {/* Client - Read-only */}
+                    <div className="md:col-span-2">
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Klien
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {clients.find(c => c.id === clientId)?.name || "N/A"}
+                      </div>
+                    </div>
+                    {/* Quantity from Factory - Read-only */}
                     <div>
                       <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
-                        Kuantitas dari Klien
+                        Kuantitas dari Pabrik
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {quantity || 0}
+                      </div>
+                    </div>
+                    {/* Return Quantity from Client - Editable */}
+                    <div>
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Kuantitas dari Klien (Return) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={returnQuantity === 0 ? "" : returnQuantity}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setReturnQuantity(value ? parseInt(value, 10) : 0);
+                        }}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* Case 4: Asset is ON THE WAY TO FACTORY. User just needs to SHOW quantities and client. */}
+                {assetCurrentStatus === "outbound_to_factory" && (
+                  <>
+                    {/* NEW: Client - Read-only */}
+                    <div className="md:col-span-2">
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Klien
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {clients.find(c => c.id === clientId)?.name || "N/A"}
+                      </div>
+                    </div>
+
+                    {/* Quantity from Factory - Read-only */}
+                    <div>
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Kuantitas dari Pabrik
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {quantity || 0}
+                      </div>
+                    </div>
+
+                    {/* Return Quantity from Client - Read-only */}
+                    <div>
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Kuantitas dari Klien (Return)
                       </label>
                       <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
                         {returnQuantity || 0}
@@ -1537,8 +1447,8 @@ export default function SubmitMovement() {
                     </div>
                   </>
                 )}
-
-                {/* Notes */}
+                
+                {/* Notes (Always editable) */}
                 <div className="md:col-span-2">
                   <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
                     Catatan
@@ -1571,9 +1481,7 @@ export default function SubmitMovement() {
 
                         {/* Photo frame overlay - simple gridlines */}
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          {/* Main frame */}
                           <div className="w-64 h-48 xsm:w-72 xsm:h-54 sm:w-80 sm:h-60 md:w-96 md:h-72 lg:w-[450px] lg:h-80 relative animate-photoFrame">
-                            {/* Rule of thirds grid */}
                             <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 opacity-40">
                               <div className="border-r border-b border-white"></div>
                               <div className="border-r border-b border-white"></div>
@@ -1589,7 +1497,6 @@ export default function SubmitMovement() {
                         </div>
 
                       <div className="absolute bottom-4 sm:bottom-6 left-0 right-0 flex items-center justify-center gap-4 sm:gap-6 px-4">
-                        {/* Close button */}
                         <button
                           onClick={stopPhotoCamera}
                           className="w-14 h-14 sm:w-12 sm:h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95 touch-manipulation"
@@ -1597,7 +1504,6 @@ export default function SubmitMovement() {
                           <X className="w-6 h-6 sm:w-5 sm:h-5 text-gray-700" />
                         </button>
                         
-                        {/* Capture button - larger on mobile */}
                         <button
                           onClick={capturePhoto}
                           className="w-20 h-20 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 shadow-xl flex items-center justify-center hover:from-green-600 hover:to-emerald-700 transition-all duration-300 hover:shadow-2xl transform hover:scale-105 active:scale-95 touch-manipulation ring-4 ring-white"
@@ -1606,7 +1512,6 @@ export default function SubmitMovement() {
                           <Camera className="w-9 h-9 sm:w-7 sm:h-7 text-white" />
                         </button>
                         
-                        {/* Switch camera button */}
                         <button
                           onClick={togglePhotoCamera}
                           className="w-14 h-14 sm:w-12 sm:h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95 touch-manipulation"
@@ -1674,9 +1579,7 @@ export default function SubmitMovement() {
                     </div>
                   )}
                 </div>
-
-                              </div>
-
+              </div>
               {/* Navigation Buttons */}
               <div className="flex justify-between pt-4 sm:pt-6">
                 <button
@@ -1785,7 +1688,7 @@ export default function SubmitMovement() {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={busy || (currentConfig?.clientPolicy === "required" && !clients.some(c => c.id === clientId))}
+                  disabled={busy}
                   className="flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-base sm:text-lg"
                 >
                   {busy ? "Mengirim ..." : "Konfirmasi Laporan"}
@@ -1806,201 +1709,6 @@ export default function SubmitMovement() {
           from { transform: scale(0.9); opacity: 0; }
           to { transform: scale(1); opacity: 1; }
         }
-        @keyframes expandScanner {
-          0% { 
-            transform: scale(0.85) rotateY(-5deg);
-            opacity: 0;
-            filter: blur(2px);
-          }
-          50% {
-            transform: scale(0.95) rotateY(0deg);
-            opacity: 0.7;
-            filter: blur(1px);
-          }
-          100% { 
-            transform: scale(1) rotateY(0deg);
-            opacity: 1;
-            filter: blur(0px);
-          }
-        }
-        @keyframes contractScanner {
-          0% { 
-            transform: scale(1.05) rotateX(2deg);
-            opacity: 0.9;
-          }
-          100% { 
-            transform: scale(1) rotateX(0deg);
-            opacity: 1;
-          }
-        }
-        @keyframes scannerFrame {
-          0% { 
-            transform: scale(0.8) rotate(-2deg);
-            opacity: 0;
-            filter: brightness(0.8);
-          }
-          50% {
-            transform: scale(0.95) rotate(-1deg);
-            opacity: 0.5;
-            filter: brightness(0.9);
-          }
-          100% { 
-            transform: scale(1) rotate(0deg);
-            opacity: 1;
-            filter: brightness(1);
-          }
-        }
-        @keyframes fadeInDelay {
-          0% { 
-            opacity: 0;
-            transform: translateY(15px) scale(0.9);
-          }
-          60% { 
-            opacity: 0;
-            transform: translateY(10px) scale(0.95);
-          }
-          100% { 
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-        @keyframes scanMobile {
-          0% { 
-            top: 0%; 
-            opacity: 0;
-            transform: scaleX(0.3);
-            box-shadow: 0 0 5px rgba(59, 130, 246, 0.3);
-          }
-          5% {
-            opacity: 0.8;
-            transform: scaleX(0.8);
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
-          }
-          10% {
-            opacity: 1;
-            transform: scaleX(1);
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
-          }
-          50% { 
-            top: 100%; 
-            opacity: 1;
-            transform: scaleX(1);
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
-          }
-          90% {
-            opacity: 0.8;
-            transform: scaleX(0.8);
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
-          }
-          95% {
-            opacity: 0.3;
-            transform: scaleX(0.5);
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
-          }
-          100% { 
-            top: 0%; 
-            opacity: 0;
-            transform: scaleX(0.3);
-            box-shadow: 0 0 5px rgba(59, 130, 246, 0.2);
-          }
-        }
-        @keyframes cornerPulse {
-          0%, 100% { 
-            opacity: 0.7;
-            transform: scale(1);
-            filter: brightness(1) drop-shadow(0 0 3px rgba(96, 165, 250, 0.5));
-          }
-          50% { 
-            opacity: 1;
-            transform: scale(1.15);
-            filter: brightness(1.3) drop-shadow(0 0 8px rgba(96, 165, 250, 0.8));
-          }
-        }
-        @keyframes cornerPulsePhoto {
-          0%, 100% { 
-            opacity: 0.7;
-            transform: scale(1);
-            filter: brightness(1) drop-shadow(0 0 3px rgba(74, 222, 128, 0.5));
-          }
-          50% { 
-            opacity: 1;
-            transform: scale(1.15);
-            filter: brightness(1.3) drop-shadow(0 0 8px rgba(74, 222, 128, 0.8));
-          }
-        }
-        @keyframes photoFrame {
-          0% { 
-            opacity: 0;
-            transform: scale(0.9);
-          }
-          100% { 
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-        @keyframes cornerBracket {
-          0%, 100% { 
-            opacity: 0.8;
-            transform: scale(1);
-          }
-          50% { 
-            opacity: 1;
-            transform: scale(1.05);
-          }
-        }
-        @keyframes focusPulse {
-          0%, 100% { 
-            opacity: 0.6;
-            transform: translate(-50%, -50%) scale(1);
-          }
-          50% { 
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1.1);
-          }
-        }
-        @keyframes recordPulse {
-          0%, 100% { 
-            opacity: 1;
-            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-          }
-          50% { 
-            opacity: 0.8;
-            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
-          }
-        }
-        @keyframes gridPulse {
-          0%, 100% { 
-            opacity: 0.25;
-            transform: scale(1);
-            filter: drop-shadow(0 0 2px rgba(147, 197, 253, 0.3));
-          }
-          50% { 
-            opacity: 0.45;
-            transform: scale(1.03);
-            filter: drop-shadow(0 0 4px rgba(147, 197, 253, 0.5));
-          }
-        }
-        @keyframes iconPulse {
-          0%, 100% { 
-            transform: scale(1) rotate(0deg);
-            filter: brightness(1);
-          }
-          50% { 
-            transform: scale(1.05) rotate(2deg);
-            filter: brightness(1.1);
-          }
-        }
-        @keyframes textPulse {
-          0%, 100% { 
-            opacity: 0.9;
-            transform: scale(1);
-          }
-          50% { 
-            opacity: 1;
-            transform: scale(1.02);
-          }
-        }
-
         .animate-fadeIn {
           animation: fadeIn 0.4s ease-out forwards;
         }
@@ -2008,98 +1716,63 @@ export default function SubmitMovement() {
           animation: scaleIn 0.4s ease-out forwards;
         }
         .animate-expandScanner {
-          animation: expandScanner 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            animation: expandScanner 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
         .animate-contractScanner {
-          animation: contractScanner 0.5s ease-out forwards;
+            animation: contractScanner 0.5s ease-out forwards;
         }
         .animate-scannerFrame {
-          animation: scannerFrame 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s forwards;
-          opacity: 0;
-        }
-        .animate-fadeInDelay {
-          animation: fadeInDelay 1.2s ease-out forwards;
-          opacity: 0;
+            animation: scannerFrame 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s forwards;
+            opacity: 0;
         }
         .animate-scanMobile {
-          animation: scanMobile 2.5s ease-in-out infinite;
+            animation: scanMobile 2.5s ease-in-out infinite;
         }
         .animate-cornerPulse {
-          animation: cornerPulse 2s ease-in-out infinite;
-        }
-        .animate-cornerPulsePhoto {
-          animation: cornerPulsePhoto 2s ease-in-out infinite;
+            animation: cornerPulse 2s ease-in-out infinite;
         }
         .animate-photoFrame {
-          animation: photoFrame 0.5s ease-out forwards;
-        }
-        .animate-cornerBracket {
-          animation: cornerBracket 2s ease-in-out infinite;
-        }
-        .animate-focusPulse {
-          animation: focusPulse 2s ease-in-out infinite;
-        }
-        .animate-recordPulse {
-          animation: recordPulse 1.5s ease-in-out infinite;
+            animation: photoFrame 0.5s ease-out forwards;
         }
         .animate-gridPulse {
-          animation: gridPulse 3s ease-in-out infinite;
+            animation: gridPulse 3s ease-in-out infinite;
         }
         .animate-iconPulse {
-          animation: iconPulse 2.5s ease-in-out infinite;
+            animation: iconPulse 2.5s ease-in-out infinite;
         }
-        .animate-textPulse {
-          animation: textPulse 2s ease-in-out infinite;
+        @keyframes expandScanner {
+            from { transform: scale(0.85); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
         }
-
-        @media (max-width: 640px) {
-          .animate-expandScanner {
-            animation-duration: 0.6s;
-          }
-          .animate-scannerFrame {
-            animation-duration: 0.8s;
-            animation-delay: 0.3s;
-          }
-          .animate-fadeInDelay {
-            animation-duration: 1s;
-          }
-          .animate-scanMobile {
-            animation: scanMobile 2s ease-in-out infinite;
-          }
-          .animate-cornerPulse {
-            animation: cornerPulse 1.5s ease-in-out infinite;
-          }
-          .animate-cornerPulsePhoto {
-            animation: cornerPulsePhoto 1.5s ease-in-out infinite;
-          }
-          .animate-cornerBracket {
-            animation: cornerBracket 1.5s ease-in-out infinite;
-          }
-          .animate-focusPulse {
-            animation: focusPulse 1.5s ease-in-out infinite;
-          }
+        @keyframes contractScanner {
+            from { transform: scale(1.05); }
+            to { transform: scale(1); }
         }
-
-        @media (prefers-reduced-motion: reduce) {
-          .animate-expandScanner,
-          .animate-contractScanner,
-          .animate-scannerFrame,
-          .animate-fadeInDelay,
-          .animate-scanMobile,
-          .animate-cornerPulse,
-          .animate-cornerPulsePhoto,
-          .animate-photoFrame,
-          .animate-cornerBracket,
-          .animate-focusPulse,
-          .animate-recordPulse,
-          .animate-gridPulse,
-          .animate-iconPulse,
-          .animate-textPulse {
-            animation-duration: 0.3s;
-            animation-iteration-count: 1;
-          }
+        @keyframes scannerFrame {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
         }
-
+        @keyframes scanMobile {
+            0% { top: 0%; opacity: 0.8; }
+            50% { top: 100%; opacity: 1; }
+            100% { top: 0%; opacity: 0.8; }
+        }
+        @keyframes cornerPulse {
+            0%, 100% { opacity: 0.7; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+        @keyframes photoFrame {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes gridPulse {
+            0%, 100% { opacity: 0.25; }
+            50% { opacity: 0.45; }
+        }
+        @keyframes iconPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
       `}</style>
     </div>
   );

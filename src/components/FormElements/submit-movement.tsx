@@ -4,8 +4,9 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { safeGet, safePost } from "@/lib/fetcher";
 import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
-import { Camera, MapPin, Check, ArrowLeft, ArrowRight, X, Scan, RotateCcw, AlertTriangle } from "lucide-react";
+import { Camera, MapPin, Check, ArrowLeft, ArrowRight, X, Scan, RotateCcw, AlertTriangle, ChevronDown, Search } from "lucide-react";
 import { useModalWatch } from "@/components/ModalContext";
+import Resizer from "react-image-file-resizer";
 
 type BerhasilModal = {
   open: boolean;
@@ -21,7 +22,6 @@ export function BerhasilModal({ open, onClose, onCreated, message = "Berhasil di
       try {
         onCreated();
       } catch (err) {
-
         console.error("BerhasilModal.onCreated error:", err);
       }
     }
@@ -118,16 +118,15 @@ type MovementConfig = {
   label: string;
   icon: string;
   requiresQuantity: boolean;
+  requiresReturnQuantity: boolean;
   clientPolicy: "required" | "forbidden" | "optional";
 };
 
 const MOVEMENT_TYPES: MovementConfig[] = [
-  { value: "outbound_from_client", label: "Perjalanan ke Pelanggan", icon: "📤", requiresQuantity: true, clientPolicy: "required" },
-  { value: "outbound_to_client", label: "Perjalanan ke Pelanggan", icon: "📤", requiresQuantity: true, clientPolicy: "required" },
-  { value: "inbound_at_client",  label: "Digunakan Pelanggan",  icon: "📥", requiresQuantity: true, clientPolicy: "required" },
-  { value: "outbound_to_factory", label: "Perjalanan Ke Pabrik", icon: "🏭", requiresQuantity: false, clientPolicy: "optional" },
-  { value: "outbound_from_factory", label: "Perjalanan Ke Pabrik", icon: "🏭", requiresQuantity: false, clientPolicy: "optional" },
-  { value: "inbound_at_factory", label: "Di Pabrik", icon: "🏭", requiresQuantity: false, clientPolicy: "optional" },
+  { value: "outbound_to_client", label: "Perjalanan ke Pelanggan", icon: "📤", requiresQuantity: true, requiresReturnQuantity: false, clientPolicy: "required" },
+  { value: "inbound_at_client",  label: "Digunakan Pelanggan",  icon: "📥", requiresQuantity: true, requiresReturnQuantity: false, clientPolicy: "required" },
+  { value: "outbound_to_factory", label: "Perjalanan Ke Pabrik", icon: "🏭", requiresQuantity: true, requiresReturnQuantity: true, clientPolicy: "required" },
+  { value: "inbound_at_factory", label: "Di Pabrik", icon: "🏭", requiresQuantity: true, requiresReturnQuantity: true, clientPolicy: "required" },
 ];
 const USE_PLACEHOLDER_FOR_NON_REQUIRED_CLIENT = false;
 const CLIENT_PLACEHOLDER = "-";
@@ -195,6 +194,13 @@ const WarningModal = ({ open, onClose, message }: { open: boolean; onClose: () =
   );
 };
 
+// --- CHANGE 1: Define a type for the data we fetch and store ---
+type FetchedAssetData = {
+  quantity: number;
+  return_quantity: number;
+  client_id: number;
+};
+
 export default function SubmitMovement() {
   const { user } = useAuth();
   const router = useRouter();
@@ -202,10 +208,14 @@ export default function SubmitMovement() {
   const [step, setStep] = useState(0);
   const [assetId, setAssetId] = useState("");
   const [movementType, setMovementType] = useState<string | null>(null);
+
+  // States for form inputs
   const [clientId, setClientId] = useState<number | null>(null);
-  const [quantity, setQuantity] = useState<number>(0);
+  const [quantity, setQuantity] = useState<number | null>(null);
+  const [returnQuantity, setReturnQuantity] = useState<number | null>(null);
+
   const [notes, setNotes] = useState("");
-  const [photoBase64, setPhotoBase64] = useState("");
+  const [photos, setPhotos] = useState<string[]>([]);
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
@@ -219,9 +229,15 @@ export default function SubmitMovement() {
   const [warningModalMessage, setWarningModalMessage] = useState("");
   const scanningRef = useRef(false);
 
+  // States for asset status validation
   const [assetCurrentStatus, setAssetCurrentStatus] = useState<string | null>(null);
   const [fetchingAssetStatus, setFetchingAssetStatus] = useState(false);
   const [assetValid, setAssetValid] = useState(false);
+
+  // --- CHANGE 2: Create a state to explicitly STORE the fetched asset data ---
+  // This object holds the data from the API for the currently scanned asset.
+  const [fetchedAssetData, setFetchedAssetData] = useState<FetchedAssetData | null>(null);
+
 
   // Access control
   const [showAccessDeniedModal, setShowAccessDeniedModal] = useState(false);
@@ -238,11 +254,16 @@ export default function SubmitMovement() {
   const lastScanTimeRef = useRef<number>(0);
   const scanStartTimeRef = useRef<number | null>(null);
 
-  // Photo captur
+  // Photo capture
   const photoVideoRef = useRef<HTMLVideoElement | null>(null);
   const photoCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [showPhotoCamera, setShowPhotoCamera] = useState(false);
   const [photoFacingMode, setPhotoFacingMode] = useState<'environment' | 'user'>('environment');
+
+  // Searchable dropdown state
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const clientDropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (error) {
@@ -290,39 +311,52 @@ export default function SubmitMovement() {
       if (!clientId || !clients.some(c => c.id === clientId)) {
         if (clients[0]) setClientId(clients[0].id);
       }
-    } else if (cfg.clientPolicy === "forbidden") {
-      if (clientId !== null) setClientId(null);
     }
   }, [movementType, clients]);
 
-  const fileToBase64 = useCallback((file: File): Promise<string> =>
+  const compressImage = useCallback((file: File): Promise<string> =>
     new Promise((resolve, reject) => {
-      if (file.size > 10 * 1024 * 1024) { 
+      if (file.size > 10 * 1024 * 1024) {  
         reject(new Error("File terlalu besar (max 10MB)"));
         return;
       }
-      
+
+      const img = new Image();
       const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(new Error("gagal baca file"));
+      
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
+        
+        img.onload = () => {
+          try {
+            Resizer.imageFileResizer(
+              file,
+              img.width,
+              img.height,
+              "JPEG",  
+              55, // quality
+              0,
+              (uri) => {
+                resolve(uri as string);
+              },
+              "base64" // outputType
+            );
+          } catch (err) {
+            reject(new Error("Gagal mengkompresi gambar"));
+          }
+        };
+        
+        img.onerror = () => {
+          reject(new Error("Gagal membaca dimensi gambar"));
+        };
+      };
+      
+      reader.onerror = () => {
+        reject(new Error("Gagal membaca file"));
+      };
+      
       reader.readAsDataURL(file);
     }), []);
-
-
-  const onPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    if (file) {
-      try {
-        const base64 = await fileToBase64(file);
-        setPhotoBase64(base64);
-        setSuccess("Foto berhasil diupload!");
-      } catch (err: any) {
-        setError(err.message || "Foto gagal diupload");
-      }
-    } else {
-      setPhotoBase64("");
-    }
-  };
 
   const startScanner = async () => {
     setScanError(null);
@@ -415,6 +449,11 @@ export default function SubmitMovement() {
 
   const capturePhoto = async () => {
     try {
+      if (photos.length >= 3) {
+        setError('Maksimal 3 foto. Hapus foto yang ada untuk menambah foto baru.');
+        return;
+      }
+
       const video = photoVideoRef.current;
       const canvas = photoCanvasRef.current;
       if (!video || !canvas) return;
@@ -427,14 +466,38 @@ export default function SubmitMovement() {
       if (!ctx) return;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-      setPhotoBase64(dataUrl);
-      setSuccess('Foto berhasil diambil!');
-      stopPhotoCamera();
+      // Convert canvas to blob, then compress
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          setError('Gagal mengambil foto. Coba lagi.');
+          return;
+        }
+        
+        try {
+          // Convert blob to file for compression
+          const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+          const compressedBase64 = await compressImage(file);
+          setPhotos(prev => [...prev, compressedBase64]);
+          setSuccess(`Foto ${photos.length + 1} berhasil diambil dan dikompres!`);
+          stopPhotoCamera();
+        } catch (err: any) {
+          console.error('Compress photo error:', err);
+          // Fallback to uncompressed if compression fails
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          setPhotos(prev => [...prev, dataUrl]);
+          setSuccess(`Foto ${photos.length + 1} berhasil diambil!`);
+          stopPhotoCamera();
+        }
+      }, 'image/jpeg', 0.92);
     } catch (err: any) {
       console.error('Capture photo error:', err);
       setError('Gagal mengambil foto. Coba lagi.');
     }
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+    setSuccess('Foto berhasil dihapus');
   };
 
   const startScanLoop = useCallback(() => {
@@ -462,10 +525,8 @@ export default function SubmitMovement() {
         return;
       }
 
-      // Record scan start time when we first start actively scanning
       if (!scanStartTimeRef.current) {
         scanStartTimeRef.current = Date.now();
-        console.log("QR Scan detection started at:", new Date(scanStartTimeRef.current).toISOString());
       }
 
       const scale = 0.5;
@@ -486,18 +547,6 @@ export default function SubmitMovement() {
         overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
 
         if (code && code.data) {
-          if (scanStartTimeRef.current) {
-            const scanEndTime = Date.now();
-            const scanDuration = scanEndTime - scanStartTimeRef.current;
-            const scanDurationSeconds = (scanDuration / 1000).toFixed(3);
-            
-            console.log("QR Code Successfully Detected!");
-            console.log(`Detection Speed: ${scanDuration}ms (${scanDurationSeconds} seconds)`);
-            console.log(`QR Code Data: ${code.data}`);
-
-            scanStartTimeRef.current = null;
-          }
-
           const scaleUp = 1 / scale;
           
           overlayCtx.strokeStyle = "#00ff00";
@@ -535,6 +584,28 @@ export default function SubmitMovement() {
     };
   }, [stopScanner, stopPhotoCamera]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(event.target as Node)) {
+        setIsClientDropdownOpen(false);
+      }
+    };
+
+    if (isClientDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isClientDropdownOpen]);
+
+  // Filter clients based on search query
+  const filteredClients = clients.filter(client =>
+    client.name.toLowerCase().includes(clientSearchQuery.toLowerCase())
+  );
+
   const takeLocation = () => {
     return new Promise<{ success: boolean; error?: string; latitude?: number; longitude?: number }>((resolve) => {
       if (!navigator.geolocation) {
@@ -570,14 +641,10 @@ export default function SubmitMovement() {
     switch (status) {
       case "inbound_at_factory":
         return "outbound_to_client";
-      case "outbound_from_client":
-        return "inbound_at_client";
       case "outbound_to_client":
         return "inbound_at_client";
       case "inbound_at_client":
         return "outbound_to_factory";
-      case "outbound_from_factory":
-        return "inbound_at_factory";
       case "outbound_to_factory":
         return "inbound_at_factory";
       default:
@@ -624,113 +691,126 @@ export default function SubmitMovement() {
     return { allowed: true };
   };
 
-  useEffect(() => {
-    if (!assetId || assetId.trim() === "") {
+useEffect(() => {
+  if (!assetId || assetId.trim() === "") {
+    setAssetCurrentStatus(null);
+    setMovementType(null);
+    setAssetValid(false);
+    setQuantity(null);
+    setReturnQuantity(null);
+    setClientId(null);
+    setFetchedAssetData(null);
+    return;
+  }
+
+  let mounted = true;
+  (async () => {
+    setFetchingAssetStatus(true);
+    setError(null);
+    try {
+      const rawId = String(assetId).trim();
+
+      const res = await safePost<{ 
+        data: { 
+          status: string;
+          quantity?: number;
+          return_quantity?: number;
+          client_id?: number;
+        } 
+      }>(`/check-status`, { asset_id: rawId });
+      
+      if (!mounted) return;
+
+      if (!res?.data) {
+        throw new Error("Asset not found or invalid response from server.");
+      }
+
+      const { status, quantity, return_quantity, client_id } = res.data;
+      
+      // STORE the fetched data
+      const assetData: FetchedAssetData = {
+        quantity: Number(quantity || 0),
+        return_quantity: Number(return_quantity || 0),
+        client_id: Number(client_id || 0),
+      };
+      setFetchedAssetData(assetData);
+      setAssetCurrentStatus(status ?? null);
+      const derivedMovement = deriveMovementFromCurrentStatus(status ?? null);
+
+      // Check role-based access
+      const accessCheck = checkRoleAccess(user?.role, derivedMovement);
+      if (!accessCheck.allowed) {
+        setAccessDeniedMessage(accessCheck.message || "Akses ditolak");
+        setShowAccessDeniedModal(true);
+        setAssetValid(false);
+        setAssetId("");
+        return;
+      }
+      
+      setMovementType(derivedMovement);
+      setAssetValid(true);
+
+      // PERBAIKAN: Konsisten dalam pengaturan form fields berdasarkan status saat ini
+      switch (status) {
+        case "inbound_at_factory":
+          // Asset di pabrik - reset semua untuk siklus baru
+          setQuantity(null);
+          setReturnQuantity(null);
+          setClientId(null);
+          break;
+        
+        case "outbound_to_client":
+          // Asset dalam perjalanan ke klien - tampilkan data dari pabrik
+          setQuantity(assetData.quantity);
+          setReturnQuantity(null);
+          // Pastikan client_id ada sebelum diset
+          setClientId(assetData.client_id && assetData.client_id > 0 ? assetData.client_id : null);
+          break;
+        
+        case "inbound_at_client":
+          // Asset di klien - tampilkan semua data saat ini
+          setQuantity(assetData.quantity);
+          setReturnQuantity(assetData.return_quantity);
+          // Pastikan client_id ada sebelum diset
+          setClientId(assetData.client_id && assetData.client_id > 0 ? assetData.client_id : null);
+          break;
+        
+        case "outbound_to_factory":
+          // Asset di klien - tampilkan semua data saat ini
+          setQuantity(assetData.quantity);
+          setReturnQuantity(assetData.return_quantity);
+          // Pastikan client_id ada sebelum diset
+          setClientId(assetData.client_id && assetData.client_id > 0 ? assetData.client_id : null);
+          break;
+        
+        default:
+          // Fallback - gunakan data dari API
+          setQuantity(assetData.quantity);
+          setReturnQuantity(assetData.return_quantity);
+          setClientId(assetData.client_id && assetData.client_id > 0 ? assetData.client_id : null);
+      }
+
+      console.log("Stored data from /check-status:", { status, ...assetData });
+      setStep(1);
+
+    } catch (err: any) {
+      console.error("Failed to fetch asset status via POST:", err);
+      const msg = err?.response?.data?.meta?.message ?? err?.response?.data?.message ?? err?.message ?? "Failed to fetch asset status";
+      const statusCode = err?.response?.status;
+      const isInvalid = statusCode === 404 || statusCode === 400 || /not\s*found/i.test(String(msg));
+      
+      setError(isInvalid ? "QR Tidak Valid" : msg);
       setAssetCurrentStatus(null);
       setMovementType(null);
       setAssetValid(false);
-      return;
+    } finally {
+      if (mounted) setFetchingAssetStatus(false);
     }
+  })();
 
-    let mounted = true;
-    (async () => {
-      setFetchingAssetStatus(true);
-      setError(null);
-      try {
-        const rawId = String(assetId).trim();
-        const id = encodeURIComponent(rawId);
+  return () => { mounted = false; };
+}, [assetId, user?.role]);
 
-        let currentStatus: string | null = null;
-        let found = false;
-
-        try {
-          const resA = await safeGet<{ data: { status: string } }>(`/check-status?asset_id=${encodeURIComponent(rawId)}`);
-          currentStatus = resA?.data?.status ?? null;
-          found = true;
-        } catch (_eA: any) {
-          try {
-            const resB = await safeGet<{ data: { status: string } }>(`/check-status?id=${encodeURIComponent(rawId)}`);
-            currentStatus = resB?.data?.status ?? null;
-            found = true;
-          } catch (_eB: any) {
-            try {
-              const resC = await safePost<{ data: { status: string } }>(`/check-status`, { asset_id: rawId });
-              currentStatus = resC?.data?.status ?? null;
-              found = true;
-            } catch (_eC: any) {
-              // will fallback to asset lookup next
-            }
-          }
-        }
-
-        // Fallback: fetch asset and read status
-        if (currentStatus == null) {
-          let asset: any = null;
-          try {
-            const res1 = await safeGet<{ data: any }>(`/assets/${id}`);
-            asset = res1?.data ?? null;
-          } catch (e1: any) {
-            try {
-              const res2 = await safeGet<{ data: any }>(`/asset/${id}`);
-              asset = res2?.data ?? null;
-            } catch (e2: any) {
-              try {
-                const res3 = await safeGet<{ data: any[] }>(`/assets?id=${encodeURIComponent(rawId)}`);
-                const list = res3?.data;
-                asset = Array.isArray(list) ? list.find((a: any) => a?.id === rawId) ?? list[0] ?? null : null;
-              } catch (e3: any) {
-                // ignore; keep currentStatus null
-              }
-            }
-          }
-          if (asset) found = true;
-          currentStatus = asset?.status ?? null;
-        }
-
-        if (!mounted) return;
-        if (!found) {
-          setError("QR Tidak Valid");
-          setAssetCurrentStatus(null);
-          setMovementType(null);
-          setAssetValid(false);
-          return;
-        }
-        setAssetCurrentStatus(currentStatus);
-        const derived = deriveMovementFromCurrentStatus(currentStatus ?? null);
-        
-        // Check role-based access control
-        const accessCheck = checkRoleAccess(user?.role, derived);
-        if (!accessCheck.allowed) {
-          setAccessDeniedMessage(accessCheck.message || "Akses ditolak");
-          setShowAccessDeniedModal(true);
-          setAssetCurrentStatus(null);
-          setMovementType(null);
-          setAssetValid(false);
-          setAssetId(""); // Clear the scanned asset ID
-          return;
-        }
-        
-        setMovementType(derived);
-        setAssetValid(true);
-        setStep(1);
-
-      } catch (err: any) {
-        console.error("Failed to fetch asset status:", err);
-        // If the API responded with 404/invalid, show a helpful message
-        const msg = err?.response?.data?.meta?.message ?? err?.response?.data?.message ?? err?.message ?? "Failed to fetch asset status";
-        const statusCode = err?.response?.status;
-        const isInvalid = statusCode === 404 || statusCode === 400 || /not\s*found/i.test(String(msg));
-        setError(isInvalid ? "QR Tidak Valid" : msg);
-        setAssetCurrentStatus(null);
-        setMovementType(null);
-        setAssetValid(false);
-      } finally {
-        if (mounted) setFetchingAssetStatus(false);
-      }
-    })();
-
-    return () => { mounted = false; };
-  }, [assetId]);
 
   useEffect(() => {
     if (!assetCurrentStatus) {
@@ -774,19 +854,22 @@ export default function SubmitMovement() {
           }
         }
 
-        if (config?.requiresQuantity && quantity < 0) {
+        if (config?.requiresQuantity && (quantity === null || quantity < 0)) {
           setError("Quantity must be at least 0");
           return false;
         }
 
-        // Validate photo
-        if (!photoBase64.trim()) {
-          setWarningModalMessage("Foto bukti wajib diupload sebelum melanjutkan");
+        if (config?.requiresReturnQuantity && (returnQuantity === null || returnQuantity < 0)) {
+          setError("Return quantity must be at least 0");
+          return false;
+        }
+
+        if (photos.length === 0) {
+          setWarningModalMessage("Minimal 1 foto bukti wajib diupload sebelum melanjutkan");
           setShowWarningModal(true);
           return false;
         }
 
-        // Location will be fetched automatically when submitting, so no need to validate here
         break;
       }
 
@@ -832,114 +915,105 @@ export default function SubmitMovement() {
       setError(null);
       setSuccess(null);
       setWarning(null);
+      setPhotos([]);
+      setQuantity(null);
+      setReturnQuantity(null);
+      // --- CHANGE 6: Reset the stored data when going back to the scan step ---
+      setFetchedAssetData(null);
     }
   };
 
   const handleSubmit = async () => {
     if (!validateStep(1)) return;
-
+  
     setBusy(true);
     setError(null);
-
+  
     try {
-      // Determine which location values to use
+      // 1. Get Location (Required for all submissions)
       let finalLatitude = latitude;
       let finalLongitude = longitude;
-
-      // First, fetch location if not already available
       if (!finalLatitude || !finalLongitude) {
         const locationResult = await takeLocation();
         if (!locationResult.success) {
-          setError(`Location is required. ${locationResult.error || 'Please enable location services and try again.'}`);
-          setBusy(false);
-          return;
+          throw new Error(`Location is required. ${locationResult.error || 'Please enable location services.'}`);
         }
-        // Use the location values returned from takeLocation
         finalLatitude = locationResult.latitude!;
         finalLongitude = locationResult.longitude!;
       }
-
-      let finalPhoto = photoBase64;
-      if (finalPhoto.startsWith("data:image")) {
-        finalPhoto = finalPhoto.split(",")[1];
+  
+      // 2. Process Photos
+      if (photos.length === 0) {
+        throw new Error("At least one photo is required for submission.");
       }
-
-      const config = getCurrentMovementConfig();
-
-      if (config?.clientPolicy === "required" && !(typeof clientId === 'number' && Number.isFinite(clientId) && clients.some(c => c.id === clientId))) {
-        setError("Client selection is required for this movement type");
-        setBusy(false);
-        return;
-      }
-
+      const processedPhotos = photos.map(photo => {
+        return photo.startsWith("data:image") ? photo.split(",")[1] : photo;
+      });
+  
+      // 3. Build the core submission payload
       const body: any = {
         asset_id: assetId.trim(),
         movement_type: movementType,
-        ...(Number.isFinite(Number(finalLatitude)) ? { latitude: clamp(Number(finalLatitude), -90, 90) } : {}),
-        ...(Number.isFinite(Number(finalLongitude)) ? { longitude: clamp(Number(finalLongitude), -180, 180) } : {}),
-        photo: finalPhoto || "",
-        notes: notes.trim() || ""
+        latitude: clamp(Number(finalLatitude), -90, 90),
+        longitude: clamp(Number(finalLongitude), -180, 180),
+        notes: notes.trim() || "",
+        photo: processedPhotos[0],
       };
-
-      if (config?.requiresQuantity) {
-        body.quantity = clamp(Math.trunc(Number(quantity) || 0), 0, 32767);
+  
+      // 4. Add fields EXACTLY as per the validation rules
+      switch (movementType) {
+        case 'outbound_to_client':
+          // Rule: client_id=R, quantity=R, return_quantity=F
+          if (!clientId) throw new Error("Client selection is required.");
+          body.client_id = Number(clientId);
+          body.quantity = clamp(Math.trunc(Number(quantity) || 0), 0, 32767);
+          break;
+  
+        case 'inbound_at_client':
+          // Rule: client_id=R, quantity=R, return_quantity=F
+          if (!clientId) throw new Error("Client information is missing.");
+          body.client_id = Number(clientId);
+          body.quantity = clamp(Math.trunc(Number(quantity) || 0), 0, 32767);
+          break;
+  
+        case 'outbound_to_factory':
+          // Rule: client_id=F, quantity=F, return_quantity=R
+          body.return_quantity = clamp(Math.trunc(Number(returnQuantity) || 0), 0, 32767);
+          break;
+  
+        case 'inbound_at_factory':
+          // Rule: client_id=F, quantity=F, return_quantity=F
+          break;
+  
+        default:
+          throw new Error(`Invalid movement type: ${movementType}`);
       }
-      if (config?.clientPolicy === "required") {
-        if (typeof clientId === 'number' && Number.isFinite(clientId)) {
-          body.client_id = clientId;
-          if (movementType === 'inbound_at_factory') {
-            (body as any).factory_id = body.client_id;
-          }
-        } else {
-          throw new Error("Client is required but missing");
-        }
-      } else {
-        if (USE_PLACEHOLDER_FOR_NON_REQUIRED_CLIENT) {
-          body.client_id = CLIENT_PLACEHOLDER;
-        } else {
-          if ('client_id' in body) delete (body as any).client_id;
-        }
-      }
-
-      if (body.client_id == null || body.client_id === "") {
-        delete (body as any).client_id;
-      }
-
-      console.log("Submitting movement (payload):", JSON.stringify(body));
-      const res = await safePost<{ data: any }>("/movements", body);
-
-      // Show success popup
+  
+      // 5. Submit the data
+      console.log("Submitting movement (payload):", JSON.stringify(body, null, 2));
+      await safePost<{ data: any }>("/movements", body);
+      
       setShowSuccessPopup(true);
-
-      // Reset form
+  
+      // 6. Reset the form
       setAssetId("");
       setMovementType(null);
       setClientId(null);
-      setQuantity(0);
+      setQuantity(null);
+      setReturnQuantity(null);
       setLatitude(null);
       setLongitude(null);
-      setPhotoBase64("");
+      setPhotos([]);
       setNotes("");
       setStep(0);
-
+  
     } catch (err: any) {
-      console.error("Submit error details:", {
-        response: err.response?.data,
-        status: err.response?.status,
-        message: err.message
-      });
-
-      const msg = err?.response?.data?.error ||
-                  err?.response?.data?.message ||
-                  err?.response?.data?.meta?.message ||
-                  err?.message ||
-                  "Submission failed";
+      const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || "Submission failed";
       setError(msg);
     } finally {
       setBusy(false);
     }
   };
-
 
   if (!user) return null;
 
@@ -1055,7 +1129,7 @@ export default function SubmitMovement() {
                       <div className="relative">
                         <video
                           ref={videoRef}
-                          className="w-full h-[60vh] sm:h-72 md:h-80 lg:h-96 object-cover rounded-none sm:rounded-lg shadow-lg"
+                          className="w-full h-[50vh] xsm:h-[55vh] sm:h-[60vh] md:h-96 lg:h-[500px] object-cover rounded-none sm:rounded-lg shadow-lg"
                           playsInline
                           muted
                         />
@@ -1066,41 +1140,37 @@ export default function SubmitMovement() {
                         />
                         
                         {/* Scanner frame overlay */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 lg:w-64 lg:h-64 border-4 border-blue-500 rounded-2xl relative animate-scannerFrame shadow-lg">
-                            {/* Corner */}
-                            <div className="absolute -top-1 -left-1 sm:-top-2 sm:-left-2 w-3 h-3 sm:w-4 sm:h-4 md:w-6 md:h-6 border-t-4 border-l-4 border-blue-400 animate-cornerPulse rounded-tl-lg"></div>
-                            <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-3 h-3 sm:w-4 sm:h-4 md:w-6 md:h-6 border-t-4 border-r-4 border-blue-400 animate-cornerPulse rounded-tr-lg"></div>
-                            <div className="absolute -bottom-1 -left-1 sm:-bottom-2 sm:-left-2 w-3 h-3 sm:w-4 sm:h-4 md:w-6 md:h-6 border-b-4 border-l-4 border-blue-400 animate-cornerPulse rounded-bl-lg"></div>
-                            <div className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 w-3 h-3 sm:w-4 sm:h-4 md:w-6 md:h-6 border-b-4 border-r-4 border-blue-400 animate-cornerPulse rounded-br-lg"></div>
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-48 h-48 xsm:w-56 xsm:h-56 sm:w-64 sm:h-64 md:w-72 md:h-72 lg:w-80 lg:h-80 border-4 sm:border-[5px] border-blue-500 rounded-2xl sm:rounded-3xl relative animate-scannerFrame shadow-2xl">
+                            {/* Corner accents */}
+                            <div className="absolute -top-2 -left-2 sm:-top-3 sm:-left-3 w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 border-t-[5px] border-l-[5px] sm:border-t-[6px] sm:border-l-[6px] border-blue-400 animate-cornerPulse rounded-tl-xl"></div>
+                            <div className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 border-t-[5px] border-r-[5px] sm:border-t-[6px] sm:border-r-[6px] border-blue-400 animate-cornerPulse rounded-tr-xl"></div>
+                            <div className="absolute -bottom-2 -left-2 sm:-bottom-3 sm:-left-3 w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 border-b-[5px] border-l-[5px] sm:border-b-[6px] sm:border-l-[6px] border-blue-400 animate-cornerPulse rounded-bl-xl"></div>
+                            <div className="absolute -bottom-2 -right-2 sm:-bottom-3 sm:-right-3 w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 border-b-[5px] border-r-[5px] sm:border-b-[6px] sm:border-r-[6px] border-blue-400 animate-cornerPulse rounded-br-xl"></div>
                             
-                            {/*  line */}
-                            <div className="absolute top-0 left-0 right-0 h-0.5 sm:h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent animate-scanMobile rounded-full shadow-lg"></div>
+                            {/* Scanning line */}
+                            <div className="absolute top-0 left-0 right-0 h-1 sm:h-1.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent animate-scanMobile rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
                             
                             {/* Scanning grid overlay */}
-                            <div className="absolute inset-2 border border-blue-300 rounded-xl opacity-30 animate-gridPulse"></div>
-                            <div className="absolute inset-4 border border-blue-200 rounded-lg opacity-20 animate-gridPulse" style={{animationDelay: '0.5s'}}></div>
+                            <div className="absolute inset-3 sm:inset-4 border-2 border-blue-300 rounded-xl opacity-30 animate-gridPulse"></div>
+                            <div className="absolute inset-6 sm:inset-8 border border-blue-200 rounded-lg opacity-20 animate-gridPulse" style={{animationDelay: '0.5s'}}></div>
                           </div>
                         </div>
-                        
-                        
                       </div>
                       
-                      <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-6">
-                        {/* Dismiss button */}
+                      <div className="absolute bottom-4 sm:bottom-6 left-0 right-0 flex items-center justify-center gap-4 sm:gap-6 px-4">
                         <button
                           onClick={stopScanner}
-                          className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95"
+                          className="w-14 h-14 sm:w-12 sm:h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95 touch-manipulation"
                         >
-                          <X className="w-6 h-6 text-gray-700" />
+                          <X className="w-6 h-6 sm:w-5 sm:h-5 text-gray-700" />
                         </button>
                         
-                        {/* Flip camera button */}
                         <button
                           onClick={toggleCamera}
-                          className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95"
+                          className="w-14 h-14 sm:w-12 sm:h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95 touch-manipulation"
                         >
-                          <RotateCcw className="w-6 h-6 text-gray-700" />
+                          <RotateCcw className="w-6 h-6 sm:w-5 sm:h-5 text-gray-700" />
                         </button>
                       </div>
                     </div>
@@ -1114,8 +1184,6 @@ export default function SubmitMovement() {
                       </div>
                       <h3 className="font-semibold text-base sm:text-lg md:text-xl mb-2 sm:mb-3 text-gray-800">Pindai kode QR</h3>
                       <p className="text-xs sm:text-sm md:text-base text-gray-600 mb-3 sm:mb-4 leading-relaxed">Gunakan kamera untuk memindai kode QR asset</p>
-                      <div className="text-xs text-gray-500 flex items-center justify-center">
-                      </div>
                     </div>
                   )}
                 </div>
@@ -1159,20 +1227,16 @@ export default function SubmitMovement() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                {/* MOVEMENT TYPE */}
+                {/* MOVEMENT TYPE DISPLAY (READ-ONLY) */}
                 <div className="md:col-span-2">
                   <label className="block text-base sm:text-lg font-medium text-gray-700 mb-3">
                     Pergerakan (Sistem Otomatis)
                   </label>
-
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    {/* Current status card */}
                     <div className="p-3 rounded-lg border border-gray-200 bg-gray-50 min-w-0 flex-1">
                       <div className="text-sm text-gray-500">Status Pergerakan Saat ini</div>
                       <div className="font-medium text-base mt-1">{formatStatus(assetCurrentStatus)}</div>
                     </div>
-
-                    {/* Arrow between cards */}
                     <div className="flex items-center justify-center">
                       <div
                         className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm transform md:rotate-0 rotate-90"
@@ -1182,8 +1246,6 @@ export default function SubmitMovement() {
                         <ArrowRight className="w-5 h-5 text-blue-600" />
                       </div>
                     </div>
-
-                    {/* Next status card */}
                     <div className="p-3 rounded-lg border border-blue-200 bg-blue-50 min-w-0 flex-1">
                       <div className="text-sm text-blue-700">Status Pergerakan Selanjutnya</div>
                       <div className="font-medium text-base mt-1">
@@ -1192,72 +1254,216 @@ export default function SubmitMovement() {
                       {fetchingAssetStatus && <div className="text-sm text-gray-500 mt-1">Please wait — fetching asset info...</div>}
                     </div>
                   </div>
-
-
                   <div className="text-sm text-gray-500 mt-2">
                     Status pergerakan ini diisi oleh sistem secara otomatis.
                   </div>
                 </div>
 
-                {/* Client Dropdown */}
-                {(movementType === "outbound_to_client" || movementType === "inbound_at_client") && (
-                  <div className="md:col-span-2 animate-fadeIn">
-                    <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
-                      Pilih Klien <span className="text-red-500">*</span>
-                    </label>
-                    {loadingClients ? (
-                      <div className="w-full px-4 py-3 border border-white-300 rounded-lg bg-white text-gray-500">
-                        Loading clients...
-                      </div>
-                    ) : (
-                      <select
-                        value={clientId || ""}
-                        onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg bg-white"
-                        required
-                      >
-                        <option value="">-- Pilih Klien --</option>
-                        {clients.map((client) => (
-                          <option key={client.id} value={client.id}>
-                            {client.name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    {clients.length === 0 && !loadingClients && (
-                      <div className="text-sm text-gray-500 mt-1">
-                        Tidak ada client.
-                      </div>
-                    )}
-                  </div>
+                {/* Case 1: Asset is AT THE FACTORY. User needs to SUBMIT Client and Quantity. */}
+                {assetCurrentStatus === "inbound_at_factory" && (
+                  <>
+                    {/* Client Dropdown - Searchable and Editable */}
+                    <div className="md:col-span-2">
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Pilih Klien <span className="text-red-500">*</span>
+                      </label>
+                      {loadingClients ? (
+                        <div className="w-full px-4 py-3 border border-white-300 rounded-lg bg-white text-gray-500">
+                          Loading clients...
+                        </div>
+                      ) : (
+                        <div className="relative" ref={clientDropdownRef}>
+                          <button
+                            type="button"
+                            onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg bg-white text-left flex items-center justify-between hover:border-gray-400 transition-colors"
+                          >
+                            <span className={clientId ? "text-gray-900" : "text-gray-500"}>
+                              {clientId ? clients.find(c => c.id === clientId)?.name : "-- Pilih Klien --"}
+                            </span>
+                            <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isClientDropdownOpen ? 'transform rotate-180' : ''}`} />
+                          </button>
+                          {isClientDropdownOpen && (
+                            <div className="absolute z-[9999] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-hidden">
+                              <div className="p-2 border-b border-gray-200 relative bg-white">
+                                <div className="relative">
+                                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                  <input
+                                    type="text"
+                                    value={clientSearchQuery}
+                                    onChange={(e) => setClientSearchQuery(e.target.value)}
+                                    placeholder="Cari klien..."
+                                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </div>
+                              </div>
+                              <div className="max-h-48 overflow-y-auto">
+                                {filteredClients.length > 0 ? (
+                                  filteredClients.map((client) => (
+                                    <button
+                                      key={client.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setClientId(client.id);
+                                        setIsClientDropdownOpen(false);
+                                        setClientSearchQuery("");
+                                      }}
+                                      className={`w-full px-4 py-2 text-left hover:bg-blue-50 transition-colors ${clientId === client.id ? 'bg-blue-100 text-blue-900 font-medium' : 'text-gray-900'}`}
+                                    >
+                                      {client.name}
+                                      {clientId === client.id && (
+                                        <Check className="inline-block w-4 h-4 ml-2 text-blue-600" />
+                                      )}
+                                    </button>
+                                  ))
+                                ) : (
+                                  <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                                    Tidak ada klien yang cocok
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Submit Quantity from Factory - Editable */}
+                    <div>
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Kuantitas dari Pabrik <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={quantity === null ? "" : quantity}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setQuantity(value ? parseInt(value, 10) : 0);
+                        }}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
+                      />
+                    </div>
+                  </>
                 )}
 
-                {/* Quantity*/}
-                {currentConfig?.requiresQuantity && (
-                  <div className="animate-fadeIn">
-                    <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
-                      Kuantitas
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={quantity === 0 ? "" : quantity}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === "" || value === "-") {
-                          setQuantity(0);
-                        } else {
-                          const numValue = parseInt(value, 10);
-                          setQuantity(isNaN(numValue) ? 0 : numValue);
-                        }
-                      }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
-                    />
-                  </div>
+                {/* Case 2: Asset is ON THE WAY TO CLIENT. User just needs to SHOW Client and Quantity. */}
+                {assetCurrentStatus === "outbound_to_client" && (
+                  <>
+                    {/* Client - Read-only */}
+                    <div className="md:col-span-2">
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Klien
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {clients.find(c => c.id == clientId)?.name || "N/A"}
+                      </div>
+                    </div>
+                    {/* Quantity from Factory - Read-only */}
+                    <div>
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Kuantitas dari Pabrik
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {quantity || 0}
+                      </div>
+                    </div>
+                  </>
                 )}
 
-                {/* Notes */}
+                {/* Case 3: Asset is AT THE CLIENT. User needs to SHOW Client/Quantity and SUBMIT Return Quantity. */}
+                {assetCurrentStatus === "inbound_at_client" && (
+                  <>
+                    {/* Client - Read-only */}
+                    <div className="md:col-span-2">
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Klien
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {clients.find(c => c.id === clientId)?.name || "N/A"}
+                      </div>
+                    </div>
+                    {/* Quantity from Factory - Read-only */}
+                    <div>
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Kuantitas dari Pabrik
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {quantity || 0}
+                      </div>
+                    </div>
+                    {/* Return Quantity from Client - Editable */}
+                    <div>
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Kuantitas dari Klien (Return) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={returnQuantity === null ? "" : returnQuantity}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setReturnQuantity(value ? parseInt(value, 10) : 0);
+                        }}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* Case 4: Asset is ON THE WAY TO FACTORY. User just needs to SHOW quantities and client. */}
+                {assetCurrentStatus === "outbound_to_factory" && (
+                  <>
+                    {/* Quantity from Factory - Read-only
+                    <div>
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Kuantitas dari Pabrik
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {quantity || 0}
+                      </div>
+                    </div> */}
+
+                    {/* Return Quantity from Client - Read-only */}
+                    <div>
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Kuantitas dari Klien (Return)
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {returnQuantity || 0}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {assetCurrentStatus === "outbound_from_factory" && (
+                  <>
+                    {/* Quantity from Factory - Read-only */}
+                    <div>
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Kuantitas dari Pabrik
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {quantity || 0}
+                      </div>
+                    </div>
+
+                    {/* Return Quantity from Client - Read-only */}
+                    <div>
+                      <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
+                        Kuantitas dari Klien (Return)
+                      </label>
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-base sm:text-lg text-gray-700">
+                        {returnQuantity || 0}
+                      </div>
+                    </div>
+                  </>
+                )}
+                
+                {/* Notes (Always editable) */}
                 <div className="md:col-span-2">
                   <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2">
                     Catatan
@@ -1274,93 +1480,121 @@ export default function SubmitMovement() {
                 {/* Photo Capture */}
                 <div className={`md:col-span-2 ${showPhotoCamera ? '-mx-4 sm:-mx-6' : ''}`}>
                   <label className={`block text-base sm:text-lg font-medium text-gray-700 mb-2 ${showPhotoCamera ? 'mx-4 sm:mx-6' : ''}`}>
-                    Bukti Foto <span className="text-red-500">*</span>
+                    Bukti Foto <span className="text-red-500">*</span> (Maks 3 foto)
                   </label>
 
                   {showPhotoCamera ? (
-                    <div className="border-2 border-dashed border-blue-300 rounded-none sm:rounded-xl p-3 sm:p-4 md:p-6 relative overflow-hidden animate-expandScanner bg-gradient-to-br from-blue-50 to-indigo-50">
+                    <div className="border-2 border-dashed border-blue-300 rounded-none sm:rounded-xl p-0 relative overflow-hidden animate-expandScanner bg-gradient-to-br from-blue-50 to-indigo-50">
                       <div className="relative">
                         <video
                           ref={photoVideoRef}
-                          className="w-full h-[60vh] sm:h-64 md:h-80 lg:h-96 object-cover rounded-lg shadow-lg"
+                          className="w-full h-[50vh] xsm:h-[55vh] sm:h-[60vh] md:h-96 lg:h-[500px] object-cover rounded-none sm:rounded-lg shadow-lg"
                           playsInline
                           muted
                         />
                         <canvas ref={photoCanvasRef} className="hidden" />
 
-                      <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-6">
-                        {/* Close button */}
+                        {/* Photo frame overlay - simple gridlines */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-64 h-48 xsm:w-72 xsm:h-54 sm:w-80 sm:h-60 md:w-96 md:h-72 lg:w-[450px] lg:h-80 relative animate-photoFrame">
+                            <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 opacity-40">
+                              <div className="border-r border-b border-white"></div>
+                              <div className="border-r border-b border-white"></div>
+                              <div className="border-b border-white"></div>
+                              <div className="border-r border-b border-white"></div>
+                              <div className="border-r border-b border-white"></div>
+                              <div className="border-b border-white"></div>
+                              <div className="border-r border-white"></div>
+                              <div className="border-r border-white"></div>
+                              <div></div>
+                            </div>
+                          </div>
+                        </div>
+
+                      <div className="absolute bottom-4 sm:bottom-6 left-0 right-0 flex items-center justify-center gap-4 sm:gap-6 px-4">
                         <button
                           onClick={stopPhotoCamera}
-                          className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95"
+                          className="w-14 h-14 sm:w-12 sm:h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95 touch-manipulation"
                         >
-                          <X className="w-6 h-6 text-gray-700" />
+                          <X className="w-6 h-6 sm:w-5 sm:h-5 text-gray-700" />
                         </button>
                         
-                        {/* Capture button */}
                         <button
                           onClick={capturePhoto}
-                          className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 shadow-xl flex items-center justify-center hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 hover:shadow-2xl"
+                          className="w-20 h-20 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 shadow-xl flex items-center justify-center hover:from-green-600 hover:to-emerald-700 transition-all duration-300 hover:shadow-2xl transform hover:scale-105 active:scale-95 touch-manipulation ring-4 ring-white"
                           title="Ambil Foto"
                         >
-                          <Camera className="w-7 h-7 text-white" />
+                          <Camera className="w-9 h-9 sm:w-7 sm:h-7 text-white" />
                         </button>
                         
-                        {/* Switch camera button */}
                         <button
                           onClick={togglePhotoCamera}
-                          className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl"
+                          className="w-14 h-14 sm:w-12 sm:h-12 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:shadow-xl transform hover:scale-105 active:scale-95 touch-manipulation"
                         >
-                          <RotateCcw className="w-6 h-6 text-gray-700" />
+                          <RotateCcw className="w-6 h-6 sm:w-5 sm:h-5 text-gray-700" />
                         </button>
                       </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col sm:flex-row sm:items-start space-y-4 sm:space-y-0 sm:space-x-4">
-                      <button
-                        type="button"
-                        onClick={startPhotoCamera}
-                        className={`flex-1 border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${
-                          photoBase64 
-                            ? 'border-green-300 bg-green-50 hover:border-green-400' 
-                            : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
-                        }`}
-                      >
-                        <Camera className={`w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 transition-colors ${
-                          photoBase64 ? 'text-green-500' : 'text-gray-400'
-                        }`} />
-                        <div className={`text-sm sm:text-base transition-colors ${
-                          photoBase64 ? 'text-green-700' : 'text-gray-600'
-                        }`}>
-                          {photoBase64 ? 'Ambil Ulang Foto' : 'Ambil Foto *'}
+                    <div className="space-y-4">
+                      {/* Photo Grid */}
+                      {photos.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                          {photos.map((photo, index) => (
+                            <div key={index} className="relative group">
+                              <img
+                                src={photo}
+                                alt={`Foto ${index + 1}`}
+                                className="w-full h-40 object-cover rounded-lg border shadow-sm"
+                              />
+                              <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                                Foto {index + 1}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removePhoto(index)}
+                                className="absolute top-2 right-2 w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700 transition-colors opacity-0 group-hover:opacity-100"
+                                title="Hapus foto"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
                         </div>
-                      </button>
+                      )}
 
-                      {photoBase64 && (
-                        <div className="flex-1">
-                          <img
-                            src={photoBase64}
-                            alt="Preview"
-                            className="w-full h-32 object-cover rounded-lg border shadow-sm"
-                          />
-                          <div className="mt-2">
-                            <button
-                              type="button"
-                              onClick={startPhotoCamera}
-                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                            >
-                              Ambil Ulang
-                            </button>
+                      {/* Add Photo Button */}
+                      {photos.length < 3 && (
+                        <button
+                          type="button"
+                          onClick={startPhotoCamera}
+                          className={`w-full border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${
+                            photos.length > 0
+                              ? 'border-green-300 bg-green-50 hover:border-green-400' 
+                              : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
+                          }`}
+                        >
+                          <Camera className={`w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 transition-colors ${
+                            photos.length > 0 ? 'text-green-500' : 'text-gray-400'
+                          }`} />
+                          <div className={`text-sm sm:text-base transition-colors ${
+                            photos.length > 0 ? 'text-green-700' : 'text-gray-600'
+                          }`}>
+                            {photos.length > 0 ? `Tambah Foto (${photos.length}/3)` : 'Ambil Foto *'}
                           </div>
+                        </button>
+                      )}
+
+                      {photos.length >= 3 && (
+                        <div className="text-center text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                          Maksimal 3 foto telah tercapai. Hapus foto untuk menambah yang baru.
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-
-                              </div>
-
+              </div>
               {/* Navigation Buttons */}
               <div className="flex justify-between pt-4 sm:pt-6">
                 <button
@@ -1410,8 +1644,14 @@ export default function SubmitMovement() {
                   )}
                   {currentConfig?.requiresQuantity && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600 text-base sm:text-lg">Kuantitas:</span>
+                      <span className="text-gray-600 text-base sm:text-lg">Kuantitas dari Pabrik:</span>
                       <span className="font-medium text-base sm:text-lg">{quantity}</span>
+                    </div>
+                  )}
+                  {currentConfig?.requiresReturnQuantity && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 text-base sm:text-lg">Kuantitas dari Klien:</span>
+                      <span className="font-medium text-base sm:text-lg">{returnQuantity}</span>
                     </div>
                   )}
                   {notes && (
@@ -1432,14 +1672,23 @@ export default function SubmitMovement() {
               </div>
 
               {/* Photo Preview */}
-              {photoBase64 && (
+              {photos.length > 0 && (
                 <div>
-                  <h3 className="font-medium text-xl mb-3 sm:mb-4">Bukti Foto</h3>
-                  <img
-                    src={photoBase64}
-                    alt="Movement evidence"
-                    className="w-full max-w-md rounded-lg border"
-                  />
+                  <h3 className="font-medium text-xl mb-3 sm:mb-4">Bukti Foto ({photos.length})</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {photos.map((photo, index) => (
+                      <div key={index} className="relative">
+                        <img
+                          src={photo}
+                          alt={`Foto ${index + 1}`}
+                          className="w-full h-48 object-cover rounded-lg border shadow-sm"
+                        />
+                        <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                          Foto {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -1454,7 +1703,7 @@ export default function SubmitMovement() {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={busy || (currentConfig?.clientPolicy === "required" && !clients.some(c => c.id === clientId))}
+                  disabled={busy}
                   className="flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-base sm:text-lg"
                 >
                   {busy ? "Mengirim ..." : "Konfirmasi Laporan"}
@@ -1475,132 +1724,6 @@ export default function SubmitMovement() {
           from { transform: scale(0.9); opacity: 0; }
           to { transform: scale(1); opacity: 1; }
         }
-        @keyframes expandScanner {
-          0% { 
-            transform: scale(0.85) rotateY(-5deg);
-            opacity: 0;
-            filter: blur(2px);
-          }
-          50% {
-            transform: scale(0.95) rotateY(0deg);
-            opacity: 0.7;
-            filter: blur(1px);
-          }
-          100% { 
-            transform: scale(1) rotateY(0deg);
-            opacity: 1;
-            filter: blur(0px);
-          }
-        }
-        @keyframes contractScanner {
-          0% { 
-            transform: scale(1.05) rotateX(2deg);
-            opacity: 0.9;
-          }
-          100% { 
-            transform: scale(1) rotateX(0deg);
-            opacity: 1;
-          }
-        }
-        @keyframes scannerFrame {
-          0% { 
-            transform: scale(0.8) rotate(-2deg);
-            opacity: 0;
-            filter: brightness(0.8);
-          }
-          50% {
-            transform: scale(0.95) rotate(-1deg);
-            opacity: 0.5;
-            filter: brightness(0.9);
-          }
-          100% { 
-            transform: scale(1) rotate(0deg);
-            opacity: 1;
-            filter: brightness(1);
-          }
-        }
-        @keyframes fadeInDelay {
-          0% { 
-            opacity: 0;
-            transform: translateY(15px) scale(0.9);
-          }
-          60% { 
-            opacity: 0;
-            transform: translateY(10px) scale(0.95);
-          }
-          100% { 
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-        @keyframes scanMobile {
-          0% { 
-            top: 0%; 
-            opacity: 0;
-            transform: scaleX(0.5);
-          }
-          10% {
-            opacity: 1;
-            transform: scaleX(1);
-          }
-          50% { 
-            top: 100%; 
-            opacity: 1;
-            transform: scaleX(1);
-          }
-          90% {
-            opacity: 1;
-            transform: scaleX(0.8);
-          }
-          100% { 
-            top: 0%; 
-            opacity: 0;
-            transform: scaleX(0.3);
-          }
-        }
-        @keyframes cornerPulse {
-          0%, 100% { 
-            opacity: 0.6;
-            transform: scale(1);
-            filter: brightness(1);
-          }
-          50% { 
-            opacity: 1;
-            transform: scale(1.1);
-            filter: brightness(1.2);
-          }
-        }
-        @keyframes gridPulse {
-          0%, 100% { 
-            opacity: 0.2;
-            transform: scale(1);
-          }
-          50% { 
-            opacity: 0.4;
-            transform: scale(1.02);
-          }
-        }
-        @keyframes iconPulse {
-          0%, 100% { 
-            transform: scale(1) rotate(0deg);
-            filter: brightness(1);
-          }
-          50% { 
-            transform: scale(1.05) rotate(2deg);
-            filter: brightness(1.1);
-          }
-        }
-        @keyframes textPulse {
-          0%, 100% { 
-            opacity: 0.9;
-            transform: scale(1);
-          }
-          50% { 
-            opacity: 1;
-            transform: scale(1.02);
-          }
-        }
-
         .animate-fadeIn {
           animation: fadeIn 0.4s ease-out forwards;
         }
@@ -1608,63 +1731,63 @@ export default function SubmitMovement() {
           animation: scaleIn 0.4s ease-out forwards;
         }
         .animate-expandScanner {
-          animation: expandScanner 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            animation: expandScanner 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
         .animate-contractScanner {
-          animation: contractScanner 0.5s ease-out forwards;
+            animation: contractScanner 0.5s ease-out forwards;
         }
         .animate-scannerFrame {
-          animation: scannerFrame 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s forwards;
-          opacity: 0;
-        }
-        .animate-fadeInDelay {
-          animation: fadeInDelay 1.2s ease-out forwards;
-          opacity: 0;
+            animation: scannerFrame 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s forwards;
+            opacity: 0;
         }
         .animate-scanMobile {
-          animation: scanMobile 3s ease-in-out infinite;
+            animation: scanMobile 2.5s ease-in-out infinite;
         }
         .animate-cornerPulse {
-          animation: cornerPulse 2s ease-in-out infinite;
+            animation: cornerPulse 2s ease-in-out infinite;
+        }
+        .animate-photoFrame {
+            animation: photoFrame 0.5s ease-out forwards;
         }
         .animate-gridPulse {
-          animation: gridPulse 3s ease-in-out infinite;
+            animation: gridPulse 3s ease-in-out infinite;
         }
         .animate-iconPulse {
-          animation: iconPulse 2.5s ease-in-out infinite;
+            animation: iconPulse 2.5s ease-in-out infinite;
         }
-        .animate-textPulse {
-          animation: textPulse 2s ease-in-out infinite;
+        @keyframes expandScanner {
+            from { transform: scale(0.85); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
         }
-
-        @media (max-width: 640px) {
-          .animate-expandScanner {
-            animation-duration: 0.6s;
-          }
-          .animate-scannerFrame {
-            animation-duration: 0.8s;
-            animation-delay: 0.3s;
-          }
-          .animate-fadeInDelay {
-            animation-duration: 1s;
-          }
+        @keyframes contractScanner {
+            from { transform: scale(1.05); }
+            to { transform: scale(1); }
         }
-
-        @media (prefers-reduced-motion: reduce) {
-          .animate-expandScanner,
-          .animate-contractScanner,
-          .animate-scannerFrame,
-          .animate-fadeInDelay,
-          .animate-scanMobile,
-          .animate-cornerPulse,
-          .animate-gridPulse,
-          .animate-iconPulse,
-          .animate-textPulse {
-            animation-duration: 0.3s;
-            animation-iteration-count: 1;
-          }
+        @keyframes scannerFrame {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
         }
-
+        @keyframes scanMobile {
+            0% { top: 0%; opacity: 0.8; }
+            50% { top: 100%; opacity: 1; }
+            100% { top: 0%; opacity: 0.8; }
+        }
+        @keyframes cornerPulse {
+            0%, 100% { opacity: 0.7; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+        @keyframes photoFrame {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes gridPulse {
+            0%, 100% { opacity: 0.25; }
+            50% { opacity: 0.45; }
+        }
+        @keyframes iconPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
       `}</style>
     </div>
   );

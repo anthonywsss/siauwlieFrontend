@@ -43,14 +43,14 @@ export default function OverviewCardsGroup() {
 
   if (loading) return <div className="py-8">Loading overview...</div>;
   if (error) return <div className="py-8 text-red-500">Error: {error}</div>;
-  if (!data) return <div className="py-8">No overview data.</div>;
+  if (!data) return <div className="py-8">Tidak ada data.</div>;
 
   const { inbound_at_factory, outbound_to_client, inbound_at_client, outbound_to_factory } = data;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4 2xl:gap-7.5">
       <OverviewCard
-        label="At Factory"
+        label="Di Pabrik"
         data={{
           ...inbound_at_factory,
           value: compactFormat(inbound_at_factory.count),
@@ -60,7 +60,7 @@ export default function OverviewCardsGroup() {
       />
 
       <OverviewCard
-        label="Delivery to Client"
+        label="Pengiriman ke Klien"
         data={{
           ...outbound_to_client,
           value: compactFormat(outbound_to_client.count),
@@ -70,7 +70,7 @@ export default function OverviewCardsGroup() {
       />
 
       <OverviewCard
-        label="On Client"
+        label="Di Klien"
         data={{
           ...inbound_at_client,
           value: compactFormat(inbound_at_client.count),
@@ -80,7 +80,7 @@ export default function OverviewCardsGroup() {
       />
 
       <OverviewCard
-        label="Delivery to Factory"
+        label="Pengiriman ke Pabrik"
         data={{
           ...outbound_to_factory,
           value: compactFormat(outbound_to_factory.count),

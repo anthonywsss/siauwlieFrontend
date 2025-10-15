@@ -66,18 +66,18 @@ export default function CreateAssetTypeModal({ open, onClose, onCreated }: Props
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 p-4">
       <div className="w-full md:w-[640px] max-h-[95vh] overflow-auto rounded-t-lg md:rounded-lg bg-white p-5 md:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-2xl font-semibold">Add New Asset Type</h3>
+          <h3 className="text-2xl font-semibold">Tambahkan Tipe Aset</h3>
           <button onClick={onClose} aria-label="Close" className="text-gray-600">✕</button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Name</label>
+            <label className="block text-sm text-gray-600 mb-1">Nama</label>
             <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded border px-3 py-2" />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Description</label>
+            <label className="block text-sm text-gray-600 mb-1">Deskripsi</label>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="w-full rounded border px-3 py-2" />
           </div>
 
@@ -85,10 +85,10 @@ export default function CreateAssetTypeModal({ open, onClose, onCreated }: Props
 
           <div className="flex justify-end items-center gap-3 mt-2">
             <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-600 text-white rounded">
-              {submitting ? "Creating..." : "Submit"}
+              {submitting ? "Menyimpan..." : "Kirim"}
             </button>
             <button type="button" onClick={onClose} className="px-4 py-2 border rounded">
-              Cancel
+              Batal
             </button>
           </div>
         </form>

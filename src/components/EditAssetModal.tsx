@@ -218,7 +218,7 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
               </div>
               
               <p className="text-gray-600 dark:text-gray-300 mb-6">
-                Asset has been successfully updated with the new information.
+                Aset berhasil diperbarui.
               </p>
 
               <div className="flex justify-end">
@@ -229,7 +229,7 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
                   }}
                   className="px-6 py-2 bg-primary hover:bg-primary/90 text-white font-medium rounded-xl transition-colors"
                 >
-                  Done
+                  Oke
                 </button>
               </div>
             </div>
@@ -239,7 +239,7 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
               {/* Header */}
               <div className="flex items-center justify-between p-6 sm:p-8 border-b border-gray-200 dark:border-gray-700">
                 <div>
-                  <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Edit Asset</h3>
+                  <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Edit Aset</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     ID: <span className="font-mono text-primary">{String(assetType?.id ?? "-")}</span>
                   </p>
@@ -284,7 +284,7 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
                   {/* Asset Type Field */}
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Asset Type
+                      Tipe Aset
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -298,7 +298,7 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
                         className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 appearance-none"
                         disabled={submitting}
                       >
-                        <option value="">Select asset type</option>
+                        <option value="">Pilih Tipe Aset</option>
                         {assetTypes.map((t) => (
                           <option key={t.id} value={t.id}>{t.name}</option>
                         ))}
@@ -314,13 +314,13 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
                   {/* Photo Field */}
                   <div className="space-y-3">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Photo
+                      Foto
                     </label>
                     
                     {/* Current Photo Thumbnail */}
                     {photoUrl && !photoPreview && (
                       <div className="space-y-2">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Current photo:</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Foto Saat Ini:</p>
                         <div className="relative inline-block">
                           <img
                             src={buildImageSrc(photoUrl) || photoUrl}
@@ -387,7 +387,7 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                           </svg>
                           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                            {photoFile ? 'Change photo' : 'Upload new photo'}
+                            {photoFile ? 'Ganti Foto' : 'Unggah Foto Terbaru'}
                           </p>
                         </div>
                       </label>
@@ -416,7 +416,7 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
                   disabled={submitting}
                   className="flex-1 sm:flex-none px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Cancel
+                  Batal
                 </button>
                 <button
                   type="submit"
@@ -430,10 +430,10 @@ export default function EditAssetModal({ open, assetType, onClose, onUpdated }: 
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      <span>Updating...</span>
+                      <span>Memperbarui...</span>
                     </div>
                   ) : (
-                    'Update Asset'
+                    'Perbarui Aset'
                   )}
                 </button>
               </div>

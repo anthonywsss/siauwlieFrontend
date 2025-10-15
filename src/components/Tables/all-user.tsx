@@ -8,7 +8,7 @@ import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import CreateUserModal from "@/components/CreateUserModal";
 import EditUserModal from "@/components/EditUserModal";
-import DeleteUserModal from "@/components/DeleteUserModal";
+import DeleteConfirmModal from "@/components/ConfirmDeletion";
 import { safeGet } from "@/lib/fetcher";
 
 import dayjs from "dayjs";
@@ -106,7 +106,7 @@ export default function AllItemsClient() {
         
         if (res === null) {
           // Handle error case
-          setError("Failed to fetch users");
+          setError("Gagal memuat user.");
           setAllUsers([]);
         } else {
           const users: RawUser[] = res?.data ?? [];
@@ -114,7 +114,7 @@ export default function AllItemsClient() {
         }
       } catch (err: any) {
         if (!mounted) return;
-        setError(err?.message ?? "Failed to fetch users");
+        setError(err?.message ?? "Gagal memuat user.");
         setAllUsers([]);
       } finally {
         if (mounted) setLoading(false);
@@ -170,7 +170,7 @@ export default function AllItemsClient() {
         }
       } catch (err: any) {
         if (!mounted) return;
-        setError(err?.message ?? "Failed to fetch assets");
+        setError(err?.message ?? "Gagal memuat aset.");
         setData([]);
         setTotal(0);
       } finally {
@@ -182,30 +182,6 @@ export default function AllItemsClient() {
       mounted = false;
     };
   }, [page, perPage, query, refreshKey]);
-
-  // Delete user
-  async function handleDelete(rawId?: number | string) {
-    if (!rawId) return;
-    if (!confirm("Delete this user? This cannot be undone.")) return;
-
-    setActionLoading(String(rawId));
-    try {
-      await API.delete(`/users/${rawId}`);
-      setRefreshKey((k) => k + 1);
-    } catch (err: any) {
-      console.error("delete user error:", err);
-      if (err?.response?.status === 401) {
-        signOut();
-        try {
-          router.push("/auth/sign-in");
-        } catch {}
-        return;
-      }
-      alert(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to delete user");
-    } finally {
-      setActionLoading(null);
-    }
-  }
 
   // open edit modal
   function handleEditOpen(raw?: RawUser | null) {
@@ -239,7 +215,7 @@ export default function AllItemsClient() {
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} users`}</div>
+          <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Memuat..." : `${total} user`}</div>
           <button
             className="inline-flex items-center h-10 px-4 py-2 text-sm font-bold leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple w-full md:w-auto justify-center"
             type="button"
@@ -247,7 +223,7 @@ export default function AllItemsClient() {
             disabled={actionLoading !== null}
           >
             <AddIcon />
-            <span className="ml-2">Add New User</span>
+            <span className="ml-2">Tambahkan User Baru</span>
           </button>
         </div>
       </div>
@@ -258,11 +234,11 @@ export default function AllItemsClient() {
           <TableHeader>
             <TableRow className="border-none bg-[#F7F9FC] [&>th]:py-4 [&>th]:text-base">
               <TableHead className="min-w-[180px]">Username</TableHead>
-              <TableHead className="min-w-[240px]">Full Name</TableHead>
-              <TableHead className="min-w-[160px]">Employee ID</TableHead>
-              <TableHead className="min-w-[140px]">Roles</TableHead>
-              <TableHead className="min-w-[240px]">Register Date</TableHead>
-              <TableHead className="text-right">Action</TableHead>
+              <TableHead className="min-w-[240px]">Nama Lengkap</TableHead>
+              <TableHead className="min-w-[160px]">ID Karyawan</TableHead>
+              <TableHead className="min-w-[140px]">Peran</TableHead>
+              <TableHead className="min-w-[240px]">Waktu Pendaftaran</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -281,7 +257,7 @@ export default function AllItemsClient() {
             ) : items.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="px-4 py-6 text-center text-slate-500">
-                  No users found.
+                  User tidak tersedia.
                 </TableCell>
               </TableRow>
             ) : (
@@ -329,7 +305,7 @@ export default function AllItemsClient() {
                         disabled={actionLoading !== null}
                       >
                         {actionLoading === String(item.raw?.user_id ?? item.id) ? (
-                          "Deleting..."
+                          "Menghapus..."
                         ) : (
                           <TrashIcon />
                         )}
@@ -355,20 +331,20 @@ export default function AllItemsClient() {
                   <div>
                     <div className="text-sm text-gray-500">Username</div>
                     <div className="text-lg font-medium">{item.username}</div>
-                    <div className="text-sm text-gray-500 mt-1">Full Name</div>
+                    <div className="text-sm text-gray-500 mt-1">Nama Lengkap</div>
                     <div className="font-medium">{item.fullName}</div>
                   </div>
 
                   <div className="text-right">
-                    <div className="text-sm text-gray-500">Roles</div>
+                    <div className="text-sm text-gray-500">Peran</div>
                     <div className="mt-1 font-medium">{item.role}</div>
-                    <div className="text-sm text-gray-500 mt-2">Employee ID</div>
+                    <div className="text-sm text-gray-500 mt-2">ID Karyawan</div>
                     <div className="font-medium">{item.employeeId}</div>
                   </div>
                 </div>
 
                 <div className="mt-3">
-                  <div className="text-sm text-gray-500">Register Date</div>
+                  <div className="text-sm text-gray-500">Waktu Pendaftaran</div>
                   <div className="">
                     {item.createdAt ? dayjs(item.createdAt).format("MMM DD, YYYY - hh:mm") : "-"}
                   </div>
@@ -382,7 +358,7 @@ export default function AllItemsClient() {
                       aria-label="Delete"
                       onClick={() => setDeletingUserRaw((item.raw ?? { user_id: item.id }) as RawUser)}
                     >
-                      Delete
+                      Hapus
                     </button>
                   </div>
                 </div>
@@ -435,7 +411,7 @@ export default function AllItemsClient() {
                             page * perPage,
                             total
                           )}`}{" "}
-                      of {total}
+                      dari {total}
                     </div>
                   </div>
 
@@ -455,15 +431,18 @@ export default function AllItemsClient() {
         onUpdated={handleCreatedOrUpdated}
       />
 
-      <DeleteUserModal
-        open={!!deletingUserRaw}
-        userData={deletingUserRaw ?? undefined}
-        onClose={() => setDeletingUserRaw(null)}
-        onDeleted={() => {
-          setDeletingUserRaw(null);
-          setRefreshKey((k) => k + 1);
-        }}
-      />
+      <DeleteConfirmModal
+              open={!!deletingUserRaw}                      
+              resourceName="User"                     
+              resourceId={deletingUserRaw?.user_id}              
+              resourceLabel={deletingUserRaw?.username}
+              deleteUrl={`/users/${deletingUserRaw?.user_id}`}
+              onClose={() => setDeletingUserRaw(null)}      
+              onDeleted={() => {
+                setDeletingUserRaw(null);
+                setRefreshKey((k) => k + 1);     
+              }}
+            />
 
     </div>
   );

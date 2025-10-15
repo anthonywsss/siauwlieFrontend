@@ -30,10 +30,3 @@ cd pabrik-tahu-dashboard
 npm install
 npm run dev
 ```
-
-## Author
-
-👤 **Ashton, Vallerie**
-
-* Github: [@You2wo](https://github.com/You2wo)
-* Github: [@ThisisVallerie](https://github.com/ThisisVallerie)

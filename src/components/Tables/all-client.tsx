@@ -7,7 +7,7 @@ import { useAuth } from "@/components/Auth/auth-context";
 import { useRouter } from "next/navigation";
 import CreateClientModal from "@/components/CreateClientModal";
 import EditClientModal from "@/components/EditClientModal";
-import DeleteClientModal from "@/components/DeleteClientModal";
+import DeleteConfirmModal from "@/components/ConfirmDeletion";
 import { safeGet, safeDelete } from "@/lib/fetcher";
 import {
   Table,
@@ -170,7 +170,7 @@ export default function AllClientsPage() {
         }
       } catch (err: any) {
         if (!mounted) return;
-        setError(err?.message ?? "Failed to fetch assets");
+        setError(err?.message ?? "Gagal memuat aset.");
         setData([]);
         setTotal(0);
       } finally {
@@ -186,7 +186,6 @@ export default function AllClientsPage() {
   // Delete client
   async function handleDelete(rawId?: number | string) {
     if (!rawId) return;
-    if (!confirm("Delete this client? This cannot be undone.")) return;
 
     setActionLoading(String(rawId));
     try {
@@ -207,7 +206,7 @@ export default function AllClientsPage() {
         } catch {}
         return;
       }
-      alert(err?.response?.data?.meta?.message ?? err?.message ?? "Failed to delete client");
+      alert(err?.response?.data?.meta?.message ?? err?.message ?? "Gagal menghapus klien");
     } finally {
       setActionLoading(null);
     }
@@ -235,7 +234,7 @@ export default function AllClientsPage() {
       <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         <div className="flex items-center gap-3 w-full md:w-auto">
               <input
-                placeholder="Search ID"
+                placeholder="Cari dengan ID"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="h-10 rounded border px-3 py-2 w-full md:w-96"
@@ -243,7 +242,7 @@ export default function AllClientsPage() {
             </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Loading..." : `${total} clients`}</div>
+          <div className="text-sm text-gray-500 ml-auto md:ml-0">{loading ? "Memuat..." : `${total} klien`}</div>
           <button
             className="inline-flex items-center h-10 px-4 py-2 text-sm font-bold leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple w-full md:w-auto justify-center"
             type="button"
@@ -251,7 +250,7 @@ export default function AllClientsPage() {
             disabled={actionLoading !== null}
           >
             <AddIcon />
-            <span className="ml-2">Add New Client</span>
+            <span className="ml-2">Tambahkan Klien Baru</span>
           </button>
         </div>
       </div>
@@ -262,12 +261,12 @@ export default function AllClientsPage() {
           <TableHeader>
             <TableRow className="border-none bg-[#F7F9FC] [&>th]:py-4 [&>th]:text-base">
               <TableHead className="min-w-[140px]">ID</TableHead>
-              <TableHead className="min-w-[220px]">Name</TableHead>
-              <TableHead className="min-w-[240px]">Address</TableHead>
+              <TableHead className="min-w-[220px]">Nama</TableHead>
+              <TableHead className="min-w-[240px]">Alamat</TableHead>
               <TableHead className="min-w-[160px]">PIC</TableHead>
-              <TableHead className="min-w-[140px]">Phone</TableHead>
-              <TableHead className="min-w-[240px]">Description</TableHead>
-              <TableHead className="text-right">Action</TableHead>
+              <TableHead className="min-w-[140px]">No. Telp</TableHead>
+              <TableHead className="min-w-[240px]">Deskripsi</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -287,7 +286,7 @@ export default function AllClientsPage() {
             ) : items.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="px-4 py-6 text-center text-slate-500">
-                  Clients not available.
+                  Klien tidak tersedia.
                 </TableCell>
               </TableRow>
             ) : (
@@ -362,22 +361,22 @@ export default function AllClientsPage() {
               <div key={item.id} className="border rounded-lg p-3 mb-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-sm text-gray-500">Name</div>
+                    <div className="text-sm text-gray-500">Nama</div>
                     <div className="text-lg font-medium">{item.name}</div>
-                    <div className="text-sm text-gray-500 mt-1">Address</div>
+                    <div className="text-sm text-gray-500 mt-1">Alamat</div>
                     <div className="font-medium">{item.address}</div>
                   </div>
 
                   <div className="text-right">
                     <div className="text-sm text-gray-500">PIC</div>
                     <div className="mt-1 font-medium">{item.personInCharge}</div>
-                    <div className="text-sm text-gray-500 mt-2">Phone</div>
+                    <div className="text-sm text-gray-500 mt-2">No. Telp</div>
                     <div className="font-medium">{item.phone}</div>
                   </div>
                 </div>
 
                 <div className="mt-3">
-                  <div className="text-sm text-gray-500">Description</div>
+                  <div className="text-sm text-gray-500">Deskripsi</div>
                   <div className="truncate">{item.description}</div>
 
                   <div className="flex gap-2 mt-3">
@@ -389,7 +388,7 @@ export default function AllClientsPage() {
                       aria-label="Hapus"
                       onClick={() => handleDelete(item.raw?.id ?? item.id)}
                     >
-                      Delete
+                      Hapus
                     </button>
                   </div>
                 </div>
@@ -442,7 +441,7 @@ export default function AllClientsPage() {
                       page * perPage,
                       total
                     )}`}{" "}
-                of {total}
+                dari {total}
               </div>
             </div>
 
@@ -462,15 +461,20 @@ export default function AllClientsPage() {
         onUpdated={handleCreatedOrUpdated}
       />
 
-      <DeleteClientModal
-        open={!!deletingRaw}
-        client={deletingRaw ?? undefined}
-        onClose={() => setDeletingRaw(null)}
+      <DeleteConfirmModal
+        open={!!deletingRaw}                      
+        resourceName="Klien"                     
+        resourceId={deletingRaw?.id}              
+        resourceLabel={deletingRaw?.name}
+        deleteUrl={`/clients/${deletingRaw?.id}`}
+        onClose={() => setDeletingRaw(null)}      
         onDeleted={() => {
           setDeletingRaw(null);
-          setRefreshKey((k) => k + 1);
+          setRefreshKey((k) => k + 1);            
         }}
       />
+
+
     </div>
   );
 }

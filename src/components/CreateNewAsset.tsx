@@ -77,8 +77,8 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
         const list = res?.data ?? [];
         setClient(Array.isArray(list) ? list : []);
       } catch (err) {
-        console.error("Failed to fetch clients", err);
-        setError("Failed to load clients");
+        console.error("Gagal memuat Klien", err);
+        setError("Gagal memuat Klien");
       } finally {
         setLoadingClients(false);
       }
@@ -93,8 +93,8 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
         const list = res?.data ?? [];
         setType(Array.isArray(list) ? list : []);
       } catch (err) {
-        console.error("Failed to fetch asset type", err);
-        setError("Failed to load asset type");
+        console.error("Gagal memuat Tipe Aset", err);
+        setError("Gagal memuat Tipe Aset");
       } finally {
         setLoadingType(false);
       }
@@ -110,7 +110,7 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
         
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result || ""));
-        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.onerror = () => reject(new Error("Gagal membaca file"));
         reader.readAsDataURL(file);
       }), []);
   
@@ -123,7 +123,7 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
             const base64 = await fileToBase64(file);
             setBase64Photo(base64); // store the base64 version
           } catch (err: any) {
-            setError(err.message || "Failed to upload photo");
+            setError(err.message || "Gagal mengunggah foto");
             setBase64Photo(null);
           }
         } else {
@@ -149,8 +149,8 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
         await photoVideoRef.current.play();
       }
     } catch (err: any) {
-      console.error('Photo camera error:', err);
-      setError('Camera access denied or unavailable. Please enable camera permissions.');
+      console.error('Error Kamera:', err);
+      setError('Akses kamera ditolak atau tidak tersedia. Silakan aktifkan izin kamera.');
       setShowPhotoCamera(false);
     }
   };
@@ -190,7 +190,7 @@ export default function CreateNewAsset({ open, onClose, onCreated }: CreateNewAs
       setPhoto(null); // Clear file input since we're using camera
       stopPhotoCamera();
     } catch (err: any) {
-      console.error('Capture photo error:', err);
+      console.error('Pengambilan Eror:', err);
       setError('Gagal mengambil foto. Coba lagi.');
     }
   };
@@ -321,21 +321,21 @@ const resetForm = () => {
                         className="w-full rounded-lg border px-3 py-2"
                       >
                         <option value="">Pilih Status</option>
-                        <option value="inbound_at_factory">At Factory</option>
-                        <option value="inbound_at_client">At Client</option>
-                        <option value="outbound_from_factory">In Transit to Factory</option>
-                        <option value="outbound_from_client">In Transit to Client</option>
+                        <option value="inbound_at_factory">Di Pabrik</option>
+                        <option value="inbound_at_client">Di Klien</option>
+                        <option value="outbound_from_factory">Pengiriman ke Pabrik</option>
+                        <option value="outbound_from_client">Pengiriman ke Klien</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className="block mb-2 font-medium">Asset Type</label>
+                      <label className="block mb-2 font-medium">Tipe Aset</label>
                       <select
                         value={typeId || ""}
                         onChange={(e) => setTypeId(e.target.value ? Number(e.target.value) : null)}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg"
                       >
-                        <option value="">Select Asset Type</option>
+                        <option value="">Pilih Tipe Aset</option>
                         {type.map((t) => (
                           <option key={t.id} value={t.id}>{t.name}</option>
                         ))}
@@ -344,13 +344,13 @@ const resetForm = () => {
 
                     {(status === "inbound_at_client" || status === "outbound_from_client") && (
                       <div>
-                        <label className="block mb-2 font-medium">Client</label>
+                        <label className="block mb-2 font-medium">Klien</label>
                         <select
                           value={clientId || ""}
                           onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : null)}
                           className="w-full px-4 py-3 border border-gray-300 rounded-lg"
                         >
-                          <option value="">Select Client</option>
+                          <option value="">Pilih Klien</option>
                           {client.map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.name}
@@ -366,7 +366,7 @@ const resetForm = () => {
               {currentStep === 1 && (
                 <div>
                   {/* Step 2: Photo Capture */}
-                  <label className="block mb-2 font-medium">Foto Asset <span className="text-red-500">*</span></label>
+                  <label className="block mb-2 font-medium">Foto Aset <span className="text-red-500">*</span></label>
 
                   {showPhotoCamera ? (
                     <div className="border-2 border-dashed border-blue-300 rounded-xl p-3 sm:p-4 md:p-6 relative overflow-hidden animate-expandScanner bg-gradient-to-br from-blue-50 to-indigo-50">
@@ -463,7 +463,7 @@ const resetForm = () => {
                   {/* Step 3: Konfirmasi */}
                   <div className="space-y-4 text-left">
                     <h2 className="text-xl font-semibold">Konfirmasi</h2>
-                    <p className="mb-10">Are you sure you want to create this new asset?</p>
+                    <p className="mb-10">Apakah Anda yakin ingin membuat aset baru ini?</p>
                     <button
                       onClick={() => {
                       resetForm();
@@ -471,7 +471,7 @@ const resetForm = () => {
                     }}
                     className="px-4 py-2 bg-gray-300 text-black rounded hover:bg-gray-400 transition-colors mr-5"
                     >
-                      Cancel
+                      Batal
                     </button>
                     <button
                     className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
@@ -485,7 +485,7 @@ const resetForm = () => {
                 <div className="flex flex-col items-center justify-center space-y-6 p-6">
                   {/* Step 4: Tampilkan QR */}
                   <div className="text-center space-y-4"> 
-                    <h2 className="text-xl font-semibold">QR Asset</h2>
+                    <h2 className="text-xl font-semibold">QR Code</h2>
                     <p className="text-sm text-gray-7 mt-1">
                       ID: <span className="font-mono text-primary">{newAsset?.id ?? "-"}</span>
                     </p>
@@ -499,12 +499,12 @@ const resetForm = () => {
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:underline"
                           >
-                            Open in new tab
+                            Buka di tab baru.
                           </a>
                         )}
                       </>
                     ) : (
-                      <p className="text-gray-600">QR code not available.</p>
+                      <p className="text-gray-600">QR code tidak tersedia.</p>
                     )}
                   </div>
                 </div>
@@ -540,7 +540,7 @@ const resetForm = () => {
                       : "bg-blue-600 hover:bg-blue-700"
                   }`}
                 >
-                  {submitting ? "Mengirim..." : "Submit"}
+                  {submitting ? "Mengirim..." : "Kirim"}
                 </button>
               )}
 
@@ -554,7 +554,7 @@ const resetForm = () => {
                     }}
                     className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
                   >
-                    Okay
+                    Oke
                   </button>
                 </div>
               )}

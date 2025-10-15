@@ -78,7 +78,7 @@ export function UserInfo() {
             }}
           >
             <LogOutIcon />
-            <span className="text-base font-medium">Log out</span>
+            <span className="text-base font-medium">Keluar</span>
           </button>
         </div>
       </DropdownContent>

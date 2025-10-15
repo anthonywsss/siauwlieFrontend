@@ -145,17 +145,17 @@ export default function EditUserModal({ open, userData, onClose, onUpdated }: Pr
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Full Name</label>
+            <label className="block text-sm text-gray-600 mb-1">Nama Lengkap</label>
             <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full rounded border px-3 py-2" />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Employee ID</label>
+            <label className="block text-sm text-gray-600 mb-1">ID Karyawan</label>
             <input value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="w-full rounded border px-3 py-2" />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Role</label>
+            <label className="block text-sm text-gray-600 mb-1">Peran</label>
             <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full rounded border px-3 py-2">
               {roles.map((r) => (
                 <option key={r} value={r}>
@@ -166,12 +166,12 @@ export default function EditUserModal({ open, userData, onClose, onUpdated }: Pr
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">New Password (leave blank to keep current)</label>
+            <label className="block text-sm text-gray-600 mb-1">Sandi Baru (Kosongkan jika tidak ingin mengubah)</label>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded border px-3 py-2" />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Confirm New Password</label>
+            <label className="block text-sm text-gray-600 mb-1">Konfirmasi Sandi Baru</label>
             <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full rounded border px-3 py-2" />
           </div>
 
@@ -179,10 +179,10 @@ export default function EditUserModal({ open, userData, onClose, onUpdated }: Pr
 
           <div className="flex items-center gap-3 mt-2">
             <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-600 text-white rounded">
-              {submitting ? "Saving..." : "Submit"}
+              {submitting ? "Menyimpan..." : "Kirim"}
             </button>
             <button type="button" onClick={onClose} className="px-4 py-2 border rounded">
-              Cancel
+              Batal
             </button>
           </div>
         </form>

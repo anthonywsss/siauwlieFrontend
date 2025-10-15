@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { TrashIcon, AddIcon } from "@/assets/icons"; // swap to your icon path
+import { TrashIcon, AddIcon } from "@/assets/icons"; 
 import { cn } from "@/lib/utils";
 import { safeGet } from "@/lib/fetcher";
 import {
@@ -12,7 +12,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PreviewIcon } from "./icons"; // or adjust
 
 type Item = {
   id: string;

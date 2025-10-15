@@ -3,7 +3,7 @@ import AllItemsClient from "@/components/Tables/all-client";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "All Client",
+  title: "Seluruh Klien",
 };
 
 export default function Home() {

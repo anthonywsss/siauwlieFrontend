@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import Signin from "@/components/Auth/Signin";
 
 export const metadata: Metadata = {
-  title: "Sign in",
+  title: "Login",
 };
 
 export default function SignIn() {
@@ -40,12 +40,11 @@ export default function SignIn() {
               />
             </Link>
             <h1 className="mb-4 text-2xl font-bold text-dark dark:text-white sm:text-heading-3">
-              Welcome Back!
+              Selamat Datang!
             </h1>
 
             <p className="w-full max-w-[375px] mb-10 font-medium text-dark-4 dark:text-dark-6">
-              Please sign in to your account by completing the necessary
-              fields below
+              Silakan masuk ke akun Anda dengan melengkapi kolom yang diperlukan di bawah ini.
             </p>
           </div>
         </div>

@@ -4,13 +4,13 @@ import OverviewCardsGroup from "./_components/overview-cards";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Container Monitoring",
+  title: "Monitoring Kontainer",
 };
 
 export default function Home() {
   return (
     <div>
-      <Breadcrumb pageName="Container Monitoring" />
+      <Breadcrumb pageName="Monitoring Kontainer" />
         <OverviewCardsGroup />
     </div>
   );

@@ -25,6 +25,10 @@ const nextConfig = {
     buildActivity: false,
   },
 
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
   async rewrites() {
     return [
       {

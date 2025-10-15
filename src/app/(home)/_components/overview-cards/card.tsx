@@ -36,7 +36,7 @@ return (
   <span>{Math.abs(growth)}%</span>
 </span>
 </dd>
-<p className="mt-2 text-xs text-gray-600 dark:text-gray-400">Containers tracked</p>
+<p className="mt-2 text-xs text-gray-600 dark:text-gray-400">Kontainer Terlacak</p>
 </div>
 </div>
 </article>

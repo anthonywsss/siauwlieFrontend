@@ -2,14 +2,14 @@ import * as Icons from "../icons";
 
 export const NAV_DATA = [
   {
-    label: "Main Menu",
+    label: "Menu Utama",
     items: [
       {
         title: "Dashboard",
         icon: Icons.Squares2X2Icon,
         items: [
           {
-            title: "Container Monitoring",
+            title: "Monitoring Kontainer",
             url: "/",
           },
         ],
@@ -17,34 +17,34 @@ export const NAV_DATA = [
     ],
   },
   {
-    label: "Assets",
+    label: "Aset",
     items: [
       {
-        title: "All Asset",
+        title: "Seluruh Aset",
         url: "/all-asset",
         icon: Icons.ArchiveBoxIcon,
         items: [],
       },
       {
-        title: "Submit Movement",
+        title: "Laporkan Pergerakan",
         url: "/submit-movement",
         icon: Icons.ArrowUpOnSquareStackIcon,
         items: [],
       },
       {
-        title: "Unfinished Delivery",
+        title: "Sedang Dikirim",
         url: "/unfin-delivery",
         icon: Icons.TruckIcon,
         items: [],
       },
       {
-        title: "Disposal History",
+        title: "Riwayat Pembuangan",
         url: "/disposal-history",
         icon: Icons.TrashIcon,
         items: [],
       },
       {
-        title: "Asset Type", 
+        title: "Tipe Aset", 
         url: "/asset-type",
         icon: Icons.TagIcon,
         items: [],
@@ -52,10 +52,10 @@ export const NAV_DATA = [
     ],
   },
   {
-    label: "Client",
+    label: "Klien",
     items: [
       {
-        title: "All Client",
+        title: "Seluruh Klien",
         url: "/all-client",
         icon: Icons.UsersIcon,
         items: [],
@@ -66,7 +66,7 @@ export const NAV_DATA = [
     label: "User",
     items: [
       {
-        title: "All User",
+        title: "Seluruh User",
         url: "/all-user",
         icon: Icons.UserGroupIcon,
         items: [],
@@ -74,10 +74,10 @@ export const NAV_DATA = [
     ],
   },
   {
-    label: "System",
+    label: "Sistem",
     items: [
       {
-        title: "Audit Trail",
+        title: "Log Audit",
         url: "/audit-log",
         icon: Icons.ClipboardDocumentListIcon,
         items: [],

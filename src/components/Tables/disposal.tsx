@@ -103,7 +103,7 @@ export default function DisposalHistory() {
         }
       } catch (err: any) {
         if (!mounted) return;
-        setError(err?.message ?? "Failed to fetch assets");
+        setError(err?.message ?? "Gagal memuat Aset");
         setData([]);
         setTotal(0);
       } finally {
@@ -121,7 +121,7 @@ export default function DisposalHistory() {
       <div className="rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark dark:shadow-card sm:p-7.5">
        <div className="mb-4 flex justify-end">
         <div className="text-sm text-gray-500">
-          {loading ? "Loading..." : `${total} disposed assets`}
+          {loading ? "Memuat..." : `${total} item terhapus`}
         </div>
       </div>
 
@@ -134,23 +134,23 @@ export default function DisposalHistory() {
           <Table>
             <TableHeader>
               <TableRow className="border-none bg-[#F7F9FC] dark:bg-dark-2 [&>th]:py-4 [&>th]:text-base [&>th]:text-dark [&>th]:dark:text-white">
-                <TableHead className="min-w-[155px] xl:pl-7.5">Container ID</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Recorded At</TableHead>
-                <TableHead>Disposed By</TableHead>
+                <TableHead className="min-w-[155px] xl:pl-7.5">ID Kontainer</TableHead>
+                <TableHead>Alasan</TableHead>
+                <TableHead>Waktu Pencatatan</TableHead>
+                <TableHead>Dihapus oleh</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-6">
-                    Loading...
+                    Memuat...
                   </TableCell>
                 </TableRow>
               ) : data.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-6">
-                    No data available.
+                    Data tidak tersedia.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -223,7 +223,7 @@ export default function DisposalHistory() {
                           page * perPage,
                           total
                         )}`}{" "}
-                    of {total}
+                    dari {total}
                   </div>
                 </div>
         </div>
@@ -237,18 +237,18 @@ export default function DisposalHistory() {
                 <div key={index} className="border rounded-lg p-4 mb-3 bg-white dark:bg-gray-dark dark:border-dark-3 shadow-sm">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <div className="text-sm text-gray-500 dark:text-gray-300">Container ID</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-300">ID Kontainer</div>
                       <div className="text-base font-medium text-dark">{item.asset_id ?? "-"}</div>
 
-                      <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Reason</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Alasan</div>
                       <div className="text-base text-dark">{item.reason ?? "-"}</div>
 
-                      <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Recorded At</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Waktu Pencatatan</div>
                       <div className="text-base text-dark">
                         {item.disposed_at ? dayjs(item.disposed_at).format("MMM DD, YYYY - HH:mm") : "-"}
                       </div>
 
-                      <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Disposed By</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-300 mt-2">Dihapus Oleh</div>
                       <div className="text-base text-dark">{item.disposed_by ?? "-"}</div>
                     </div>
                   </div>

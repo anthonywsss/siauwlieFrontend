@@ -13,7 +13,8 @@ import NextTopLoader from "nextjs-toploader";
 import type { PropsWithChildren } from "react";
 import { Providers } from "./providers";
 import { AuthProvider } from "@/components/Auth/auth-context";
-import LayoutWrapper from "./layout-wrapper"; 
+import LayoutWrapper from "./layout-wrapper";
+import Script from "next/script";
 
 export const metadata: Metadata = {
   title: {
@@ -28,9 +29,15 @@ import { ModalProvider } from "@/components/ModalContext";
 export default function RootLayout({ children }: PropsWithChildren) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <Script 
+          src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.js"
+          strategy="beforeInteractive"
+        />
+      </head>
       <body>
         <Providers>
-          <ModalProvider>            {/* <-- wrap here */}
+          <ModalProvider> 
             <AuthProvider>
               <NextTopLoader color="#5750F1" showSpinner={false} />
               <LayoutWrapper>{children}</LayoutWrapper>
@@ -41,5 +48,3 @@ export default function RootLayout({ children }: PropsWithChildren) {
     </html>
   );
 }
-
-

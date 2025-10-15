@@ -12,7 +12,6 @@ import Link from "next/link";
 import { useModalWatch } from "@/components/ModalContext";
 import { safeGet } from "@/lib/fetcher";
 
-
 import {
   Table,
   TableBody,
@@ -52,6 +51,150 @@ type AssetType = {
   name: string;
 };
 
+// Move PreviewModal outside the main component or fix its structure
+function PreviewModal({ open, src, type, onClose }: { open: boolean; src: string | null; type: 'photo' | 'qr'; onClose: () => void }) {
+  useModalWatch(open);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [printStatus, setPrintStatus] = useState<string>("");
+
+  const handlePrintQR = async () => {
+    if (!src || type !== 'qr') return;
+
+    setIsPrinting(true);
+    setPrintStatus("Connecting to QZ Tray...");
+
+    try {
+      // @ts-ignore
+      if (!window.qz) {
+        throw new Error("QZ Tray not loaded. Please ensure QZ Tray is running.");
+      }
+
+      // @ts-ignore
+      const qz = window.qz;
+
+      qz.security.setCertificatePromise((resolve: any) => resolve());
+      qz.security.setSignaturePromise(() => (resolve: any) => resolve());
+
+      if (!qz.websocket.isActive()) {
+        await qz.websocket.connect();
+      }
+
+      setPrintStatus("Connected. Finding printer...");
+
+      const printers = await qz.printers.find();
+      let targetPrinter = printers.find((p: string) =>
+        p.toLowerCase().includes('hrpt') || p.toLowerCase().includes('ht100')
+      );
+      if (!targetPrinter) {
+        targetPrinter = await qz.printers.getDefault();
+      }
+
+      setPrintStatus(`Printing to ${targetPrinter}...`);
+
+      const config = qz.configs.create(targetPrinter, {
+        units: 'mm',
+        size: { width: 100, height: 90 },
+      });
+
+      let imageData = src;
+      if (!imageData.startsWith('data:image')) {
+        imageData = `data:image/png;base64,${src}`;
+      }
+
+      const printData = [{
+        type: 'image',
+        format: 'base64',
+        data: imageData.split(',')[1],
+        options: { language: 'image', dotDensity: 'double' }
+      }];
+
+      await qz.print(config, printData);
+
+      setPrintStatus("Print successful!");
+    } catch (error: any) {
+      setPrintStatus(`Error: ${error?.message || "Failed to print"}`);
+    } finally {
+      setTimeout(() => {
+        setIsPrinting(false);
+        setPrintStatus("");
+      }, 3000);
+    }
+  };
+
+  if (!open || !src) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-w-[98vw] max-h-[96vh] overflow-auto bg-white rounded shadow-lg p-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-lg font-semibold">
+            {type === 'qr' ? 'Pratinjau QR Code' : 'Pratinjau Foto'}
+          </h3>
+          <button
+            onClick={onClose}
+            className="px-3 py-1 rounded border text-sm inline-flex items-center gap-2 hover:bg-gray-100"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            Tutup
+          </button>
+        </div>
+
+        {printStatus && (
+          <div className={`mb-3 p-2 rounded text-sm ${
+            printStatus.includes('Error') ? 'bg-red-100 text-red-700' :
+            printStatus.includes('successful') ? 'bg-green-100 text-green-700' :
+            'bg-blue-100 text-blue-700'
+          }`}>
+            {printStatus}
+          </div>
+        )}
+
+        <div className="flex flex-col items-center">
+          <img
+            src={src}
+            alt={type === 'qr' ? 'QR Code' : 'Photo'}
+            className="max-w-full max-h-[70vh] object-contain"
+          />
+          {type === 'qr' && (
+            <button
+              onClick={handlePrintQR}
+              disabled={isPrinting}
+              className="
+              flex items-center justify-center w-fit px-4 py-2 text-md font-bold leading-5 text-white transition-colors duration-150 bg-primary border border-transparent rounded-lg active:bg-purple-600 hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple"
+            >
+              {isPrinting ? 'Printing...' : 'Print'}
+            </button>
+          )}
+        </div>
+        <div className="flex justify-center">
+          <img 
+            src={src} 
+            alt={type === 'qr' ? 'QR Code' : 'Foto'} 
+            className="max-w-full max-h-[80vh] object-contain"
+            onError={(e) => {
+              console.error('Gagal memuat gambar:', src);
+              e.currentTarget.style.display = 'none';
+              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+            }}
+          />
+          <div className="hidden p-8 text-center text-gray-500">
+            <p>Gagal memuat {type === 'qr' ? 'QR code' : 'Foto'}.</p>
+            <p className="text-sm mt-2">Gagal memuat gambar atau URL tidak valid.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AllItemsClient() {
   // these are pagination states
@@ -378,59 +521,6 @@ useEffect(() => {
 
 
   const visible = visibleItems;
-
-  function PreviewModal({ open, src, type, onClose }: { open: boolean; src: string | null; type: 'photo' | 'qr'; onClose: () => void }) {
-    useModalWatch(open);
-
-    if (!open || !src) return null;
-
-    return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-        role="dialog"
-        aria-modal="true"
-        onClick={onClose}
-      >
-        <div
-          className="max-w-[98vw] max-h-[96vh] overflow-auto bg-white rounded shadow-lg p-3"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-lg font-semibold">
-              {type === 'qr' ? 'Pratinjau QR Code' : 'Pratinjau Foto'}
-            </h3>
-            <button
-              onClick={onClose}
-              className="px-3 py-1 rounded border text-sm inline-flex items-center gap-2 hover:bg-gray-100"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-              Tutup
-            </button>
-          </div>
-
-          <div className="flex justify-center">
-            <img 
-              src={src} 
-              alt={type === 'qr' ? 'QR Code' : 'Foto'} 
-              className="max-w-full max-h-[80vh] object-contain"
-              onError={(e) => {
-                console.error('Gagal memuat gambar:', src);
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.nextElementSibling?.classList.remove('hidden');
-              }}
-            />
-            <div className="hidden p-8 text-center text-gray-500">
-              <p>Gagal memuat {type === 'qr' ? 'QR code' : 'Foto'}.</p>
-              <p className="text-sm mt-2">Gagal memuat gambar atau URL tidak valid.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark sm:p-7.5">
